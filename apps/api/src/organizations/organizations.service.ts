@@ -275,10 +275,25 @@ export class OrganizationsService {
     await this.requireWebsite(organizationId, businessId, websiteId);
 
     return this.prisma.$transaction(async (tx) => {
+      const business = await tx.business.findUnique({
+        where: { id: businessId },
+        select: { websiteUrl: true },
+      });
       const deletedWebsite = await tx.website.delete({
         where: { id: websiteId },
         select: websiteSummarySelect,
       });
+
+      if (
+        business?.websiteUrl &&
+        normalizeWebsiteUrl(business.websiteUrl).normalizedUrl ===
+          deletedWebsite.normalizedUrl
+      ) {
+        await tx.business.update({
+          where: { id: businessId },
+          data: { websiteUrl: null },
+        });
+      }
 
       if (deletedWebsite.isPrimary) {
         const nextWebsite = await tx.website.findFirst({
@@ -452,35 +467,18 @@ export class OrganizationsService {
       },
     });
 
-    if (!business?.websiteUrl) {
+    if (!business?.websiteUrl || business.websites.length > 0) {
       return;
     }
 
     const normalizedWebsite = normalizeWebsiteUrl(business.websiteUrl);
-    const existingWebsite = business.websites.find(
-      (website) => website.normalizedUrl === normalizedWebsite.normalizedUrl,
-    );
-    const hasPrimaryWebsite = business.websites.some(
-      (website) => website.isPrimary,
-    );
-
-    if (existingWebsite) {
-      if (!hasPrimaryWebsite) {
-        await this.prisma.website.update({
-          where: { id: existingWebsite.id },
-          data: { isPrimary: true },
-        });
-      }
-
-      return;
-    }
 
     try {
       await this.prisma.website.create({
         data: {
           businessId,
           ...normalizedWebsite,
-          isPrimary: !hasPrimaryWebsite,
+          isPrimary: true,
         },
       });
     } catch (error) {

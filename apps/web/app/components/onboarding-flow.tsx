@@ -543,6 +543,9 @@ export function OnboardingFlow() {
           `${apiBaseUrl}/organizations/${organization.id}/businesses/${business.id}/websites`,
         );
         setWebsites(remainingWebsites);
+        setBusiness((current) =>
+          current ? { ...current, websiteUrl: null } : current,
+        );
       } else {
         setWebsites((current) =>
           current.filter((website) => website.id !== deletedWebsite.id),
