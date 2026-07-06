@@ -10,10 +10,13 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@brandos/database": "workspace:*",
     "@brandos/shared": "workspace:*",
     "@nestjs/common": "^11.1.6",
     "@nestjs/core": "^11.1.6",
     "@nestjs/platform-fastify": "^11.1.6",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.2",
     "fastify": "^5.6.2",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2"
