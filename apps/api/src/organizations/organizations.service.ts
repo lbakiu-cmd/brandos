@@ -19,13 +19,11 @@ export class OrganizationsService {
   async createOrganization(
     input: CreateOrganizationDto,
   ): Promise<Organization & { memberships: Membership[] }> {
-    const slug = await this.createUniqueOrganizationSlug(input.name);
-
     try {
       return await this.prisma.organization.create({
         data: {
           name: input.name.trim(),
-          slug,
+          slug: input.slug,
           memberships: {
             create: {
               userId: this.getTemporaryUserId(),
@@ -70,17 +68,12 @@ export class OrganizationsService {
   ): Promise<Business> {
     await this.requireMembership(organizationId);
 
-    const slug = await this.createUniqueBusinessSlug(
-      organizationId,
-      input.name,
-    );
-
     try {
       return await this.prisma.business.create({
         data: {
           organizationId,
           name: input.name.trim(),
-          slug,
+          slug: input.slug,
           websiteUrl: input.websiteUrl,
           category: input.category?.trim(),
           country: input.country?.trim(),
@@ -134,46 +127,6 @@ export class OrganizationsService {
     return TEMPORARY_USER_ID;
   }
 
-  private async createUniqueOrganizationSlug(name: string) {
-    return this.createUniqueSlug(slugify(name), async (slug) => {
-      const existing = await this.prisma.organization.findUnique({
-        where: { slug },
-        select: { id: true },
-      });
-      return Boolean(existing);
-    });
-  }
-
-  private async createUniqueBusinessSlug(organizationId: string, name: string) {
-    return this.createUniqueSlug(slugify(name), async (slug) => {
-      const existing = await this.prisma.business.findUnique({
-        where: {
-          organizationId_slug: {
-            organizationId,
-            slug,
-          },
-        },
-        select: { id: true },
-      });
-      return Boolean(existing);
-    });
-  }
-
-  private async createUniqueSlug(
-    baseSlug: string,
-    exists: (slug: string) => Promise<boolean>,
-  ) {
-    let slug = baseSlug;
-    let suffix = 2;
-
-    while (await exists(slug)) {
-      slug = `${baseSlug}-${suffix}`;
-      suffix += 1;
-    }
-
-    return slug;
-  }
-
   private handleUniqueConstraint(error: unknown, message: string) {
     if (
       error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -182,14 +135,4 @@ export class OrganizationsService {
       throw new ConflictException(message);
     }
   }
-}
-
-function slugify(value: string) {
-  const slug = value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-
-  return slug || "untitled";
 }
