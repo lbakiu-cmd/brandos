@@ -1025,30 +1025,20 @@ function WorkspaceDashboard({
         onQueueCrawl={onQueueWebsiteCrawl}
       />
 
-      <div className="grid gap-4 sm:grid-cols-[1fr_auto]">
-        <div className="rounded-2xl border border-cyan-200 bg-cyan-50 p-5">
-          <p className="text-sm font-medium text-cyan-700">
-            AI Visibility Score
-          </p>
-          <div className="mt-3 flex items-end gap-2">
-            <span className="text-5xl font-semibold text-slate-950">--</span>
-            <span className="pb-2 text-sm font-medium text-slate-500">
-              pending first audit
-            </span>
-          </div>
-          <p className="mt-3 text-sm leading-6 text-slate-600">
-            Scores will become explainable once website intelligence, local
-            profile, reviews, and recommendation signals are connected.
-          </p>
+      <NextVisibilitySteps hasPrimaryWebsite={Boolean(primaryWebsite)} />
+
+      <div className="rounded-2xl border border-cyan-200 bg-cyan-50 p-5">
+        <p className="text-sm font-medium text-cyan-700">AI Visibility Score</p>
+        <div className="mt-3 flex items-end gap-2">
+          <span className="text-5xl font-semibold text-slate-950">--</span>
+          <span className="pb-2 text-sm font-medium text-slate-500">
+            pending first audit
+          </span>
         </div>
-        <button
-          disabled
-          className="rounded-2xl bg-slate-200 px-6 py-4 text-sm font-semibold text-slate-500"
-          type="button"
-        >
-          Run first audit
-          <span className="block text-xs font-normal">Coming next</span>
-        </button>
+        <p className="mt-3 text-sm leading-6 text-slate-600">
+          Scores will become explainable once website intelligence, local
+          profile, reviews, and recommendation signals are connected.
+        </p>
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row">
@@ -1095,7 +1085,12 @@ function WebsiteSection({
   onQueueCrawl: (websiteId: string) => void;
 }) {
   const hasPrimaryWebsite = websites.some((website) => website.isPrimary);
-  const shouldShowWebsiteForm = !hasPrimaryWebsite || isAddWebsiteFormVisible;
+  const isWebsiteManagementVisible =
+    !hasPrimaryWebsite || isAddWebsiteFormVisible;
+  const visibleWebsites = isWebsiteManagementVisible
+    ? websites
+    : websites.filter((website) => website.isPrimary);
+  const shouldShowWebsiteForm = isWebsiteManagementVisible;
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5">
@@ -1125,7 +1120,7 @@ function WebsiteSection({
         </p>
       ) : (
         <div className="mt-4 space-y-3">
-          {websites.map((website) => (
+          {visibleWebsites.map((website) => (
             <div
               key={website.id}
               className="rounded-xl border border-slate-200 bg-slate-50 p-4"
@@ -1177,7 +1172,7 @@ function WebsiteSection({
                             ? "Queueing..."
                             : "Queue crawl"}
                         </button>
-                        {!website.isPrimary ? (
+                        {isWebsiteManagementVisible && !website.isPrimary ? (
                           <button
                             type="button"
                             disabled={isLoading}
@@ -1187,14 +1182,16 @@ function WebsiteSection({
                             Make primary
                           </button>
                         ) : null}
-                        <button
-                          type="button"
-                          disabled={isLoading}
-                          onClick={() => onDelete(website.id)}
-                          className="rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          Delete
-                        </button>
+                        {isWebsiteManagementVisible ? (
+                          <button
+                            type="button"
+                            disabled={isLoading}
+                            onClick={() => onDelete(website.id)}
+                            className="rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            Delete
+                          </button>
+                        ) : null}
                       </div>
                     </div>
                     <CrawlDetails crawl={latestCrawl} />
@@ -1245,11 +1242,111 @@ function WebsiteSection({
         <button
           type="button"
           onClick={onShowAddWebsiteForm}
-          className="mt-4 text-sm font-semibold text-cyan-700 hover:text-cyan-900"
+          className="mt-4 text-sm font-semibold text-slate-500 hover:text-cyan-700"
         >
-          Add another website
+          Manage websites
         </button>
       )}
+    </div>
+  );
+}
+
+function NextVisibilitySteps({
+  hasPrimaryWebsite,
+}: {
+  hasPrimaryWebsite: boolean;
+}) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-5">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-sm font-medium uppercase tracking-[0.14em] text-slate-500">
+            Next visibility steps
+          </p>
+          <h3 className="mt-2 text-xl font-semibold text-slate-950">
+            Finish the core business profile
+          </h3>
+          <p className="mt-1 text-sm leading-6 text-slate-600">
+            BrandOS will combine website, local profile, and social signals
+            before the first visibility score.
+          </p>
+        </div>
+      </div>
+      <div className="mt-4 grid gap-3">
+        <VisibilityStep
+          title="Website connected"
+          description={
+            hasPrimaryWebsite
+              ? "Primary website is ready for crawl preparation."
+              : "Add the main website for this business."
+          }
+          state={hasPrimaryWebsite ? "complete" : "todo"}
+        />
+        <VisibilityStep
+          title="Connect Google Business Profile"
+          description="Local search intelligence and reviews will start here."
+          state="coming-soon"
+          isPrimary
+        />
+        <VisibilityStep
+          title="Add social profiles"
+          description="Instagram, Facebook, TikTok, and other profiles will connect later."
+          state="optional"
+        />
+        <VisibilityStep
+          title="Run first visibility audit"
+          description="Audit scoring will unlock after the crawl and profile foundations land."
+          state="disabled"
+        />
+      </div>
+    </div>
+  );
+}
+
+function VisibilityStep({
+  title,
+  description,
+  state,
+  isPrimary = false,
+}: {
+  title: string;
+  description: string;
+  state: "complete" | "todo" | "coming-soon" | "optional" | "disabled";
+  isPrimary?: boolean;
+}) {
+  const badgeByState = {
+    complete: "Complete",
+    todo: "Needed",
+    "coming-soon": "Coming soon",
+    optional: "Optional",
+    disabled: "Coming later",
+  } satisfies Record<typeof state, string>;
+  const badgeClass =
+    state === "complete"
+      ? "bg-emerald-50 text-emerald-700"
+      : isPrimary
+        ? "bg-cyan-50 text-cyan-700"
+        : "bg-slate-100 text-slate-600";
+
+  return (
+    <div
+      className={`rounded-xl border p-4 ${
+        isPrimary
+          ? "border-cyan-200 bg-cyan-50/50"
+          : "border-slate-200 bg-slate-50"
+      }`}
+    >
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="font-semibold text-slate-950">{title}</p>
+          <p className="mt-1 text-sm leading-6 text-slate-600">{description}</p>
+        </div>
+        <span
+          className={`w-fit rounded-full px-3 py-1 text-xs font-semibold ${badgeClass}`}
+        >
+          {badgeByState[state]}
+        </span>
+      </div>
     </div>
   );
 }
