@@ -40,9 +40,24 @@ type WebsiteCrawl = {
   startedAt: string | null;
   completedAt: string | null;
   errorMessage: string | null;
-  metadata: unknown;
+  metadata: CrawlMetadata | null;
   createdAt: string;
   updatedAt: string;
+};
+
+type CrawlMetadata = {
+  finalUrl: string;
+  httpStatus: number;
+  pageTitle: string | null;
+  metaDescription: string | null;
+  canonicalUrl: string | null;
+  robotsMeta: string | null;
+  language: string | null;
+  h1Count: number;
+  h1Texts: string[];
+  schemaTypes: string[];
+  fetchedAt: string;
+  responseContentType: string | null;
 };
 
 type ApiErrorResponse = {
@@ -1062,67 +1077,70 @@ function WebsiteSection({
                 const latestCrawl = latestCrawls[website.id];
 
                 return (
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                    <div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <a
-                          href={website.normalizedUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="font-semibold text-slate-950 hover:text-cyan-700"
-                        >
-                          {website.domain}
-                        </a>
-                        {website.isPrimary ? (
-                          <span className="rounded-full bg-cyan-100 px-2 py-1 text-xs font-semibold text-cyan-800">
-                            Primary
+                  <div className="space-y-3">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <a
+                            href={website.normalizedUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="font-semibold text-slate-950 hover:text-cyan-700"
+                          >
+                            {website.domain}
+                          </a>
+                          {website.isPrimary ? (
+                            <span className="rounded-full bg-cyan-100 px-2 py-1 text-xs font-semibold text-cyan-800">
+                              Primary
+                            </span>
+                          ) : null}
+                        </div>
+                        <p className="mt-1 break-all text-sm text-slate-500">
+                          {website.normalizedUrl}
+                        </p>
+                        <p className="mt-2 text-xs font-medium text-slate-500">
+                          Latest crawl:{" "}
+                          <span className="text-slate-700">
+                            {latestCrawl
+                              ? formatCrawlStatus(latestCrawl.status)
+                              : "Not queued yet"}
                           </span>
-                        ) : null}
+                        </p>
                       </div>
-                      <p className="mt-1 break-all text-sm text-slate-500">
-                        {website.normalizedUrl}
-                      </p>
-                      <p className="mt-2 text-xs font-medium text-slate-500">
-                        Latest crawl:{" "}
-                        <span className="text-slate-700">
-                          {latestCrawl
-                            ? formatCrawlStatus(latestCrawl.status)
-                            : "Not queued yet"}
-                        </span>
-                      </p>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        disabled={
-                          isLoading || queuedCrawlWebsiteId === website.id
-                        }
-                        onClick={() => onQueueCrawl(website.id)}
-                        className="rounded-lg border border-cyan-200 px-3 py-2 text-xs font-semibold text-cyan-800 hover:bg-cyan-50 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        {queuedCrawlWebsiteId === website.id
-                          ? "Queueing..."
-                          : "Queue crawl"}
-                      </button>
-                      {!website.isPrimary ? (
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          disabled={
+                            isLoading || queuedCrawlWebsiteId === website.id
+                          }
+                          onClick={() => onQueueCrawl(website.id)}
+                          className="rounded-lg border border-cyan-200 px-3 py-2 text-xs font-semibold text-cyan-800 hover:bg-cyan-50 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {queuedCrawlWebsiteId === website.id
+                            ? "Queueing..."
+                            : "Queue crawl"}
+                        </button>
+                        {!website.isPrimary ? (
+                          <button
+                            type="button"
+                            disabled={isLoading}
+                            onClick={() => onMakePrimary(website.id)}
+                            className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            Make primary
+                          </button>
+                        ) : null}
                         <button
                           type="button"
                           disabled={isLoading}
-                          onClick={() => onMakePrimary(website.id)}
-                          className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
+                          onClick={() => onDelete(website.id)}
+                          className="rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
                         >
-                          Make primary
+                          Delete
                         </button>
-                      ) : null}
-                      <button
-                        type="button"
-                        disabled={isLoading}
-                        onClick={() => onDelete(website.id)}
-                        className="rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        Delete
-                      </button>
+                      </div>
                     </div>
+                    <CrawlDetails crawl={latestCrawl} />
                   </div>
                 );
               })()}
@@ -1154,6 +1172,87 @@ function WebsiteSection({
           {isSubmitting ? "Saving..." : "Save website"}
         </button>
       </form>
+    </div>
+  );
+}
+
+function CrawlDetails({ crawl }: { crawl: WebsiteCrawl | undefined }) {
+  if (!crawl) {
+    return null;
+  }
+
+  if (crawl.status === "FAILED") {
+    return (
+      <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        Crawl failed:{" "}
+        {crawl.errorMessage ?? "The worker could not fetch this homepage."}
+      </div>
+    );
+  }
+
+  if (crawl.status !== "COMPLETED") {
+    return null;
+  }
+
+  if (!crawl.metadata) {
+    return (
+      <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        Crawl completed, but no homepage metadata was returned.
+      </div>
+    );
+  }
+
+  return <HomepageSignalsPanel metadata={crawl.metadata} />;
+}
+
+function HomepageSignalsPanel({ metadata }: { metadata: CrawlMetadata }) {
+  return (
+    <div className="rounded-xl border border-cyan-100 bg-white px-4 py-3">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm font-semibold text-slate-950">Homepage signals</p>
+        <span className="text-xs text-slate-500">
+          Last fetched {formatDateTime(metadata.fetchedAt)}
+        </span>
+      </div>
+      <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
+        <SignalItem label="Title" value={metadata.pageTitle ?? "Not found"} />
+        <SignalItem label="HTTP status" value={String(metadata.httpStatus)} />
+        <SignalItem
+          label="Meta description"
+          value={metadata.metaDescription ?? "Not found"}
+        />
+        <SignalItem label="H1 count" value={String(metadata.h1Count)} />
+        <SignalItem
+          label="Schema types"
+          value={
+            metadata.schemaTypes.length > 0
+              ? metadata.schemaTypes.join(", ")
+              : "None detected"
+          }
+        />
+        <SignalItem label="Final URL" value={metadata.finalUrl} isBreakable />
+      </dl>
+    </div>
+  );
+}
+
+function SignalItem({
+  label,
+  value,
+  isBreakable = false,
+}: {
+  label: string;
+  value: string;
+  isBreakable?: boolean;
+}) {
+  return (
+    <div>
+      <dt className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+        {label}
+      </dt>
+      <dd className={`mt-1 text-slate-700 ${isBreakable ? "break-all" : ""}`}>
+        {value}
+      </dd>
     </div>
   );
 }
@@ -1466,6 +1565,17 @@ function removeKey<TValue>(record: Record<string, TValue>, key: string) {
 
 function formatCrawlStatus(status: WebsiteCrawl["status"]) {
   return status.toLowerCase().replace(/^\w/, (letter) => letter.toUpperCase());
+}
+
+function formatDateTime(value: string) {
+  try {
+    return new Intl.DateTimeFormat(undefined, {
+      dateStyle: "medium",
+      timeStyle: "short",
+    }).format(new Date(value));
+  } catch {
+    return value;
+  }
 }
 
 function getErrorMessage(error: unknown) {
