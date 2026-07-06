@@ -2,7 +2,7 @@
 
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
 
-type Step = "organization" | "business" | "workspace";
+type Step = "organization" | "selector" | "business" | "workspace";
 
 type Organization = {
   id: string;
@@ -71,7 +71,7 @@ type WebsiteForm = {
   url: string;
 };
 
-const selectedOrganizationStorageKey = "brandos:selectedOrganizationId";
+const selectedOrganizationStorageKey = "brandos.selectedOrganizationId";
 const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 const initialOrganizationForm: OrganizationForm = {
@@ -101,6 +101,9 @@ export function OnboardingFlow() {
   const [businessForm, setBusinessForm] =
     useState<BusinessForm>(initialBusinessForm);
   const [organization, setOrganization] = useState<Organization | null>(null);
+  const [availableOrganizations, setAvailableOrganizations] = useState<
+    Organization[]
+  >([]);
   const [business, setBusiness] = useState<Business | null>(null);
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [websites, setWebsites] = useState<Website[]>([]);
@@ -140,12 +143,39 @@ export function OnboardingFlow() {
         return;
       }
 
+      const organizations = await getJson<Organization[]>(
+        `${apiBaseUrl}/organizations`,
+      );
       const selectedOrganizationId = window.localStorage.getItem(
         selectedOrganizationStorageKey,
       );
+      const selectedOrganization =
+        organizations.find(
+          (organization) => organization.id === selectedOrganizationId,
+        ) ?? null;
 
-      if (!selectedOrganizationId) {
+      if (selectedOrganizationId && !selectedOrganization) {
+        window.localStorage.removeItem(selectedOrganizationStorageKey);
+      }
+
+      const onlyOrganization =
+        organizations.length === 1 ? organizations[0] : null;
+
+      if (!selectedOrganizationId && onlyOrganization) {
+        window.localStorage.setItem(
+          selectedOrganizationStorageKey,
+          onlyOrganization.id,
+        );
+      }
+
+      const organizationToRestore =
+        selectedOrganization ??
+        (!selectedOrganizationId ? onlyOrganization : null);
+
+      if (!organizationToRestore) {
         if (isMounted) {
+          setAvailableOrganizations(organizations);
+          setStep(organizations.length > 1 ? "selector" : "organization");
           setIsRestoring(false);
         }
         return;
@@ -153,10 +183,10 @@ export function OnboardingFlow() {
 
       try {
         const restoredOrganization = await getJson<Organization>(
-          `${apiBaseUrl}/organizations/${selectedOrganizationId}`,
+          `${apiBaseUrl}/organizations/${organizationToRestore.id}`,
         );
         const restoredBusinesses = await getJson<Business[]>(
-          `${apiBaseUrl}/organizations/${selectedOrganizationId}/businesses`,
+          `${apiBaseUrl}/organizations/${organizationToRestore.id}/businesses`,
         );
         const restoredBusiness = restoredBusinesses[0] ?? null;
         const restoredWebsites = restoredBusiness
@@ -169,7 +199,7 @@ export function OnboardingFlow() {
             ? {}
             : await loadLatestCrawls(
                 apiBaseUrl,
-                selectedOrganizationId,
+                organizationToRestore.id,
                 restoredBusiness.id,
                 restoredWebsites,
               );
@@ -179,6 +209,7 @@ export function OnboardingFlow() {
         }
 
         setOrganization(restoredOrganization);
+        setAvailableOrganizations(organizations);
         setBusinesses(restoredBusinesses);
         setBusiness(restoredBusiness);
         setWebsites(restoredWebsites);
@@ -245,6 +276,7 @@ export function OnboardingFlow() {
         createdOrganization.id,
       );
       setOrganization(createdOrganization);
+      setAvailableOrganizations((current) => [createdOrganization, ...current]);
       setBusinesses([]);
       setBusiness(null);
       setWebsites([]);
@@ -331,9 +363,59 @@ export function OnboardingFlow() {
     setWebsiteForm(initialWebsiteForm);
     setOrganizationForm(initialOrganizationForm);
     setBusinessForm(initialBusinessForm);
-    setStep("organization");
+    setStep(availableOrganizations.length > 1 ? "selector" : "organization");
     setError(null);
     setSuccess("Workspace selection cleared.");
+  }
+
+  async function selectWorkspace(organizationId: string) {
+    setError(null);
+    setSuccess(null);
+
+    if (!apiBaseUrl) {
+      setError("NEXT_PUBLIC_API_URL is not configured.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const selectedOrganization = await getJson<Organization>(
+        `${apiBaseUrl}/organizations/${organizationId}`,
+      );
+      const selectedBusinesses = await getJson<Business[]>(
+        `${apiBaseUrl}/organizations/${organizationId}/businesses`,
+      );
+      const selectedBusiness = selectedBusinesses[0] ?? null;
+      const selectedWebsites = selectedBusiness
+        ? await getJson<Website[]>(
+            `${apiBaseUrl}/organizations/${organizationId}/businesses/${selectedBusiness.id}/websites`,
+          )
+        : [];
+      const selectedCrawls =
+        selectedBusiness === null
+          ? {}
+          : await loadLatestCrawls(
+              apiBaseUrl,
+              organizationId,
+              selectedBusiness.id,
+              selectedWebsites,
+            );
+
+      window.localStorage.setItem(
+        selectedOrganizationStorageKey,
+        selectedOrganization.id,
+      );
+      setOrganization(selectedOrganization);
+      setBusinesses(selectedBusinesses);
+      setBusiness(selectedBusiness);
+      setWebsites(selectedWebsites);
+      setLatestCrawls(selectedCrawls);
+      setStep(selectedBusiness ? "workspace" : "business");
+    } catch (requestError) {
+      setError(getErrorMessage(requestError));
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   function createAnotherBusiness() {
@@ -528,7 +610,7 @@ export function OnboardingFlow() {
           </p>
           <div className="mt-8 grid gap-3 text-sm text-slate-300">
             <ProgressItem
-              active={step === "organization"}
+              active={step === "organization" || step === "selector"}
               done={Boolean(organization)}
             >
               Create organization
@@ -562,6 +644,15 @@ export function OnboardingFlow() {
                 setOrganizationForm((current) => ({ ...current, slug }))
               }
               onSubmit={handleOrganizationSubmit}
+            />
+          ) : null}
+
+          {step === "selector" ? (
+            <WorkspaceSelector
+              organizations={availableOrganizations}
+              isSubmitting={isSubmitting}
+              onSelect={selectWorkspace}
+              onCreateNew={() => setStep("organization")}
             />
           ) : null}
 
@@ -649,6 +740,49 @@ function OrganizationStep({
         Create organization
       </SubmitButton>
     </form>
+  );
+}
+
+function WorkspaceSelector({
+  organizations,
+  isSubmitting,
+  onSelect,
+  onCreateNew,
+}: {
+  organizations: Organization[];
+  isSubmitting: boolean;
+  onSelect: (organizationId: string) => void;
+  onCreateNew: () => void;
+}) {
+  return (
+    <div className="space-y-5">
+      <FormHeader
+        eyebrow="Workspace"
+        title="Choose a workspace"
+        description="Select an existing organization or create a new one."
+      />
+      <div className="space-y-3">
+        {organizations.map((organization) => (
+          <button
+            key={organization.id}
+            type="button"
+            disabled={isSubmitting}
+            onClick={() => onSelect(organization.id)}
+            className="w-full rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-cyan-300 hover:bg-cyan-50 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <span className="block font-semibold text-slate-950">
+              {organization.name}
+            </span>
+            <span className="mt-1 block text-sm text-slate-500">
+              {organization.slug}
+            </span>
+          </button>
+        ))}
+      </div>
+      <SecondaryButton onClick={onCreateNew}>
+        Create new organization
+      </SecondaryButton>
+    </div>
   );
 }
 
