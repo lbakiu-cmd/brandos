@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
 
 type Step = "organization" | "business" | "workspace";
 
@@ -43,6 +43,7 @@ type BusinessForm = {
   city: string;
 };
 
+const selectedOrganizationStorageKey = "brandos:selectedOrganizationId";
 const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 const initialOrganizationForm: OrganizationForm = {
@@ -69,6 +70,8 @@ export function OnboardingFlow() {
     useState<BusinessForm>(initialBusinessForm);
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [business, setBusiness] = useState<Business | null>(null);
+  const [businesses, setBusinesses] = useState<Business[]>([]);
+  const [isRestoring, setIsRestoring] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -81,6 +84,74 @@ export function OnboardingFlow() {
     () => validateBusiness(businessForm),
     [businessForm],
   );
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function restoreWorkspace() {
+      if (!apiBaseUrl) {
+        if (isMounted) {
+          setError("NEXT_PUBLIC_API_URL is not configured.");
+          setIsRestoring(false);
+        }
+        return;
+      }
+
+      const selectedOrganizationId = window.localStorage.getItem(
+        selectedOrganizationStorageKey,
+      );
+
+      if (!selectedOrganizationId) {
+        if (isMounted) {
+          setIsRestoring(false);
+        }
+        return;
+      }
+
+      try {
+        const restoredOrganization = await getJson<Organization>(
+          `${apiBaseUrl}/organizations/${selectedOrganizationId}`,
+        );
+        const restoredBusinesses = await getJson<Business[]>(
+          `${apiBaseUrl}/organizations/${selectedOrganizationId}/businesses`,
+        );
+
+        if (!isMounted) {
+          return;
+        }
+
+        setOrganization(restoredOrganization);
+        setBusinesses(restoredBusinesses);
+        setBusiness(restoredBusinesses[0] ?? null);
+        setStep(restoredBusinesses.length > 0 ? "workspace" : "business");
+      } catch (requestError) {
+        if (!isMounted) {
+          return;
+        }
+
+        window.localStorage.removeItem(selectedOrganizationStorageKey);
+        setOrganization(null);
+        setBusiness(null);
+        setBusinesses([]);
+        setStep("organization");
+        setError(
+          `Could not restore the saved workspace. ${getErrorMessage(
+            requestError,
+          )}`,
+        );
+      } finally {
+        if (isMounted) {
+          setIsRestoring(false);
+        }
+      }
+    }
+
+    void restoreWorkspace();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [apiBaseUrl]);
 
   async function handleOrganizationSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -107,7 +178,13 @@ export function OnboardingFlow() {
           slug: organizationForm.slug.trim(),
         },
       );
+      window.localStorage.setItem(
+        selectedOrganizationStorageKey,
+        createdOrganization.id,
+      );
       setOrganization(createdOrganization);
+      setBusinesses([]);
+      setBusiness(null);
       setStep("business");
       setSuccess("Organization created. Add your first business.");
     } catch (requestError) {
@@ -152,6 +229,8 @@ export function OnboardingFlow() {
         }),
       );
       setBusiness(createdBusiness);
+      setBusinesses((current) => [createdBusiness, ...current]);
+      setBusinessForm(initialBusinessForm);
       setStep("workspace");
       setSuccess("Business workspace created.");
     } catch (requestError) {
@@ -176,6 +255,36 @@ export function OnboardingFlow() {
     }));
   }
 
+  function switchWorkspace() {
+    window.localStorage.removeItem(selectedOrganizationStorageKey);
+    setOrganization(null);
+    setBusiness(null);
+    setBusinesses([]);
+    setOrganizationForm(initialOrganizationForm);
+    setBusinessForm(initialBusinessForm);
+    setStep("organization");
+    setError(null);
+    setSuccess("Workspace selection cleared.");
+  }
+
+  function createAnotherBusiness() {
+    setBusinessForm(initialBusinessForm);
+    setBusiness(null);
+    setStep("business");
+    setError(null);
+    setSuccess(null);
+  }
+
+  if (isRestoring) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-slate-950 px-6 text-white">
+        <div className="rounded-3xl border border-white/10 bg-white/10 px-6 py-5 text-sm text-slate-200">
+          Loading your BrandOS workspace...
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen bg-slate-950 text-white">
       <section className="mx-auto grid min-h-screen w-full max-w-6xl gap-10 px-6 py-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
@@ -197,7 +306,10 @@ export function OnboardingFlow() {
             >
               Create organization
             </ProgressItem>
-            <ProgressItem active={step === "business"} done={Boolean(business)}>
+            <ProgressItem
+              active={step === "business"}
+              done={businesses.length > 0}
+            >
               Add first business
             </ProgressItem>
             <ProgressItem
@@ -232,11 +344,13 @@ export function OnboardingFlow() {
               isSubmitting={isSubmitting}
               organization={organization}
               validationError={businessValidation}
+              hasExistingBusinesses={businesses.length > 0}
               onFieldChange={(field, value) =>
                 setBusinessForm((current) => ({ ...current, [field]: value }))
               }
               onNameChange={updateBusinessName}
               onSubmit={handleBusinessSubmit}
+              onSwitchWorkspace={switchWorkspace}
             />
           ) : null}
 
@@ -244,6 +358,9 @@ export function OnboardingFlow() {
             <WorkspaceDashboard
               organization={organization}
               business={business}
+              businessCount={businesses.length}
+              onCreateAnotherBusiness={createAnotherBusiness}
+              onSwitchWorkspace={switchWorkspace}
             />
           ) : null}
         </div>
@@ -302,25 +419,39 @@ function BusinessStep({
   isSubmitting,
   organization,
   validationError,
+  hasExistingBusinesses,
   onFieldChange,
   onNameChange,
   onSubmit,
+  onSwitchWorkspace,
 }: {
   form: BusinessForm;
   isSubmitting: boolean;
   organization: Organization;
   validationError: string | null;
+  hasExistingBusinesses: boolean;
   onFieldChange: (field: keyof BusinessForm, value: string) => void;
   onNameChange: (value: string) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onSwitchWorkspace: () => void;
 }) {
   return (
     <form onSubmit={onSubmit} className="space-y-5">
       <FormHeader
         eyebrow="Step 2"
-        title="Add your first business"
+        title={
+          hasExistingBusinesses
+            ? "Create another business"
+            : "Add your first business"
+        }
         description={`Organization: ${organization.name}`}
       />
+      {!hasExistingBusinesses ? (
+        <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          This organization has no businesses yet. Add one to open the dashboard
+          workspace.
+        </p>
+      ) : null}
       <TextField
         label="Business name"
         value={form.name}
@@ -367,6 +498,9 @@ function BusinessStep({
       >
         Create workspace
       </SubmitButton>
+      <SecondaryButton onClick={onSwitchWorkspace}>
+        Switch workspace
+      </SecondaryButton>
     </form>
   );
 }
@@ -374,9 +508,15 @@ function BusinessStep({
 function WorkspaceDashboard({
   organization,
   business,
+  businessCount,
+  onCreateAnotherBusiness,
+  onSwitchWorkspace,
 }: {
   organization: Organization;
   business: Business;
+  businessCount: number;
+  onCreateAnotherBusiness: () => void;
+  onSwitchWorkspace: () => void;
 }) {
   return (
     <div className="space-y-6">
@@ -408,6 +548,9 @@ function WorkspaceDashboard({
           {business.category ? <Pill>{business.category}</Pill> : null}
           {business.city ? <Pill>{business.city}</Pill> : null}
           {business.country ? <Pill>{business.country}</Pill> : null}
+          <Pill>
+            {businessCount} {businessCount === 1 ? "business" : "businesses"}
+          </Pill>
         </div>
       </div>
 
@@ -435,6 +578,15 @@ function WorkspaceDashboard({
           Run first audit
           <span className="block text-xs font-normal">Coming next</span>
         </button>
+      </div>
+
+      <div className="flex flex-col gap-3 sm:flex-row">
+        <SecondaryButton onClick={onCreateAnotherBusiness}>
+          Create another business
+        </SecondaryButton>
+        <SecondaryButton onClick={onSwitchWorkspace}>
+          Switch workspace
+        </SecondaryButton>
       </div>
     </div>
   );
@@ -509,6 +661,24 @@ function SubmitButton({
   );
 }
 
+function SecondaryButton({
+  children,
+  onClick,
+}: {
+  children: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="h-10 rounded-xl border border-slate-300 px-4 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
+    >
+      {children}
+    </button>
+  );
+}
+
 function ProgressItem({
   active,
   done,
@@ -531,7 +701,7 @@ function ProgressItem({
           done ? "bg-cyan-300 text-slate-950" : "bg-white/10 text-slate-300"
         }`}
       >
-        {done ? "✓" : ""}
+        {done ? "OK" : ""}
       </span>
       <span>{children}</span>
     </div>
@@ -557,12 +727,19 @@ function Alert({
   );
 }
 
-function Pill({ children }: { children: string }) {
+function Pill({ children }: { children: ReactNode }) {
   return (
     <span className="rounded-full bg-white px-3 py-1 font-medium text-slate-600">
       {children}
     </span>
   );
+}
+
+async function getJson<TResponse extends object>(
+  url: string,
+): Promise<TResponse> {
+  const response = await fetch(url);
+  return parseJsonResponse<TResponse>(response);
 }
 
 async function postJson<TResponse extends object>(
@@ -577,6 +754,12 @@ async function postJson<TResponse extends object>(
     body: JSON.stringify(body),
   });
 
+  return parseJsonResponse<TResponse>(response);
+}
+
+async function parseJsonResponse<TResponse extends object>(
+  response: Response,
+): Promise<TResponse> {
   const payload = (await response.json()) as TResponse | ApiErrorResponse;
 
   if (!response.ok) {
@@ -656,10 +839,8 @@ function getErrorMessage(error: unknown) {
   return "Something went wrong. Please try again.";
 }
 
-function readApiError(payload: TResponseOrError) {
+function readApiError(payload: ApiErrorResponse | object) {
   if (
-    typeof payload === "object" &&
-    payload !== null &&
     "error" in payload &&
     payload.error &&
     typeof payload.error === "object" &&
@@ -671,5 +852,3 @@ function readApiError(payload: TResponseOrError) {
 
   return "The API could not complete the request.";
 }
-
-type TResponseOrError = ApiErrorResponse | object;

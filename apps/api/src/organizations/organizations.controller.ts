@@ -1,8 +1,12 @@
 import { Body, Controller, Get, Param, Post } from "@nestjs/common";
-import type { Business, Membership, Organization } from "@brandos/database";
 import { CreateBusinessDto } from "./dto/create-business.dto";
 import { CreateOrganizationDto } from "./dto/create-organization.dto";
-import { OrganizationsService } from "./organizations.service";
+import {
+  type BusinessSummary,
+  type OrganizationDetail,
+  type OrganizationSummary,
+  OrganizationsService,
+} from "./organizations.service";
 
 @Controller("organizations")
 export class OrganizationsController {
@@ -11,14 +15,19 @@ export class OrganizationsController {
   @Post()
   createOrganization(
     @Body() body: CreateOrganizationDto,
-  ): Promise<Organization & { memberships: Membership[] }> {
+  ): Promise<OrganizationSummary> {
     return this.organizationsService.createOrganization(body);
+  }
+
+  @Get()
+  listOrganizations(): Promise<OrganizationSummary[]> {
+    return this.organizationsService.listOrganizations();
   }
 
   @Get(":organizationId")
   getOrganization(
     @Param("organizationId") organizationId: string,
-  ): Promise<Organization & { businesses: Business[] }> {
+  ): Promise<OrganizationDetail> {
     return this.organizationsService.getOrganization(organizationId);
   }
 
@@ -26,14 +35,14 @@ export class OrganizationsController {
   createBusiness(
     @Param("organizationId") organizationId: string,
     @Body() body: CreateBusinessDto,
-  ): Promise<Business> {
+  ): Promise<BusinessSummary> {
     return this.organizationsService.createBusiness(organizationId, body);
   }
 
   @Get(":organizationId/businesses")
   listBusinesses(
     @Param("organizationId") organizationId: string,
-  ): Promise<Business[]> {
+  ): Promise<BusinessSummary[]> {
     return this.organizationsService.listBusinesses(organizationId);
   }
 }

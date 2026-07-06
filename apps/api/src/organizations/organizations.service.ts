@@ -5,12 +5,30 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { MembershipRole, Prisma } from "@brandos/database";
-import type { Business, Membership, Organization } from "@brandos/database";
 import { PrismaService } from "../database/prisma.service";
 import { CreateBusinessDto } from "./dto/create-business.dto";
 import { CreateOrganizationDto } from "./dto/create-organization.dto";
 
 const TEMPORARY_USER_ID = "temporary-local-user";
+
+export type OrganizationSummary = {
+  id: string;
+  name: string;
+  slug: string;
+};
+
+export type OrganizationDetail = OrganizationSummary;
+
+export type BusinessSummary = {
+  id: string;
+  organizationId: string;
+  name: string;
+  slug: string;
+  websiteUrl: string | null;
+  category: string | null;
+  country: string | null;
+  city: string | null;
+};
 
 @Injectable()
 export class OrganizationsService {
@@ -18,7 +36,7 @@ export class OrganizationsService {
 
   async createOrganization(
     input: CreateOrganizationDto,
-  ): Promise<Organization & { memberships: Membership[] }> {
+  ): Promise<OrganizationSummary> {
     try {
       return await this.prisma.organization.create({
         data: {
@@ -31,8 +49,10 @@ export class OrganizationsService {
             },
           },
         },
-        include: {
-          memberships: true,
+        select: {
+          id: true,
+          name: true,
+          slug: true,
         },
       });
     } catch (error) {
@@ -41,17 +61,33 @@ export class OrganizationsService {
     }
   }
 
-  async getOrganization(
-    organizationId: string,
-  ): Promise<Organization & { businesses: Business[] }> {
+  async listOrganizations(): Promise<OrganizationSummary[]> {
+    return this.prisma.organization.findMany({
+      where: {
+        memberships: {
+          some: {
+            userId: this.getTemporaryUserId(),
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+      },
+    });
+  }
+
+  async getOrganization(organizationId: string): Promise<OrganizationDetail> {
     await this.requireMembership(organizationId);
 
     const organization = await this.prisma.organization.findUnique({
       where: { id: organizationId },
-      include: {
-        businesses: {
-          orderBy: { createdAt: "desc" },
-        },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
       },
     });
 
@@ -65,7 +101,7 @@ export class OrganizationsService {
   async createBusiness(
     organizationId: string,
     input: CreateBusinessDto,
-  ): Promise<Business> {
+  ): Promise<BusinessSummary> {
     await this.requireMembership(organizationId);
 
     try {
@@ -79,6 +115,7 @@ export class OrganizationsService {
           country: input.country?.trim(),
           city: input.city?.trim(),
         },
+        select: businessSummarySelect,
       });
     } catch (error) {
       this.handleUniqueConstraint(error, "Business already exists.");
@@ -86,12 +123,13 @@ export class OrganizationsService {
     }
   }
 
-  async listBusinesses(organizationId: string): Promise<Business[]> {
+  async listBusinesses(organizationId: string): Promise<BusinessSummary[]> {
     await this.requireMembership(organizationId);
 
     return this.prisma.business.findMany({
       where: { organizationId },
       orderBy: { createdAt: "desc" },
+      select: businessSummarySelect,
     });
   }
 
@@ -136,3 +174,14 @@ export class OrganizationsService {
     }
   }
 }
+
+const businessSummarySelect = {
+  id: true,
+  organizationId: true,
+  name: true,
+  slug: true,
+  websiteUrl: true,
+  category: true,
+  country: true,
+  city: true,
+} satisfies Prisma.BusinessSelect;
