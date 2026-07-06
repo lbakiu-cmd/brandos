@@ -10,6 +10,9 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@brandos/config": "workspace:*",
+    "@brandos/database": "workspace:*",
+    "bullmq": "^5.64.1",
     "@brandos/shared": "workspace:*"
   },
   "devDependencies": {

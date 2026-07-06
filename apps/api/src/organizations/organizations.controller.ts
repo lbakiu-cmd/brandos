@@ -15,6 +15,7 @@ import {
   type BusinessSummary,
   type OrganizationDetail,
   type OrganizationSummary,
+  type WebsiteCrawlSummary,
   type WebsiteSummary,
   OrganizationsService,
 } from "./organizations.service";
@@ -103,6 +104,49 @@ export class OrganizationsController {
       organizationId,
       businessId,
       websiteId,
+    );
+  }
+
+  @Post(":organizationId/businesses/:businessId/websites/:websiteId/crawls")
+  createWebsiteCrawl(
+    @Param("organizationId") organizationId: string,
+    @Param("businessId") businessId: string,
+    @Param("websiteId") websiteId: string,
+  ): Promise<WebsiteCrawlSummary> {
+    return this.organizationsService.createWebsiteCrawl(
+      organizationId,
+      businessId,
+      websiteId,
+    );
+  }
+
+  @Get(":organizationId/businesses/:businessId/websites/:websiteId/crawls")
+  listWebsiteCrawls(
+    @Param("organizationId") organizationId: string,
+    @Param("businessId") businessId: string,
+    @Param("websiteId") websiteId: string,
+  ): Promise<WebsiteCrawlSummary[]> {
+    return this.organizationsService.listWebsiteCrawls(
+      organizationId,
+      businessId,
+      websiteId,
+    );
+  }
+
+  @Get(
+    ":organizationId/businesses/:businessId/websites/:websiteId/crawls/:crawlId",
+  )
+  getWebsiteCrawl(
+    @Param("organizationId") organizationId: string,
+    @Param("businessId") businessId: string,
+    @Param("websiteId") websiteId: string,
+    @Param("crawlId") crawlId: string,
+  ): Promise<WebsiteCrawlSummary> {
+    return this.organizationsService.getWebsiteCrawl(
+      organizationId,
+      businessId,
+      websiteId,
+      crawlId,
     );
   }
 }

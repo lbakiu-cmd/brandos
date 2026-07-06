@@ -6,7 +6,9 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { MembershipRole, Prisma } from "@brandos/database";
+import { WebsiteCrawlStatus } from "@brandos/database";
 import { PrismaService } from "../database/prisma.service";
+import { CrawlQueueService } from "../queues/crawl-queue.service";
 import { CreateBusinessDto } from "./dto/create-business.dto";
 import { CreateOrganizationDto } from "./dto/create-organization.dto";
 import { CreateWebsiteDto } from "./dto/create-website.dto";
@@ -44,9 +46,25 @@ export type WebsiteSummary = {
   updatedAt: Date;
 };
 
+export type WebsiteCrawlSummary = {
+  id: string;
+  websiteId: string;
+  status: WebsiteCrawlStatus;
+  requestedAt: Date;
+  startedAt: Date | null;
+  completedAt: Date | null;
+  errorMessage: string | null;
+  metadata: Prisma.JsonValue | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
 @Injectable()
 export class OrganizationsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly crawlQueue: CrawlQueueService,
+  ) {}
 
   async createOrganization(
     input: CreateOrganizationDto,
@@ -268,6 +286,67 @@ export class OrganizationsService {
     });
   }
 
+  async createWebsiteCrawl(
+    organizationId: string,
+    businessId: string,
+    websiteId: string,
+  ): Promise<WebsiteCrawlSummary> {
+    await this.requireWebsite(organizationId, businessId, websiteId);
+
+    const crawl = await this.prisma.websiteCrawl.create({
+      data: {
+        websiteId,
+        status: WebsiteCrawlStatus.QUEUED,
+        requestedAt: new Date(),
+      },
+      select: websiteCrawlSummarySelect,
+    });
+
+    await this.crawlQueue.enqueueWebsiteCrawl({
+      crawlId: crawl.id,
+      websiteId: crawl.websiteId,
+    });
+
+    return crawl;
+  }
+
+  async listWebsiteCrawls(
+    organizationId: string,
+    businessId: string,
+    websiteId: string,
+  ): Promise<WebsiteCrawlSummary[]> {
+    await this.requireWebsite(organizationId, businessId, websiteId);
+
+    return this.prisma.websiteCrawl.findMany({
+      where: { websiteId },
+      orderBy: { requestedAt: "desc" },
+      select: websiteCrawlSummarySelect,
+    });
+  }
+
+  async getWebsiteCrawl(
+    organizationId: string,
+    businessId: string,
+    websiteId: string,
+    crawlId: string,
+  ): Promise<WebsiteCrawlSummary> {
+    await this.requireWebsite(organizationId, businessId, websiteId);
+
+    const crawl = await this.prisma.websiteCrawl.findFirst({
+      where: {
+        id: crawlId,
+        websiteId,
+      },
+      select: websiteCrawlSummarySelect,
+    });
+
+    if (!crawl) {
+      throw new NotFoundException("Website crawl not found.");
+    }
+
+    return crawl;
+  }
+
   private async requireMembership(organizationId: string) {
     const organization = await this.prisma.organization.findUnique({
       where: { id: organizationId },
@@ -377,6 +456,19 @@ const websiteSummarySelect = {
   createdAt: true,
   updatedAt: true,
 } satisfies Prisma.WebsiteSelect;
+
+const websiteCrawlSummarySelect = {
+  id: true,
+  websiteId: true,
+  status: true,
+  requestedAt: true,
+  startedAt: true,
+  completedAt: true,
+  errorMessage: true,
+  metadata: true,
+  createdAt: true,
+  updatedAt: true,
+} satisfies Prisma.WebsiteCrawlSelect;
 
 function normalizeWebsiteUrl(rawUrl: string) {
   const parsedUrl = new URL(rawUrl.trim());

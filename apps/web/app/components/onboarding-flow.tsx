@@ -32,6 +32,19 @@ type Website = {
   updatedAt: string;
 };
 
+type WebsiteCrawl = {
+  id: string;
+  websiteId: string;
+  status: "QUEUED" | "RUNNING" | "COMPLETED" | "FAILED";
+  requestedAt: string;
+  startedAt: string | null;
+  completedAt: string | null;
+  errorMessage: string | null;
+  metadata: unknown;
+  createdAt: string;
+  updatedAt: string;
+};
+
 type ApiErrorResponse = {
   error?: {
     code?: string;
@@ -91,12 +104,18 @@ export function OnboardingFlow() {
   const [business, setBusiness] = useState<Business | null>(null);
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [websites, setWebsites] = useState<Website[]>([]);
+  const [latestCrawls, setLatestCrawls] = useState<
+    Record<string, WebsiteCrawl>
+  >({});
   const [websiteForm, setWebsiteForm] =
     useState<WebsiteForm>(initialWebsiteForm);
   const [isRestoring, setIsRestoring] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isWebsiteSubmitting, setIsWebsiteSubmitting] = useState(false);
   const [isWebsiteLoading, setIsWebsiteLoading] = useState(false);
+  const [queuedCrawlWebsiteId, setQueuedCrawlWebsiteId] = useState<
+    string | null
+  >(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -145,6 +164,15 @@ export function OnboardingFlow() {
               `${apiBaseUrl}/organizations/${selectedOrganizationId}/businesses/${restoredBusiness.id}/websites`,
             )
           : [];
+        const restoredCrawls =
+          restoredBusiness === null
+            ? {}
+            : await loadLatestCrawls(
+                apiBaseUrl,
+                selectedOrganizationId,
+                restoredBusiness.id,
+                restoredWebsites,
+              );
 
         if (!isMounted) {
           return;
@@ -154,6 +182,7 @@ export function OnboardingFlow() {
         setBusinesses(restoredBusinesses);
         setBusiness(restoredBusiness);
         setWebsites(restoredWebsites);
+        setLatestCrawls(restoredCrawls);
         setStep(restoredBusinesses.length > 0 ? "workspace" : "business");
       } catch (requestError) {
         if (!isMounted) {
@@ -165,6 +194,7 @@ export function OnboardingFlow() {
         setBusiness(null);
         setBusinesses([]);
         setWebsites([]);
+        setLatestCrawls({});
         setStep("organization");
         setError(
           `Could not restore the saved workspace. ${getErrorMessage(
@@ -218,6 +248,7 @@ export function OnboardingFlow() {
       setBusinesses([]);
       setBusiness(null);
       setWebsites([]);
+      setLatestCrawls({});
       setStep("business");
       setSuccess("Organization created. Add your first business.");
     } catch (requestError) {
@@ -264,6 +295,7 @@ export function OnboardingFlow() {
       setBusiness(createdBusiness);
       setBusinesses((current) => [createdBusiness, ...current]);
       setWebsites([]);
+      setLatestCrawls({});
       setBusinessForm(initialBusinessForm);
       setStep("workspace");
       setSuccess("Business workspace created.");
@@ -295,6 +327,7 @@ export function OnboardingFlow() {
     setBusiness(null);
     setBusinesses([]);
     setWebsites([]);
+    setLatestCrawls({});
     setWebsiteForm(initialWebsiteForm);
     setOrganizationForm(initialOrganizationForm);
     setBusinessForm(initialBusinessForm);
@@ -307,6 +340,7 @@ export function OnboardingFlow() {
     setBusinessForm(initialBusinessForm);
     setBusiness(null);
     setWebsites([]);
+    setLatestCrawls({});
     setWebsiteForm(initialWebsiteForm);
     setStep("business");
     setError(null);
@@ -358,6 +392,7 @@ export function OnboardingFlow() {
           ),
         ]),
       );
+      setLatestCrawls((current) => removeKey(current, createdWebsite.id));
       setWebsiteForm(initialWebsiteForm);
       setSuccess("Website saved.");
     } catch (requestError) {
@@ -392,11 +427,38 @@ export function OnboardingFlow() {
       setWebsites((current) =>
         current.filter((website) => website.id !== deletedWebsite.id),
       );
+      setLatestCrawls((current) => removeKey(current, deletedWebsite.id));
       setSuccess("Website deleted.");
     } catch (requestError) {
       setError(getErrorMessage(requestError));
     } finally {
       setIsWebsiteLoading(false);
+    }
+  }
+
+  async function queueWebsiteCrawl(websiteId: string) {
+    setError(null);
+    setSuccess(null);
+
+    if (!apiBaseUrl || !organization || !business) {
+      setError("Workspace is not ready.");
+      return;
+    }
+
+    setQueuedCrawlWebsiteId(websiteId);
+    try {
+      const crawl = await postJson<WebsiteCrawl>(
+        `${apiBaseUrl}/organizations/${organization.id}/businesses/${business.id}/websites/${websiteId}/crawls`,
+        {},
+      );
+      setLatestCrawls((current) => ({ ...current, [websiteId]: crawl }));
+      setSuccess(
+        "Website crawl queued. The worker will pick it up when running.",
+      );
+    } catch (requestError) {
+      setError(getErrorMessage(requestError));
+    } finally {
+      setQueuedCrawlWebsiteId(null);
     }
   }
 
@@ -526,13 +588,16 @@ export function OnboardingFlow() {
               businessCount={businesses.length}
               websiteForm={websiteForm}
               websites={websites}
+              latestCrawls={latestCrawls}
               isWebsiteSubmitting={isWebsiteSubmitting}
               isWebsiteLoading={isWebsiteLoading}
+              queuedCrawlWebsiteId={queuedCrawlWebsiteId}
               onCreateAnotherBusiness={createAnotherBusiness}
               onWebsiteUrlChange={(url) => setWebsiteForm({ url })}
               onWebsiteSubmit={handleWebsiteSubmit}
               onMakePrimaryWebsite={makePrimaryWebsite}
               onDeleteWebsite={deleteWebsite}
+              onQueueWebsiteCrawl={queueWebsiteCrawl}
               onSwitchWorkspace={switchWorkspace}
             />
           ) : null}
@@ -684,13 +749,16 @@ function WorkspaceDashboard({
   businessCount,
   websiteForm,
   websites,
+  latestCrawls,
   isWebsiteSubmitting,
   isWebsiteLoading,
+  queuedCrawlWebsiteId,
   onCreateAnotherBusiness,
   onWebsiteUrlChange,
   onWebsiteSubmit,
   onMakePrimaryWebsite,
   onDeleteWebsite,
+  onQueueWebsiteCrawl,
   onSwitchWorkspace,
 }: {
   organization: Organization;
@@ -698,13 +766,16 @@ function WorkspaceDashboard({
   businessCount: number;
   websiteForm: WebsiteForm;
   websites: Website[];
+  latestCrawls: Record<string, WebsiteCrawl>;
   isWebsiteSubmitting: boolean;
   isWebsiteLoading: boolean;
+  queuedCrawlWebsiteId: string | null;
   onCreateAnotherBusiness: () => void;
   onWebsiteUrlChange: (url: string) => void;
   onWebsiteSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onMakePrimaryWebsite: (websiteId: string) => void;
   onDeleteWebsite: (websiteId: string) => void;
+  onQueueWebsiteCrawl: (websiteId: string) => void;
   onSwitchWorkspace: () => void;
 }) {
   return (
@@ -746,12 +817,15 @@ function WorkspaceDashboard({
       <WebsiteSection
         form={websiteForm}
         websites={websites}
+        latestCrawls={latestCrawls}
         isSubmitting={isWebsiteSubmitting}
         isLoading={isWebsiteLoading}
+        queuedCrawlWebsiteId={queuedCrawlWebsiteId}
         onUrlChange={onWebsiteUrlChange}
         onSubmit={onWebsiteSubmit}
         onMakePrimary={onMakePrimaryWebsite}
         onDelete={onDeleteWebsite}
+        onQueueCrawl={onQueueWebsiteCrawl}
       />
 
       <div className="grid gap-4 sm:grid-cols-[1fr_auto]">
@@ -795,21 +869,27 @@ function WorkspaceDashboard({
 function WebsiteSection({
   form,
   websites,
+  latestCrawls,
   isSubmitting,
   isLoading,
+  queuedCrawlWebsiteId,
   onUrlChange,
   onSubmit,
   onMakePrimary,
   onDelete,
+  onQueueCrawl,
 }: {
   form: WebsiteForm;
   websites: Website[];
+  latestCrawls: Record<string, WebsiteCrawl>;
   isSubmitting: boolean;
   isLoading: boolean;
+  queuedCrawlWebsiteId: string | null;
   onUrlChange: (url: string) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onMakePrimary: (websiteId: string) => void;
   onDelete: (websiteId: string) => void;
+  onQueueCrawl: (websiteId: string) => void;
 }) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5">
@@ -844,48 +924,74 @@ function WebsiteSection({
               key={website.id}
               className="rounded-xl border border-slate-200 bg-slate-50 p-4"
             >
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <a
-                      href={website.normalizedUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="font-semibold text-slate-950 hover:text-cyan-700"
-                    >
-                      {website.domain}
-                    </a>
-                    {website.isPrimary ? (
-                      <span className="rounded-full bg-cyan-100 px-2 py-1 text-xs font-semibold text-cyan-800">
-                        Primary
-                      </span>
-                    ) : null}
+              {(() => {
+                const latestCrawl = latestCrawls[website.id];
+
+                return (
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <a
+                          href={website.normalizedUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="font-semibold text-slate-950 hover:text-cyan-700"
+                        >
+                          {website.domain}
+                        </a>
+                        {website.isPrimary ? (
+                          <span className="rounded-full bg-cyan-100 px-2 py-1 text-xs font-semibold text-cyan-800">
+                            Primary
+                          </span>
+                        ) : null}
+                      </div>
+                      <p className="mt-1 break-all text-sm text-slate-500">
+                        {website.normalizedUrl}
+                      </p>
+                      <p className="mt-2 text-xs font-medium text-slate-500">
+                        Latest crawl:{" "}
+                        <span className="text-slate-700">
+                          {latestCrawl
+                            ? formatCrawlStatus(latestCrawl.status)
+                            : "Not queued yet"}
+                        </span>
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        disabled={
+                          isLoading || queuedCrawlWebsiteId === website.id
+                        }
+                        onClick={() => onQueueCrawl(website.id)}
+                        className="rounded-lg border border-cyan-200 px-3 py-2 text-xs font-semibold text-cyan-800 hover:bg-cyan-50 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {queuedCrawlWebsiteId === website.id
+                          ? "Queueing..."
+                          : "Queue crawl"}
+                      </button>
+                      {!website.isPrimary ? (
+                        <button
+                          type="button"
+                          disabled={isLoading}
+                          onClick={() => onMakePrimary(website.id)}
+                          className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          Make primary
+                        </button>
+                      ) : null}
+                      <button
+                        type="button"
+                        disabled={isLoading}
+                        onClick={() => onDelete(website.id)}
+                        className="rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </div>
-                  <p className="mt-1 break-all text-sm text-slate-500">
-                    {website.normalizedUrl}
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {!website.isPrimary ? (
-                    <button
-                      type="button"
-                      disabled={isLoading}
-                      onClick={() => onMakePrimary(website.id)}
-                      className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      Make primary
-                    </button>
-                  ) : null}
-                  <button
-                    type="button"
-                    disabled={isLoading}
-                    onClick={() => onDelete(website.id)}
-                    className="rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
+                );
+              })()}
             </div>
           ))}
         </div>
@@ -1110,6 +1216,30 @@ async function deleteJson<TResponse extends object>(
   return parseJsonResponse<TResponse>(response);
 }
 
+async function loadLatestCrawls(
+  apiBaseUrl: string,
+  organizationId: string,
+  businessId: string,
+  websites: Website[],
+) {
+  const entries = await Promise.all(
+    websites.map(async (website) => {
+      const crawls = await getJson<WebsiteCrawl[]>(
+        `${apiBaseUrl}/organizations/${organizationId}/businesses/${businessId}/websites/${website.id}/crawls`,
+      );
+
+      return [website.id, crawls[0]] as const;
+    }),
+  );
+
+  return Object.fromEntries(
+    entries.filter(
+      (entry): entry is readonly [string, WebsiteCrawl] =>
+        entry[1] !== undefined,
+    ),
+  );
+}
+
 async function parseJsonResponse<TResponse extends object>(
   response: Response,
 ): Promise<TResponse> {
@@ -1192,6 +1322,16 @@ function sortWebsites(items: Website[]) {
 
     return right.createdAt.localeCompare(left.createdAt);
   });
+}
+
+function removeKey<TValue>(record: Record<string, TValue>, key: string) {
+  const nextRecord = { ...record };
+  delete nextRecord[key];
+  return nextRecord;
+}
+
+function formatCrawlStatus(status: WebsiteCrawl["status"]) {
+  return status.toLowerCase().replace(/^\w/, (letter) => letter.toUpperCase());
 }
 
 function getErrorMessage(error: unknown) {

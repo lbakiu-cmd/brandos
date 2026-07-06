@@ -5,3 +5,11 @@ export type HealthStatus = {
   service: string;
   version: string;
 };
+
+export const websiteCrawlQueueName = "brandos.website-crawls";
+export const websiteCrawlJobName = "website-crawl.requested";
+
+export type WebsiteCrawlJobData = {
+  crawlId: string;
+  websiteId: string;
+};

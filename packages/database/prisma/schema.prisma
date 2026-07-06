@@ -13,6 +13,13 @@ enum MembershipRole {
   MEMBER
 }
 
+enum WebsiteCrawlStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
 model Organization {
   id          String       @id @default(cuid())
   name        String
@@ -55,18 +62,38 @@ model Business {
 }
 
 model Website {
-  id            String   @id @default(cuid())
+  id            String         @id @default(cuid())
   businessId    String
   url           String
   normalizedUrl String
   domain        String
-  isPrimary     Boolean  @default(false)
-  business      Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  isPrimary     Boolean        @default(false)
+  business      Business       @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  crawls        WebsiteCrawl[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
 
   @@unique([businessId, normalizedUrl])
   @@index([businessId])
   @@index([domain])
   @@index([businessId, isPrimary])
+}
+
+model WebsiteCrawl {
+  id           String             @id @default(cuid())
+  websiteId    String
+  status       WebsiteCrawlStatus @default(QUEUED)
+  requestedAt  DateTime           @default(now())
+  startedAt    DateTime?
+  completedAt  DateTime?
+  errorMessage String?
+  metadata     Json?
+  website      Website            @relation(fields: [websiteId], references: [id], onDelete: Cascade)
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  @@index([websiteId])
+  @@index([status])
+  @@index([websiteId, status])
+  @@index([requestedAt])
 }
