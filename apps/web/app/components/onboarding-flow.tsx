@@ -21,6 +21,17 @@ type Business = {
   city: string | null;
 };
 
+type Website = {
+  id: string;
+  businessId: string;
+  url: string;
+  normalizedUrl: string;
+  domain: string;
+  isPrimary: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
 type ApiErrorResponse = {
   error?: {
     code?: string;
@@ -43,6 +54,10 @@ type BusinessForm = {
   city: string;
 };
 
+type WebsiteForm = {
+  url: string;
+};
+
 const selectedOrganizationStorageKey = "brandos:selectedOrganizationId";
 const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -60,6 +75,10 @@ const initialBusinessForm: BusinessForm = {
   city: "",
 };
 
+const initialWebsiteForm: WebsiteForm = {
+  url: "",
+};
+
 export function OnboardingFlow() {
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL;
   const [step, setStep] = useState<Step>("organization");
@@ -71,8 +90,13 @@ export function OnboardingFlow() {
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [business, setBusiness] = useState<Business | null>(null);
   const [businesses, setBusinesses] = useState<Business[]>([]);
+  const [websites, setWebsites] = useState<Website[]>([]);
+  const [websiteForm, setWebsiteForm] =
+    useState<WebsiteForm>(initialWebsiteForm);
   const [isRestoring, setIsRestoring] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isWebsiteSubmitting, setIsWebsiteSubmitting] = useState(false);
+  const [isWebsiteLoading, setIsWebsiteLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -115,6 +139,12 @@ export function OnboardingFlow() {
         const restoredBusinesses = await getJson<Business[]>(
           `${apiBaseUrl}/organizations/${selectedOrganizationId}/businesses`,
         );
+        const restoredBusiness = restoredBusinesses[0] ?? null;
+        const restoredWebsites = restoredBusiness
+          ? await getJson<Website[]>(
+              `${apiBaseUrl}/organizations/${selectedOrganizationId}/businesses/${restoredBusiness.id}/websites`,
+            )
+          : [];
 
         if (!isMounted) {
           return;
@@ -122,7 +152,8 @@ export function OnboardingFlow() {
 
         setOrganization(restoredOrganization);
         setBusinesses(restoredBusinesses);
-        setBusiness(restoredBusinesses[0] ?? null);
+        setBusiness(restoredBusiness);
+        setWebsites(restoredWebsites);
         setStep(restoredBusinesses.length > 0 ? "workspace" : "business");
       } catch (requestError) {
         if (!isMounted) {
@@ -133,6 +164,7 @@ export function OnboardingFlow() {
         setOrganization(null);
         setBusiness(null);
         setBusinesses([]);
+        setWebsites([]);
         setStep("organization");
         setError(
           `Could not restore the saved workspace. ${getErrorMessage(
@@ -185,6 +217,7 @@ export function OnboardingFlow() {
       setOrganization(createdOrganization);
       setBusinesses([]);
       setBusiness(null);
+      setWebsites([]);
       setStep("business");
       setSuccess("Organization created. Add your first business.");
     } catch (requestError) {
@@ -230,6 +263,7 @@ export function OnboardingFlow() {
       );
       setBusiness(createdBusiness);
       setBusinesses((current) => [createdBusiness, ...current]);
+      setWebsites([]);
       setBusinessForm(initialBusinessForm);
       setStep("workspace");
       setSuccess("Business workspace created.");
@@ -260,6 +294,8 @@ export function OnboardingFlow() {
     setOrganization(null);
     setBusiness(null);
     setBusinesses([]);
+    setWebsites([]);
+    setWebsiteForm(initialWebsiteForm);
     setOrganizationForm(initialOrganizationForm);
     setBusinessForm(initialBusinessForm);
     setStep("organization");
@@ -270,9 +306,138 @@ export function OnboardingFlow() {
   function createAnotherBusiness() {
     setBusinessForm(initialBusinessForm);
     setBusiness(null);
+    setWebsites([]);
+    setWebsiteForm(initialWebsiteForm);
     setStep("business");
     setError(null);
     setSuccess(null);
+  }
+
+  async function handleWebsiteSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(null);
+    setSuccess(null);
+
+    if (!apiBaseUrl) {
+      setError("NEXT_PUBLIC_API_URL is not configured.");
+      return;
+    }
+
+    if (!organization || !business) {
+      setError("Create a business before adding websites.");
+      return;
+    }
+
+    const websiteUrl = websiteForm.url.trim();
+    if (!websiteUrl) {
+      setError("Website URL is required.");
+      return;
+    }
+
+    if (!isValidUrl(websiteUrl)) {
+      setError("Website URL must include http:// or https://.");
+      return;
+    }
+
+    setIsWebsiteSubmitting(true);
+    try {
+      const createdWebsite = await postJson<Website>(
+        `${apiBaseUrl}/organizations/${organization.id}/businesses/${business.id}/websites`,
+        {
+          url: websiteUrl,
+          isPrimary: websites.length === 0,
+        },
+      );
+      setWebsites((current) =>
+        sortWebsites([
+          createdWebsite,
+          ...current.map((website) =>
+            createdWebsite.isPrimary
+              ? { ...website, isPrimary: false }
+              : website,
+          ),
+        ]),
+      );
+      setWebsiteForm(initialWebsiteForm);
+      setSuccess("Website saved.");
+    } catch (requestError) {
+      setError(getErrorMessage(requestError));
+    } finally {
+      setIsWebsiteSubmitting(false);
+    }
+  }
+
+  async function makePrimaryWebsite(websiteId: string) {
+    await updateWebsite(
+      websiteId,
+      { isPrimary: true },
+      "Primary website updated.",
+    );
+  }
+
+  async function deleteWebsite(websiteId: string) {
+    setError(null);
+    setSuccess(null);
+
+    if (!apiBaseUrl || !organization || !business) {
+      setError("Workspace is not ready.");
+      return;
+    }
+
+    setIsWebsiteLoading(true);
+    try {
+      const deletedWebsite = await deleteJson<Website>(
+        `${apiBaseUrl}/organizations/${organization.id}/businesses/${business.id}/websites/${websiteId}`,
+      );
+      setWebsites((current) =>
+        current.filter((website) => website.id !== deletedWebsite.id),
+      );
+      setSuccess("Website deleted.");
+    } catch (requestError) {
+      setError(getErrorMessage(requestError));
+    } finally {
+      setIsWebsiteLoading(false);
+    }
+  }
+
+  async function updateWebsite(
+    websiteId: string,
+    body: JsonBody,
+    successMessage: string,
+  ) {
+    setError(null);
+    setSuccess(null);
+
+    if (!apiBaseUrl || !organization || !business) {
+      setError("Workspace is not ready.");
+      return;
+    }
+
+    setIsWebsiteLoading(true);
+    try {
+      const updatedWebsite = await patchJson<Website>(
+        `${apiBaseUrl}/organizations/${organization.id}/businesses/${business.id}/websites/${websiteId}`,
+        body,
+      );
+      setWebsites((current) =>
+        sortWebsites(
+          current.map((website) => {
+            if (website.id === updatedWebsite.id) {
+              return updatedWebsite;
+            }
+
+            return updatedWebsite.isPrimary
+              ? { ...website, isPrimary: false }
+              : website;
+          }),
+        ),
+      );
+      setSuccess(successMessage);
+    } catch (requestError) {
+      setError(getErrorMessage(requestError));
+    } finally {
+      setIsWebsiteLoading(false);
+    }
   }
 
   if (isRestoring) {
@@ -359,7 +524,15 @@ export function OnboardingFlow() {
               organization={organization}
               business={business}
               businessCount={businesses.length}
+              websiteForm={websiteForm}
+              websites={websites}
+              isWebsiteSubmitting={isWebsiteSubmitting}
+              isWebsiteLoading={isWebsiteLoading}
               onCreateAnotherBusiness={createAnotherBusiness}
+              onWebsiteUrlChange={(url) => setWebsiteForm({ url })}
+              onWebsiteSubmit={handleWebsiteSubmit}
+              onMakePrimaryWebsite={makePrimaryWebsite}
+              onDeleteWebsite={deleteWebsite}
               onSwitchWorkspace={switchWorkspace}
             />
           ) : null}
@@ -509,13 +682,29 @@ function WorkspaceDashboard({
   organization,
   business,
   businessCount,
+  websiteForm,
+  websites,
+  isWebsiteSubmitting,
+  isWebsiteLoading,
   onCreateAnotherBusiness,
+  onWebsiteUrlChange,
+  onWebsiteSubmit,
+  onMakePrimaryWebsite,
+  onDeleteWebsite,
   onSwitchWorkspace,
 }: {
   organization: Organization;
   business: Business;
   businessCount: number;
+  websiteForm: WebsiteForm;
+  websites: Website[];
+  isWebsiteSubmitting: boolean;
+  isWebsiteLoading: boolean;
   onCreateAnotherBusiness: () => void;
+  onWebsiteUrlChange: (url: string) => void;
+  onWebsiteSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onMakePrimaryWebsite: (websiteId: string) => void;
+  onDeleteWebsite: (websiteId: string) => void;
   onSwitchWorkspace: () => void;
 }) {
   return (
@@ -554,6 +743,17 @@ function WorkspaceDashboard({
         </div>
       </div>
 
+      <WebsiteSection
+        form={websiteForm}
+        websites={websites}
+        isSubmitting={isWebsiteSubmitting}
+        isLoading={isWebsiteLoading}
+        onUrlChange={onWebsiteUrlChange}
+        onSubmit={onWebsiteSubmit}
+        onMakePrimary={onMakePrimaryWebsite}
+        onDelete={onDeleteWebsite}
+      />
+
       <div className="grid gap-4 sm:grid-cols-[1fr_auto]">
         <div className="rounded-2xl border border-cyan-200 bg-cyan-50 p-5">
           <p className="text-sm font-medium text-cyan-700">
@@ -588,6 +788,132 @@ function WorkspaceDashboard({
           Switch workspace
         </SecondaryButton>
       </div>
+    </div>
+  );
+}
+
+function WebsiteSection({
+  form,
+  websites,
+  isSubmitting,
+  isLoading,
+  onUrlChange,
+  onSubmit,
+  onMakePrimary,
+  onDelete,
+}: {
+  form: WebsiteForm;
+  websites: Website[];
+  isSubmitting: boolean;
+  isLoading: boolean;
+  onUrlChange: (url: string) => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onMakePrimary: (websiteId: string) => void;
+  onDelete: (websiteId: string) => void;
+}) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-5">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-sm font-medium uppercase tracking-[0.14em] text-slate-500">
+            Websites
+          </p>
+          <h3 className="mt-2 text-xl font-semibold text-slate-950">
+            Audit-ready web presence
+          </h3>
+          <p className="mt-1 text-sm leading-6 text-slate-600">
+            Add the domains BrandOS will later use for AI Visibility audits.
+          </p>
+        </div>
+        {websites.length > 0 ? (
+          <span className="rounded-full bg-cyan-50 px-3 py-1 text-xs font-semibold text-cyan-700">
+            {websites.length} saved
+          </span>
+        ) : null}
+      </div>
+
+      {websites.length === 0 ? (
+        <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          No website exists yet. Add a website to prepare this business for its
+          first audit.
+        </p>
+      ) : (
+        <div className="mt-4 space-y-3">
+          {websites.map((website) => (
+            <div
+              key={website.id}
+              className="rounded-xl border border-slate-200 bg-slate-50 p-4"
+            >
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <a
+                      href={website.normalizedUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="font-semibold text-slate-950 hover:text-cyan-700"
+                    >
+                      {website.domain}
+                    </a>
+                    {website.isPrimary ? (
+                      <span className="rounded-full bg-cyan-100 px-2 py-1 text-xs font-semibold text-cyan-800">
+                        Primary
+                      </span>
+                    ) : null}
+                  </div>
+                  <p className="mt-1 break-all text-sm text-slate-500">
+                    {website.normalizedUrl}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {!website.isPrimary ? (
+                    <button
+                      type="button"
+                      disabled={isLoading}
+                      onClick={() => onMakePrimary(website.id)}
+                      className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Make primary
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    disabled={isLoading}
+                    onClick={() => onDelete(website.id)}
+                    className="rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <form
+        onSubmit={onSubmit}
+        className="mt-5 flex flex-col gap-3 sm:flex-row"
+      >
+        <label className="flex-1">
+          <span className="text-sm font-medium text-slate-800">
+            {websites.length === 0 ? "Add website" : "Add another website"}
+          </span>
+          <input
+            value={form.url}
+            placeholder="https://example.com"
+            onChange={(event) => onUrlChange(event.target.value)}
+            className="mt-2 h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none transition focus:border-cyan-500 focus:ring-4 focus:ring-cyan-100"
+          />
+        </label>
+        <button
+          disabled={isSubmitting}
+          type="submit"
+          className="h-11 rounded-xl bg-slate-950 px-5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300 sm:mt-7"
+        >
+          {isSubmitting ? "Saving..." : "Save website"}
+        </button>
+      </form>
     </div>
   );
 }
@@ -742,9 +1068,11 @@ async function getJson<TResponse extends object>(
   return parseJsonResponse<TResponse>(response);
 }
 
+type JsonBody = Record<string, string | boolean>;
+
 async function postJson<TResponse extends object>(
   url: string,
-  body: Record<string, string>,
+  body: JsonBody,
 ): Promise<TResponse> {
   const response = await fetch(url, {
     method: "POST",
@@ -752,6 +1080,31 @@ async function postJson<TResponse extends object>(
       "Content-Type": "application/json",
     },
     body: JSON.stringify(body),
+  });
+
+  return parseJsonResponse<TResponse>(response);
+}
+
+async function patchJson<TResponse extends object>(
+  url: string,
+  body: JsonBody,
+): Promise<TResponse> {
+  const response = await fetch(url, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+
+  return parseJsonResponse<TResponse>(response);
+}
+
+async function deleteJson<TResponse extends object>(
+  url: string,
+): Promise<TResponse> {
+  const response = await fetch(url, {
+    method: "DELETE",
   });
 
   return parseJsonResponse<TResponse>(response);
@@ -829,6 +1182,16 @@ function isValidUrl(value: string) {
   } catch {
     return false;
   }
+}
+
+function sortWebsites(items: Website[]) {
+  return [...items].sort((left, right) => {
+    if (left.isPrimary !== right.isPrimary) {
+      return left.isPrimary ? -1 : 1;
+    }
+
+    return right.createdAt.localeCompare(left.createdAt);
+  });
 }
 
 function getErrorMessage(error: unknown) {

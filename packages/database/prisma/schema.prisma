@@ -46,9 +46,27 @@ model Business {
   country        String?
   city           String?
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  websites       Website[]
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
   @@unique([organizationId, slug])
   @@index([organizationId])
+}
+
+model Website {
+  id            String   @id @default(cuid())
+  businessId    String
+  url           String
+  normalizedUrl String
+  domain        String
+  isPrimary     Boolean  @default(false)
+  business      Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([businessId, normalizedUrl])
+  @@index([businessId])
+  @@index([domain])
+  @@index([businessId, isPrimary])
 }

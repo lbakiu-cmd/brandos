@@ -1,10 +1,21 @@
-import { Body, Controller, Get, Param, Post } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+} from "@nestjs/common";
 import { CreateBusinessDto } from "./dto/create-business.dto";
 import { CreateOrganizationDto } from "./dto/create-organization.dto";
+import { CreateWebsiteDto } from "./dto/create-website.dto";
+import { UpdateWebsiteDto } from "./dto/update-website.dto";
 import {
   type BusinessSummary,
   type OrganizationDetail,
   type OrganizationSummary,
+  type WebsiteSummary,
   OrganizationsService,
 } from "./organizations.service";
 
@@ -44,5 +55,54 @@ export class OrganizationsController {
     @Param("organizationId") organizationId: string,
   ): Promise<BusinessSummary[]> {
     return this.organizationsService.listBusinesses(organizationId);
+  }
+
+  @Post(":organizationId/businesses/:businessId/websites")
+  createWebsite(
+    @Param("organizationId") organizationId: string,
+    @Param("businessId") businessId: string,
+    @Body() body: CreateWebsiteDto,
+  ): Promise<WebsiteSummary> {
+    return this.organizationsService.createWebsite(
+      organizationId,
+      businessId,
+      body,
+    );
+  }
+
+  @Get(":organizationId/businesses/:businessId/websites")
+  listWebsites(
+    @Param("organizationId") organizationId: string,
+    @Param("businessId") businessId: string,
+  ): Promise<WebsiteSummary[]> {
+    return this.organizationsService.listWebsites(organizationId, businessId);
+  }
+
+  @Patch(":organizationId/businesses/:businessId/websites/:websiteId")
+  updateWebsite(
+    @Param("organizationId") organizationId: string,
+    @Param("businessId") businessId: string,
+    @Param("websiteId") websiteId: string,
+    @Body() body: UpdateWebsiteDto,
+  ): Promise<WebsiteSummary> {
+    return this.organizationsService.updateWebsite(
+      organizationId,
+      businessId,
+      websiteId,
+      body,
+    );
+  }
+
+  @Delete(":organizationId/businesses/:businessId/websites/:websiteId")
+  deleteWebsite(
+    @Param("organizationId") organizationId: string,
+    @Param("businessId") businessId: string,
+    @Param("websiteId") websiteId: string,
+  ): Promise<WebsiteSummary> {
+    return this.organizationsService.deleteWebsite(
+      organizationId,
+      businessId,
+      websiteId,
+    );
   }
 }
