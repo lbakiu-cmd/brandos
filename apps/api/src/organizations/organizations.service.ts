@@ -135,6 +135,10 @@ export class OrganizationsService {
     input: CreateBusinessDto,
   ): Promise<BusinessSummary> {
     await this.requireMembership(organizationId);
+    const normalizedWebsite =
+      input.websiteUrl === undefined
+        ? undefined
+        : normalizeWebsiteUrl(input.websiteUrl);
 
     try {
       return await this.prisma.business.create({
@@ -143,6 +147,15 @@ export class OrganizationsService {
           name: input.name.trim(),
           slug: input.slug,
           websiteUrl: input.websiteUrl,
+          websites:
+            normalizedWebsite === undefined
+              ? undefined
+              : {
+                  create: {
+                    ...normalizedWebsite,
+                    isPrimary: true,
+                  },
+                },
           category: input.category?.trim(),
           country: input.country?.trim(),
           city: input.city?.trim(),
@@ -204,7 +217,7 @@ export class OrganizationsService {
     organizationId: string,
     businessId: string,
   ): Promise<WebsiteSummary[]> {
-    await this.requireBusiness(organizationId, businessId);
+    await this.backfillBusinessWebsite(organizationId, businessId);
 
     return this.prisma.website.findMany({
       where: { businessId },
@@ -417,6 +430,63 @@ export class OrganizationsService {
     return this.prisma.website.count({
       where: { businessId },
     });
+  }
+
+  private async backfillBusinessWebsite(
+    organizationId: string,
+    businessId: string,
+  ) {
+    await this.requireBusiness(organizationId, businessId);
+
+    const business = await this.prisma.business.findUnique({
+      where: { id: businessId },
+      select: {
+        websiteUrl: true,
+        websites: {
+          select: {
+            id: true,
+            normalizedUrl: true,
+            isPrimary: true,
+          },
+        },
+      },
+    });
+
+    if (!business?.websiteUrl) {
+      return;
+    }
+
+    const normalizedWebsite = normalizeWebsiteUrl(business.websiteUrl);
+    const existingWebsite = business.websites.find(
+      (website) => website.normalizedUrl === normalizedWebsite.normalizedUrl,
+    );
+    const hasPrimaryWebsite = business.websites.some(
+      (website) => website.isPrimary,
+    );
+
+    if (existingWebsite) {
+      if (!hasPrimaryWebsite) {
+        await this.prisma.website.update({
+          where: { id: existingWebsite.id },
+          data: { isPrimary: true },
+        });
+      }
+
+      return;
+    }
+
+    try {
+      await this.prisma.website.create({
+        data: {
+          businessId,
+          ...normalizedWebsite,
+          isPrimary: !hasPrimaryWebsite,
+        },
+      });
+    } catch (error) {
+      this.handleUniqueConstraint(error, "Website already exists.");
+      throw error;
+    }
   }
 
   private getTemporaryUserId() {

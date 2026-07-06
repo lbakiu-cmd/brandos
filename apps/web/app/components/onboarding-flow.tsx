@@ -127,6 +127,7 @@ export function OnboardingFlow() {
   >({});
   const [websiteForm, setWebsiteForm] =
     useState<WebsiteForm>(initialWebsiteForm);
+  const [isAddWebsiteFormVisible, setIsAddWebsiteFormVisible] = useState(false);
   const [isRestoring, setIsRestoring] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isWebsiteSubmitting, setIsWebsiteSubmitting] = useState(false);
@@ -206,7 +207,7 @@ export function OnboardingFlow() {
         const restoredBusiness = restoredBusinesses[0] ?? null;
         const restoredWebsites = restoredBusiness
           ? await getJson<Website[]>(
-              `${apiBaseUrl}/organizations/${selectedOrganizationId}/businesses/${restoredBusiness.id}/websites`,
+              `${apiBaseUrl}/organizations/${organizationToRestore.id}/businesses/${restoredBusiness.id}/websites`,
             )
           : [];
         const restoredCrawls =
@@ -228,6 +229,7 @@ export function OnboardingFlow() {
         setBusinesses(restoredBusinesses);
         setBusiness(restoredBusiness);
         setWebsites(restoredWebsites);
+        setIsAddWebsiteFormVisible(false);
         setLatestCrawls(restoredCrawls);
         setStep(restoredBusinesses.length > 0 ? "workspace" : "business");
       } catch (requestError) {
@@ -240,6 +242,7 @@ export function OnboardingFlow() {
         setBusiness(null);
         setBusinesses([]);
         setWebsites([]);
+        setIsAddWebsiteFormVisible(false);
         setLatestCrawls({});
         setStep("organization");
         setError(
@@ -339,10 +342,20 @@ export function OnboardingFlow() {
           city: businessForm.city.trim(),
         }),
       );
+      const createdWebsites = await getJson<Website[]>(
+        `${apiBaseUrl}/organizations/${organization.id}/businesses/${createdBusiness.id}/websites`,
+      );
+      const createdCrawls = await loadLatestCrawls(
+        apiBaseUrl,
+        organization.id,
+        createdBusiness.id,
+        createdWebsites,
+      );
       setBusiness(createdBusiness);
       setBusinesses((current) => [createdBusiness, ...current]);
-      setWebsites([]);
-      setLatestCrawls({});
+      setWebsites(createdWebsites);
+      setIsAddWebsiteFormVisible(false);
+      setLatestCrawls(createdCrawls);
       setBusinessForm(initialBusinessForm);
       setStep("workspace");
       setSuccess("Business workspace created.");
@@ -374,6 +387,7 @@ export function OnboardingFlow() {
     setBusiness(null);
     setBusinesses([]);
     setWebsites([]);
+    setIsAddWebsiteFormVisible(false);
     setLatestCrawls({});
     setWebsiteForm(initialWebsiteForm);
     setOrganizationForm(initialOrganizationForm);
@@ -424,6 +438,7 @@ export function OnboardingFlow() {
       setBusinesses(selectedBusinesses);
       setBusiness(selectedBusiness);
       setWebsites(selectedWebsites);
+      setIsAddWebsiteFormVisible(false);
       setLatestCrawls(selectedCrawls);
       setStep(selectedBusiness ? "workspace" : "business");
     } catch (requestError) {
@@ -437,6 +452,7 @@ export function OnboardingFlow() {
     setBusinessForm(initialBusinessForm);
     setBusiness(null);
     setWebsites([]);
+    setIsAddWebsiteFormVisible(false);
     setLatestCrawls({});
     setWebsiteForm(initialWebsiteForm);
     setStep("business");
@@ -491,6 +507,7 @@ export function OnboardingFlow() {
       );
       setLatestCrawls((current) => removeKey(current, createdWebsite.id));
       setWebsiteForm(initialWebsiteForm);
+      setIsAddWebsiteFormVisible(false);
       setSuccess("Website saved.");
     } catch (requestError) {
       setError(getErrorMessage(requestError));
@@ -521,9 +538,16 @@ export function OnboardingFlow() {
       const deletedWebsite = await deleteJson<Website>(
         `${apiBaseUrl}/organizations/${organization.id}/businesses/${business.id}/websites/${websiteId}`,
       );
-      setWebsites((current) =>
-        current.filter((website) => website.id !== deletedWebsite.id),
-      );
+      if (deletedWebsite.isPrimary) {
+        const remainingWebsites = await getJson<Website[]>(
+          `${apiBaseUrl}/organizations/${organization.id}/businesses/${business.id}/websites`,
+        );
+        setWebsites(remainingWebsites);
+      } else {
+        setWebsites((current) =>
+          current.filter((website) => website.id !== deletedWebsite.id),
+        );
+      }
       setLatestCrawls((current) => removeKey(current, deletedWebsite.id));
       setSuccess("Website deleted.");
     } catch (requestError) {
@@ -697,10 +721,16 @@ export function OnboardingFlow() {
               latestCrawls={latestCrawls}
               isWebsiteSubmitting={isWebsiteSubmitting}
               isWebsiteLoading={isWebsiteLoading}
+              isAddWebsiteFormVisible={isAddWebsiteFormVisible}
               queuedCrawlWebsiteId={queuedCrawlWebsiteId}
               onCreateAnotherBusiness={createAnotherBusiness}
               onWebsiteUrlChange={(url) => setWebsiteForm({ url })}
               onWebsiteSubmit={handleWebsiteSubmit}
+              onShowAddWebsiteForm={() => setIsAddWebsiteFormVisible(true)}
+              onCancelAddWebsite={() => {
+                setWebsiteForm(initialWebsiteForm);
+                setIsAddWebsiteFormVisible(false);
+              }}
               onMakePrimaryWebsite={makePrimaryWebsite}
               onDeleteWebsite={deleteWebsite}
               onQueueWebsiteCrawl={queueWebsiteCrawl}
@@ -901,10 +931,13 @@ function WorkspaceDashboard({
   latestCrawls,
   isWebsiteSubmitting,
   isWebsiteLoading,
+  isAddWebsiteFormVisible,
   queuedCrawlWebsiteId,
   onCreateAnotherBusiness,
   onWebsiteUrlChange,
   onWebsiteSubmit,
+  onShowAddWebsiteForm,
+  onCancelAddWebsite,
   onMakePrimaryWebsite,
   onDeleteWebsite,
   onQueueWebsiteCrawl,
@@ -918,15 +951,20 @@ function WorkspaceDashboard({
   latestCrawls: Record<string, WebsiteCrawl>;
   isWebsiteSubmitting: boolean;
   isWebsiteLoading: boolean;
+  isAddWebsiteFormVisible: boolean;
   queuedCrawlWebsiteId: string | null;
   onCreateAnotherBusiness: () => void;
   onWebsiteUrlChange: (url: string) => void;
   onWebsiteSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onShowAddWebsiteForm: () => void;
+  onCancelAddWebsite: () => void;
   onMakePrimaryWebsite: (websiteId: string) => void;
   onDeleteWebsite: (websiteId: string) => void;
   onQueueWebsiteCrawl: (websiteId: string) => void;
   onSwitchWorkspace: () => void;
 }) {
+  const primaryWebsite = websites.find((website) => website.isPrimary) ?? null;
+
   return (
     <div className="space-y-6">
       <FormHeader
@@ -941,15 +979,19 @@ function WorkspaceDashboard({
         <h2 className="mt-2 text-2xl font-semibold text-slate-950">
           {business.name}
         </h2>
-        {business.websiteUrl ? (
+        {primaryWebsite ? (
           <a
-            href={business.websiteUrl}
+            href={primaryWebsite.normalizedUrl}
             className="mt-2 inline-block text-sm font-medium text-cyan-700"
             target="_blank"
             rel="noreferrer"
           >
-            {business.websiteUrl}
+            {primaryWebsite.normalizedUrl}
           </a>
+        ) : business.websiteUrl ? (
+          <p className="mt-2 text-sm text-slate-500">
+            Website setup pending for {business.websiteUrl}.
+          </p>
         ) : (
           <p className="mt-2 text-sm text-slate-500">No website added yet.</p>
         )}
@@ -969,9 +1011,12 @@ function WorkspaceDashboard({
         latestCrawls={latestCrawls}
         isSubmitting={isWebsiteSubmitting}
         isLoading={isWebsiteLoading}
+        isAddWebsiteFormVisible={isAddWebsiteFormVisible}
         queuedCrawlWebsiteId={queuedCrawlWebsiteId}
         onUrlChange={onWebsiteUrlChange}
         onSubmit={onWebsiteSubmit}
+        onShowAddWebsiteForm={onShowAddWebsiteForm}
+        onCancelAddWebsite={onCancelAddWebsite}
         onMakePrimary={onMakePrimaryWebsite}
         onDelete={onDeleteWebsite}
         onQueueCrawl={onQueueWebsiteCrawl}
@@ -1021,9 +1066,12 @@ function WebsiteSection({
   latestCrawls,
   isSubmitting,
   isLoading,
+  isAddWebsiteFormVisible,
   queuedCrawlWebsiteId,
   onUrlChange,
   onSubmit,
+  onShowAddWebsiteForm,
+  onCancelAddWebsite,
   onMakePrimary,
   onDelete,
   onQueueCrawl,
@@ -1033,13 +1081,19 @@ function WebsiteSection({
   latestCrawls: Record<string, WebsiteCrawl>;
   isSubmitting: boolean;
   isLoading: boolean;
+  isAddWebsiteFormVisible: boolean;
   queuedCrawlWebsiteId: string | null;
   onUrlChange: (url: string) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onShowAddWebsiteForm: () => void;
+  onCancelAddWebsite: () => void;
   onMakePrimary: (websiteId: string) => void;
   onDelete: (websiteId: string) => void;
   onQueueCrawl: (websiteId: string) => void;
 }) {
+  const hasPrimaryWebsite = websites.some((website) => website.isPrimary);
+  const shouldShowWebsiteForm = !hasPrimaryWebsite || isAddWebsiteFormVisible;
+
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -1051,7 +1105,7 @@ function WebsiteSection({
             Audit-ready web presence
           </h3>
           <p className="mt-1 text-sm leading-6 text-slate-600">
-            Add the domains BrandOS will later use for AI Visibility audits.
+            Your primary website is the starting point for AI Visibility audits.
           </p>
         </div>
         {websites.length > 0 ? (
@@ -1149,29 +1203,50 @@ function WebsiteSection({
         </div>
       )}
 
-      <form
-        onSubmit={onSubmit}
-        className="mt-5 flex flex-col gap-3 sm:flex-row"
-      >
-        <label className="flex-1">
-          <span className="text-sm font-medium text-slate-800">
-            {websites.length === 0 ? "Add website" : "Add another website"}
-          </span>
-          <input
-            value={form.url}
-            placeholder="https://example.com"
-            onChange={(event) => onUrlChange(event.target.value)}
-            className="mt-2 h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none transition focus:border-cyan-500 focus:ring-4 focus:ring-cyan-100"
-          />
-        </label>
-        <button
-          disabled={isSubmitting}
-          type="submit"
-          className="h-11 rounded-xl bg-slate-950 px-5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300 sm:mt-7"
+      {shouldShowWebsiteForm ? (
+        <form
+          onSubmit={onSubmit}
+          className="mt-5 flex flex-col gap-3 sm:flex-row"
         >
-          {isSubmitting ? "Saving..." : "Save website"}
+          <label className="flex-1">
+            <span className="text-sm font-medium text-slate-800">
+              {websites.length === 0 ? "Add website" : "Add another website"}
+            </span>
+            <input
+              value={form.url}
+              placeholder="https://example.com"
+              onChange={(event) => onUrlChange(event.target.value)}
+              className="mt-2 h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none transition focus:border-cyan-500 focus:ring-4 focus:ring-cyan-100"
+            />
+          </label>
+          <div className="flex gap-2 sm:mt-7">
+            <button
+              disabled={isSubmitting}
+              type="submit"
+              className="h-11 rounded-xl bg-slate-950 px-5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+            >
+              {isSubmitting ? "Saving..." : "Save website"}
+            </button>
+            {hasPrimaryWebsite ? (
+              <button
+                type="button"
+                onClick={onCancelAddWebsite}
+                className="h-11 rounded-xl border border-slate-300 px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+            ) : null}
+          </div>
+        </form>
+      ) : (
+        <button
+          type="button"
+          onClick={onShowAddWebsiteForm}
+          className="mt-4 text-sm font-semibold text-cyan-700 hover:text-cyan-900"
+        >
+          Add another website
         </button>
-      </form>
+      )}
     </div>
   );
 }
