@@ -1,32 +1,36 @@
-import { NestFactory } from "@nestjs/core";
-import { ValidationPipe } from "@nestjs/common";
-import {
-  FastifyAdapter,
-  NestFastifyApplication,
-} from "@nestjs/platform-fastify";
-import { AppModule } from "./app.module";
-import { ApiExceptionFilter } from "./common/api-exception.filter";
+import { ValidationPipe } from '@nestjs/common';
+import { NestFactory } from '@nestjs/core';
+import { AppModule } from './app.module';
+import { ApiExceptionFilter } from './common/api-exception.filter';
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestFastifyApplication>(
-    AppModule,
-    new FastifyAdapter(),
-  );
+  const app = await NestFactory.create(AppModule);
 
-  app.useGlobalFilters(new ApiExceptionFilter());
+  const allowedOrigins = [
+    process.env.WEB_ORIGIN ?? 'http://localhost:3000',
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+  ];
+
+  app.enableCors({
+    origin: allowedOrigins,
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type'],
+  });
+
   app.useGlobalPipes(
     new ValidationPipe({
-      forbidNonWhitelisted: true,
-      transform: true,
       whitelist: true,
+      transform: true,
+      forbidNonWhitelisted: true,
     }),
   );
 
-  app.enableCors({
-    origin: process.env.WEB_ORIGIN ?? "http://127.0.0.1:3000",
-  });
+  app.useGlobalFilters(new ApiExceptionFilter());
 
-  await app.listen(process.env.PORT ?? 4000, "0.0.0.0");
+  const port = Number(process.env.PORT ?? 4000);
+
+  await app.listen(port, '0.0.0.0');
 }
 
 void bootstrap();
