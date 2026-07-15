@@ -636,6 +636,45 @@ export function OnboardingFlow() {
     );
   }
 
+  if (step === "workspace" && organization && business) {
+    return (
+      <main className="min-h-screen bg-slate-100 text-slate-950">
+        <div className="flex min-h-screen flex-col lg:flex-row">
+          <WorkspaceSidebar organization={organization} business={business} />
+          <section className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
+            <div className="mx-auto w-full max-w-7xl space-y-5">
+              {error ? <Alert tone="error" message={error} /> : null}
+              {success ? <Alert tone="success" message={success} /> : null}
+              <WorkspaceDashboard
+                business={business}
+                businessCount={businesses.length}
+                websiteForm={websiteForm}
+                websites={websites}
+                latestCrawls={latestCrawls}
+                isWebsiteSubmitting={isWebsiteSubmitting}
+                isWebsiteLoading={isWebsiteLoading}
+                isAddWebsiteFormVisible={isAddWebsiteFormVisible}
+                queuedCrawlWebsiteId={queuedCrawlWebsiteId}
+                onCreateAnotherBusiness={createAnotherBusiness}
+                onWebsiteUrlChange={(url) => setWebsiteForm({ url })}
+                onWebsiteSubmit={handleWebsiteSubmit}
+                onShowAddWebsiteForm={() => setIsAddWebsiteFormVisible(true)}
+                onCancelAddWebsite={() => {
+                  setWebsiteForm(initialWebsiteForm);
+                  setIsAddWebsiteFormVisible(false);
+                }}
+                onMakePrimaryWebsite={makePrimaryWebsite}
+                onDeleteWebsite={deleteWebsite}
+                onQueueWebsiteCrawl={queueWebsiteCrawl}
+                onSwitchWorkspace={switchWorkspace}
+              />
+            </div>
+          </section>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen bg-slate-950 text-white">
       <section className="mx-auto grid min-h-screen w-full max-w-6xl gap-10 px-6 py-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
@@ -713,36 +752,65 @@ export function OnboardingFlow() {
               onSwitchWorkspace={switchWorkspace}
             />
           ) : null}
-
-          {step === "workspace" && organization && business ? (
-            <WorkspaceDashboard
-              organization={organization}
-              business={business}
-              businessCount={businesses.length}
-              websiteForm={websiteForm}
-              websites={websites}
-              latestCrawls={latestCrawls}
-              isWebsiteSubmitting={isWebsiteSubmitting}
-              isWebsiteLoading={isWebsiteLoading}
-              isAddWebsiteFormVisible={isAddWebsiteFormVisible}
-              queuedCrawlWebsiteId={queuedCrawlWebsiteId}
-              onCreateAnotherBusiness={createAnotherBusiness}
-              onWebsiteUrlChange={(url) => setWebsiteForm({ url })}
-              onWebsiteSubmit={handleWebsiteSubmit}
-              onShowAddWebsiteForm={() => setIsAddWebsiteFormVisible(true)}
-              onCancelAddWebsite={() => {
-                setWebsiteForm(initialWebsiteForm);
-                setIsAddWebsiteFormVisible(false);
-              }}
-              onMakePrimaryWebsite={makePrimaryWebsite}
-              onDeleteWebsite={deleteWebsite}
-              onQueueWebsiteCrawl={queueWebsiteCrawl}
-              onSwitchWorkspace={switchWorkspace}
-            />
-          ) : null}
         </div>
       </section>
     </main>
+  );
+}
+
+function WorkspaceSidebar({
+  organization,
+  business,
+}: {
+  organization: Organization;
+  business: Business;
+}) {
+  const items = [
+    "Dashboard",
+    "Business Profile",
+    "Website",
+    "Google Business",
+    "Social Profiles",
+    "Audits",
+    "Settings",
+  ];
+
+  return (
+    <aside className="bg-slate-950 px-4 py-5 text-white lg:sticky lg:top-0 lg:h-screen lg:w-72 lg:px-5">
+      <div className="flex items-start justify-between gap-4 lg:block">
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-300">
+            BrandOS
+          </p>
+          <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 p-4">
+            <p className="text-xs font-medium uppercase tracking-[0.16em] text-slate-400">
+              Workspace
+            </p>
+            <p className="mt-2 font-semibold text-white">{organization.name}</p>
+            <p className="mt-1 text-sm text-slate-400">{business.name}</p>
+          </div>
+        </div>
+      </div>
+      <nav className="mt-5 flex gap-2 overflow-x-auto pb-1 lg:flex-col lg:overflow-visible lg:pb-0">
+        {items.map((item) => {
+          const isActive = item === "Dashboard";
+
+          return (
+            <button
+              key={item}
+              type="button"
+              className={`whitespace-nowrap rounded-xl px-3 py-2 text-left text-sm font-semibold transition lg:w-full ${
+                isActive
+                  ? "bg-cyan-300 text-slate-950"
+                  : "text-slate-300 hover:bg-white/10 hover:text-white"
+              }`}
+            >
+              {item}
+            </button>
+          );
+        })}
+      </nav>
+    </aside>
   );
 }
 
@@ -926,7 +994,6 @@ function BusinessStep({
 }
 
 function WorkspaceDashboard({
-  organization,
   business,
   businessCount,
   websiteForm,
@@ -946,7 +1013,6 @@ function WorkspaceDashboard({
   onQueueWebsiteCrawl,
   onSwitchWorkspace,
 }: {
-  organization: Organization;
   business: Business;
   businessCount: number;
   websiteForm: WebsiteForm;
@@ -969,36 +1035,21 @@ function WorkspaceDashboard({
   const primaryWebsite = websites.find((website) => website.isPrimary) ?? null;
 
   return (
-    <div className="space-y-6">
-      <FormHeader
-        eyebrow="Workspace"
-        title={organization.name}
-        description="Your business workspace is ready for the first visibility audit."
-      />
-      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-        <p className="text-sm font-medium uppercase tracking-[0.14em] text-slate-500">
-          Business
-        </p>
-        <h2 className="mt-2 text-2xl font-semibold text-slate-950">
-          {business.name}
-        </h2>
-        {primaryWebsite ? (
-          <a
-            href={primaryWebsite.normalizedUrl}
-            className="mt-2 inline-block text-sm font-medium text-cyan-700"
-            target="_blank"
-            rel="noreferrer"
-          >
-            {primaryWebsite.normalizedUrl}
-          </a>
-        ) : business.websiteUrl ? (
-          <p className="mt-2 text-sm text-slate-500">
-            Website setup pending for {business.websiteUrl}.
+    <div className="space-y-5">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-cyan-700">
+            Dashboard
           </p>
-        ) : (
-          <p className="mt-2 text-sm text-slate-500">No website added yet.</p>
-        )}
-        <div className="mt-4 flex flex-wrap gap-2 text-sm text-slate-600">
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">
+            {business.name}
+          </h1>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+            Monitor the foundations BrandOS will use for AI visibility: website
+            health, local presence, social profiles, and audit readiness.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2 text-sm text-slate-600">
           {business.category ? <Pill>{business.category}</Pill> : null}
           {business.city ? <Pill>{business.city}</Pill> : null}
           {business.country ? <Pill>{business.country}</Pill> : null}
@@ -1008,47 +1059,121 @@ function WorkspaceDashboard({
         </div>
       </div>
 
-      <WebsiteSection
-        form={websiteForm}
-        websites={websites}
-        latestCrawls={latestCrawls}
-        isSubmitting={isWebsiteSubmitting}
-        isLoading={isWebsiteLoading}
-        isAddWebsiteFormVisible={isAddWebsiteFormVisible}
-        queuedCrawlWebsiteId={queuedCrawlWebsiteId}
-        onUrlChange={onWebsiteUrlChange}
-        onSubmit={onWebsiteSubmit}
-        onShowAddWebsiteForm={onShowAddWebsiteForm}
-        onCancelAddWebsite={onCancelAddWebsite}
-        onMakePrimary={onMakePrimaryWebsite}
-        onDelete={onDeleteWebsite}
-        onQueueCrawl={onQueueWebsiteCrawl}
-      />
+      <div className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
+        <AiVisibilityScoreCard />
+        <BusinessProfileCard
+          business={business}
+          primaryWebsite={primaryWebsite}
+        />
+      </div>
 
-      <NextVisibilitySteps hasPrimaryWebsite={Boolean(primaryWebsite)} />
+      <div className="grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
+        <WebsiteSection
+          form={websiteForm}
+          websites={websites}
+          latestCrawls={latestCrawls}
+          isSubmitting={isWebsiteSubmitting}
+          isLoading={isWebsiteLoading}
+          isAddWebsiteFormVisible={isAddWebsiteFormVisible}
+          queuedCrawlWebsiteId={queuedCrawlWebsiteId}
+          onUrlChange={onWebsiteUrlChange}
+          onSubmit={onWebsiteSubmit}
+          onShowAddWebsiteForm={onShowAddWebsiteForm}
+          onCancelAddWebsite={onCancelAddWebsite}
+          onMakePrimary={onMakePrimaryWebsite}
+          onDelete={onDeleteWebsite}
+          onQueueCrawl={onQueueWebsiteCrawl}
+        />
 
-      <div className="rounded-2xl border border-cyan-200 bg-cyan-50 p-5">
-        <p className="text-sm font-medium text-cyan-700">AI Visibility Score</p>
-        <div className="mt-3 flex items-end gap-2">
-          <span className="text-5xl font-semibold text-slate-950">--</span>
-          <span className="pb-2 text-sm font-medium text-slate-500">
-            pending first audit
-          </span>
-        </div>
-        <p className="mt-3 text-sm leading-6 text-slate-600">
-          Scores will become explainable once website intelligence, local
-          profile, reviews, and recommendation signals are connected.
+        <NextVisibilitySteps hasPrimaryWebsite={Boolean(primaryWebsite)} />
+      </div>
+
+      <div className="rounded-2xl border border-slate-200 bg-white p-5">
+        <p className="text-sm font-semibold text-slate-950">
+          Workspace actions
         </p>
+        <p className="mt-1 text-sm leading-6 text-slate-600">
+          Settings-style actions for managing multiple businesses or changing
+          the active workspace.
+        </p>
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+          <SecondaryButton onClick={onCreateAnotherBusiness}>
+            Create another business
+          </SecondaryButton>
+          <SecondaryButton onClick={onSwitchWorkspace}>
+            Switch workspace
+          </SecondaryButton>
+        </div>
       </div>
+    </div>
+  );
+}
 
-      <div className="flex flex-col gap-3 sm:flex-row">
-        <SecondaryButton onClick={onCreateAnotherBusiness}>
-          Create another business
-        </SecondaryButton>
-        <SecondaryButton onClick={onSwitchWorkspace}>
-          Switch workspace
-        </SecondaryButton>
+function AiVisibilityScoreCard() {
+  return (
+    <div className="rounded-2xl border border-cyan-200 bg-cyan-50 p-5">
+      <p className="text-sm font-medium text-cyan-700">AI Visibility Score</p>
+      <div className="mt-3 flex items-end gap-2">
+        <span className="text-6xl font-semibold text-slate-950">--</span>
+        <span className="pb-2 text-sm font-medium text-slate-500">
+          pending first audit
+        </span>
       </div>
+      <p className="mt-4 text-sm leading-6 text-slate-600">
+        Scores will become explainable once website intelligence, local profile,
+        reviews, and recommendation signals are connected.
+      </p>
+    </div>
+  );
+}
+
+function BusinessProfileCard({
+  business,
+  primaryWebsite,
+}: {
+  business: Business;
+  primaryWebsite: Website | null;
+}) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-5">
+      <p className="text-sm font-medium uppercase tracking-[0.14em] text-slate-500">
+        Business Profile
+      </p>
+      <h2 className="mt-2 text-2xl font-semibold text-slate-950">
+        {business.name}
+      </h2>
+      {primaryWebsite ? (
+        <a
+          href={primaryWebsite.normalizedUrl}
+          className="mt-2 inline-block break-all text-sm font-medium text-cyan-700"
+          target="_blank"
+          rel="noreferrer"
+        >
+          {primaryWebsite.normalizedUrl}
+        </a>
+      ) : business.websiteUrl ? (
+        <p className="mt-2 text-sm text-slate-500">
+          Website setup pending for {business.websiteUrl}.
+        </p>
+      ) : (
+        <p className="mt-2 text-sm text-slate-500">No website added yet.</p>
+      )}
+      <div className="mt-4 grid gap-3 text-sm sm:grid-cols-3">
+        <ProfileFact label="Category" value={business.category ?? "Not set"} />
+        <ProfileFact label="City" value={business.city ?? "Not set"} />
+        <ProfileFact label="Country" value={business.country ?? "Not set"} />
+      </div>
+    </div>
+  );
+}
+
+function ProfileFact({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl bg-slate-50 px-3 py-3">
+      <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+        {label}
+      </p>
+      <p className="mt-1 font-medium text-slate-800">{value}</p>
     </div>
   );
 }
@@ -1169,8 +1294,10 @@ function WebsiteSection({
                           className="rounded-lg border border-cyan-200 px-3 py-2 text-xs font-semibold text-cyan-800 hover:bg-cyan-50 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           {queuedCrawlWebsiteId === website.id
-                            ? "Queueing..."
-                            : "Queue crawl"}
+                            ? "Starting scan..."
+                            : latestCrawl
+                              ? "Refresh website scan"
+                              : "Scan website"}
                         </button>
                         {isWebsiteManagementVisible && !website.isPrimary ? (
                           <button
