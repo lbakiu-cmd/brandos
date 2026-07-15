@@ -143,6 +143,8 @@ type BusinessRecommendation = {
   updatedAt: string;
 };
 
+type RecommendationStatusFilter = BusinessRecommendation["status"];
+
 type CrawlMetadata = {
   finalUrl: string;
   httpStatus: number;
@@ -2061,9 +2063,25 @@ function RecommendationsSection({
     status: BusinessRecommendation["status"],
   ) => void;
 }) {
+  const [statusFilter, setStatusFilter] =
+    useState<RecommendationStatusFilter>("OPEN");
   const openRecommendations = recommendations.filter(
     (recommendation) => recommendation.status === "OPEN",
   );
+  const filteredRecommendations = sortRecommendations(
+    recommendations.filter(
+      (recommendation) => recommendation.status === statusFilter,
+    ),
+  );
+  const recommendationCounts = {
+    OPEN: openRecommendations.length,
+    DONE: recommendations.filter(
+      (recommendation) => recommendation.status === "DONE",
+    ).length,
+    IGNORED: recommendations.filter(
+      (recommendation) => recommendation.status === "IGNORED",
+    ).length,
+  } satisfies Record<RecommendationStatusFilter, number>;
 
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-5">
@@ -2098,22 +2116,46 @@ function RecommendationsSection({
         </div>
       ) : (
         <div className="mt-5 grid gap-3">
-          <div className="flex flex-wrap gap-2 text-xs font-semibold text-slate-600">
-            <span className="rounded-full bg-slate-100 px-3 py-1">
-              {openRecommendations.length} open
-            </span>
-            <span className="rounded-full bg-slate-100 px-3 py-1">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-wrap gap-2">
+              {(["OPEN", "DONE", "IGNORED"] as const).map((status) => {
+                const isActive = statusFilter === status;
+
+                return (
+                  <button
+                    key={status}
+                    type="button"
+                    onClick={() => setStatusFilter(status)}
+                    className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                      isActive
+                        ? "bg-cyan-600 text-white"
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    }`}
+                  >
+                    {formatEnumLabel(status)} {recommendationCounts[status]}
+                  </button>
+                );
+              })}
+            </div>
+            <span className="text-xs font-semibold text-slate-500">
               {recommendations.length} total
             </span>
           </div>
-          {sortRecommendations(recommendations).map((recommendation) => (
-            <RecommendationCard
-              key={recommendation.id}
-              recommendation={recommendation}
-              isUpdating={updatingRecommendationId === recommendation.id}
-              onUpdateStatus={onUpdateStatus}
-            />
-          ))}
+          {filteredRecommendations.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm leading-6 text-slate-600">
+              No {formatEnumLabel(statusFilter).toLowerCase()} recommendations
+              right now.
+            </div>
+          ) : (
+            filteredRecommendations.map((recommendation) => (
+              <RecommendationCard
+                key={recommendation.id}
+                recommendation={recommendation}
+                isUpdating={updatingRecommendationId === recommendation.id}
+                onUpdateStatus={onUpdateStatus}
+              />
+            ))
+          )}
         </div>
       )}
     </section>
