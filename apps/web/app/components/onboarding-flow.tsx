@@ -109,13 +109,36 @@ type BusinessVisibilityScore = {
   summary: string | null;
   inputs: {
     rawScore?: number;
+    cappedScore?: number;
     finalScore?: number;
+    capAdjustment?: number;
     isMvpCapped?: boolean;
     mvpScoreCap?: number;
     advancedVisibilityChecksAvailable?: boolean;
   } | null;
   breakdown: Record<string, VisibilityBreakdownSection>;
   calculatedAt: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type BusinessRecommendation = {
+  id: string;
+  businessId: string;
+  sourceType:
+    | "WEBSITE"
+    | "GOOGLE_BUSINESS"
+    | "SOCIAL"
+    | "AUDIT_FINDING"
+    | "AI_VISIBILITY";
+  priority: "LOW" | "MEDIUM" | "HIGH";
+  status: "OPEN" | "DONE" | "IGNORED";
+  code: string;
+  title: string;
+  description: string;
+  impact: string | null;
+  actionLabel: string | null;
+  evidence: unknown;
   createdAt: string;
   updatedAt: string;
 };
@@ -250,6 +273,9 @@ export function OnboardingFlow() {
   >({});
   const [visibilityScore, setVisibilityScore] =
     useState<BusinessVisibilityScore | null>(null);
+  const [recommendations, setRecommendations] = useState<
+    BusinessRecommendation[]
+  >([]);
   const [websiteForm, setWebsiteForm] =
     useState<WebsiteForm>(initialWebsiteForm);
   const [googleBusinessProfileForm, setGoogleBusinessProfileForm] =
@@ -278,6 +304,11 @@ export function OnboardingFlow() {
     useState(false);
   const [isVisibilityScoreCalculating, setIsVisibilityScoreCalculating] =
     useState(false);
+  const [isRecommendationsGenerating, setIsRecommendationsGenerating] =
+    useState(false);
+  const [updatingRecommendationId, setUpdatingRecommendationId] = useState<
+    string | null
+  >(null);
   const [queuedCrawlWebsiteId, setQueuedCrawlWebsiteId] = useState<
     string | null
   >(null);
@@ -395,6 +426,13 @@ export function OnboardingFlow() {
               restoredBusiness.id,
             )
           : null;
+        const restoredRecommendations = restoredBusiness
+          ? await loadRecommendations(
+              apiBaseUrl,
+              organizationToRestore.id,
+              restoredBusiness.id,
+            )
+          : [];
 
         if (!isMounted) {
           return;
@@ -408,6 +446,7 @@ export function OnboardingFlow() {
         setGoogleBusinessProfile(restoredGoogleBusinessProfile);
         setSocialProfiles(restoredSocialProfiles);
         setVisibilityScore(restoredVisibilityScore);
+        setRecommendations(restoredRecommendations);
         setIsAddWebsiteFormVisible(false);
         setIsGoogleBusinessProfileFormVisible(false);
         setEditingSocialProfileId(null);
@@ -427,6 +466,7 @@ export function OnboardingFlow() {
         setGoogleBusinessProfile(null);
         setSocialProfiles([]);
         setVisibilityScore(null);
+        setRecommendations([]);
         setIsAddWebsiteFormVisible(false);
         setIsGoogleBusinessProfileFormVisible(false);
         setEditingSocialProfileId(null);
@@ -489,6 +529,7 @@ export function OnboardingFlow() {
       setGoogleBusinessProfile(null);
       setSocialProfiles([]);
       setVisibilityScore(null);
+      setRecommendations([]);
       setLatestCrawls({});
       setAuditFindings({});
       setStep("business");
@@ -555,6 +596,7 @@ export function OnboardingFlow() {
       setGoogleBusinessProfile(null);
       setSocialProfiles([]);
       setVisibilityScore(null);
+      setRecommendations([]);
       setIsAddWebsiteFormVisible(false);
       setIsGoogleBusinessProfileFormVisible(false);
       setEditingSocialProfileId(null);
@@ -594,6 +636,7 @@ export function OnboardingFlow() {
     setGoogleBusinessProfile(null);
     setSocialProfiles([]);
     setVisibilityScore(null);
+    setRecommendations([]);
     setIsAddWebsiteFormVisible(false);
     setIsGoogleBusinessProfileFormVisible(false);
     setEditingSocialProfileId(null);
@@ -669,6 +712,9 @@ export function OnboardingFlow() {
             selectedBusiness.id,
           )
         : null;
+      const selectedRecommendations = selectedBusiness
+        ? await loadRecommendations(apiBaseUrl, organizationId, selectedBusiness.id)
+        : [];
 
       window.localStorage.setItem(
         selectedOrganizationStorageKey,
@@ -681,6 +727,7 @@ export function OnboardingFlow() {
       setGoogleBusinessProfile(selectedGoogleBusinessProfile);
       setSocialProfiles(selectedSocialProfiles);
       setVisibilityScore(selectedVisibilityScore);
+      setRecommendations(selectedRecommendations);
       setIsAddWebsiteFormVisible(false);
       setIsGoogleBusinessProfileFormVisible(false);
       setEditingSocialProfileId(null);
@@ -701,6 +748,7 @@ export function OnboardingFlow() {
     setGoogleBusinessProfile(null);
     setSocialProfiles([]);
     setVisibilityScore(null);
+    setRecommendations([]);
     setIsAddWebsiteFormVisible(false);
     setIsGoogleBusinessProfileFormVisible(false);
     setEditingSocialProfileId(null);
@@ -884,12 +932,76 @@ export function OnboardingFlow() {
         `${apiBaseUrl}/organizations/${organization.id}/businesses/${business.id}/visibility-score/calculate`,
         {},
       );
+      const generatedRecommendations = await postJson<BusinessRecommendation[]>(
+        `${apiBaseUrl}/organizations/${organization.id}/businesses/${business.id}/recommendations/generate`,
+        {},
+      );
       setVisibilityScore(score);
-      setSuccess("AI Visibility Score calculated.");
+      setRecommendations(generatedRecommendations);
+      setSuccess("AI Visibility Score calculated and recommendations updated.");
     } catch (requestError) {
       setError(getErrorMessage(requestError));
     } finally {
       setIsVisibilityScoreCalculating(false);
+    }
+  }
+
+  async function generateRecommendations() {
+    setError(null);
+    setSuccess(null);
+
+    if (!apiBaseUrl || !organization || !business) {
+      setError("Workspace is not ready.");
+      return;
+    }
+
+    setIsRecommendationsGenerating(true);
+    try {
+      const generatedRecommendations = await postJson<BusinessRecommendation[]>(
+        `${apiBaseUrl}/organizations/${organization.id}/businesses/${business.id}/recommendations/generate`,
+        {},
+      );
+      setRecommendations(generatedRecommendations);
+      setSuccess("Recommendations updated.");
+    } catch (requestError) {
+      setError(getErrorMessage(requestError));
+    } finally {
+      setIsRecommendationsGenerating(false);
+    }
+  }
+
+  async function updateRecommendationStatus(
+    recommendationId: string,
+    status: BusinessRecommendation["status"],
+  ) {
+    setError(null);
+    setSuccess(null);
+
+    if (!apiBaseUrl || !organization || !business) {
+      setError("Workspace is not ready.");
+      return;
+    }
+
+    setUpdatingRecommendationId(recommendationId);
+    try {
+      const updatedRecommendation = await patchJson<BusinessRecommendation>(
+        `${apiBaseUrl}/organizations/${organization.id}/businesses/${business.id}/recommendations/${recommendationId}`,
+        { status },
+      );
+      setRecommendations((current) =>
+        sortRecommendations(
+          current.map((recommendation) =>
+            recommendation.id === updatedRecommendation.id
+              ? updatedRecommendation
+              : recommendation,
+          ),
+        ),
+      );
+      setSuccess("Recommendation updated.");
+    } catch (requestError) {
+      setError(getErrorMessage(requestError));
+    } finally {
+      setUpdatingRecommendationId(null);
     }
   }
 
@@ -1160,6 +1272,7 @@ export function OnboardingFlow() {
                 socialProfileForm={socialProfileForm}
                 editingSocialProfileId={editingSocialProfileId}
                 visibilityScore={visibilityScore}
+                recommendations={recommendations}
                 latestCrawls={latestCrawls}
                 auditFindings={auditFindings}
                 isWebsiteSubmitting={isWebsiteSubmitting}
@@ -1169,12 +1282,14 @@ export function OnboardingFlow() {
                 }
                 isSocialProfileSubmitting={isSocialProfileSubmitting}
                 isVisibilityScoreCalculating={isVisibilityScoreCalculating}
+                isRecommendationsGenerating={isRecommendationsGenerating}
                 isAddWebsiteFormVisible={isAddWebsiteFormVisible}
                 isGoogleBusinessProfileFormVisible={
                   isGoogleBusinessProfileFormVisible
                 }
                 queuedCrawlWebsiteId={queuedCrawlWebsiteId}
                 ignoredFindingId={ignoredFindingId}
+                updatingRecommendationId={updatingRecommendationId}
                 onCreateAnotherBusiness={createAnotherBusiness}
                 onWebsiteUrlChange={(url) => setWebsiteForm({ url })}
                 onGoogleBusinessProfileFieldChange={(field, value) =>
@@ -1218,6 +1333,8 @@ export function OnboardingFlow() {
                 onDeleteSocialProfile={deleteSocialProfile}
                 onCancelSocialProfileEdit={cancelSocialProfileEdit}
                 onCalculateVisibilityScore={calculateVisibilityScore}
+                onGenerateRecommendations={generateRecommendations}
+                onUpdateRecommendationStatus={updateRecommendationStatus}
                 onQueueWebsiteCrawl={queueWebsiteCrawl}
                 onIgnoreAuditFinding={ignoreAuditFinding}
                 onSwitchWorkspace={switchWorkspace}
@@ -1558,6 +1675,7 @@ function WorkspaceDashboard({
   socialProfileForm,
   editingSocialProfileId,
   visibilityScore,
+  recommendations,
   latestCrawls,
   auditFindings,
   isWebsiteSubmitting,
@@ -1565,10 +1683,12 @@ function WorkspaceDashboard({
   isGoogleBusinessProfileSubmitting,
   isSocialProfileSubmitting,
   isVisibilityScoreCalculating,
+  isRecommendationsGenerating,
   isAddWebsiteFormVisible,
   isGoogleBusinessProfileFormVisible,
   queuedCrawlWebsiteId,
   ignoredFindingId,
+  updatingRecommendationId,
   onCreateAnotherBusiness,
   onWebsiteUrlChange,
   onGoogleBusinessProfileFieldChange,
@@ -1588,6 +1708,8 @@ function WorkspaceDashboard({
   onDeleteSocialProfile,
   onCancelSocialProfileEdit,
   onCalculateVisibilityScore,
+  onGenerateRecommendations,
+  onUpdateRecommendationStatus,
   onQueueWebsiteCrawl,
   onIgnoreAuditFinding,
   onSwitchWorkspace,
@@ -1602,6 +1724,7 @@ function WorkspaceDashboard({
   socialProfileForm: SocialProfileForm;
   editingSocialProfileId: string | null;
   visibilityScore: BusinessVisibilityScore | null;
+  recommendations: BusinessRecommendation[];
   latestCrawls: Record<string, WebsiteCrawl>;
   auditFindings: Record<string, WebsiteAuditFinding[]>;
   isWebsiteSubmitting: boolean;
@@ -1609,10 +1732,12 @@ function WorkspaceDashboard({
   isGoogleBusinessProfileSubmitting: boolean;
   isSocialProfileSubmitting: boolean;
   isVisibilityScoreCalculating: boolean;
+  isRecommendationsGenerating: boolean;
   isAddWebsiteFormVisible: boolean;
   isGoogleBusinessProfileFormVisible: boolean;
   queuedCrawlWebsiteId: string | null;
   ignoredFindingId: string | null;
+  updatingRecommendationId: string | null;
   onCreateAnotherBusiness: () => void;
   onWebsiteUrlChange: (url: string) => void;
   onGoogleBusinessProfileFieldChange: (
@@ -1638,6 +1763,11 @@ function WorkspaceDashboard({
   onDeleteSocialProfile: (socialProfileId: string) => void;
   onCancelSocialProfileEdit: () => void;
   onCalculateVisibilityScore: () => void;
+  onGenerateRecommendations: () => void;
+  onUpdateRecommendationStatus: (
+    recommendationId: string,
+    status: BusinessRecommendation["status"],
+  ) => void;
   onQueueWebsiteCrawl: (websiteId: string) => void;
   onIgnoreAuditFinding: (websiteId: string, findingId: string) => void;
   onSwitchWorkspace: () => void;
@@ -1680,6 +1810,14 @@ function WorkspaceDashboard({
           primaryWebsite={primaryWebsite}
         />
       </div>
+
+      <RecommendationsSection
+        recommendations={recommendations}
+        isGenerating={isRecommendationsGenerating}
+        updatingRecommendationId={updatingRecommendationId}
+        onGenerate={onGenerateRecommendations}
+        onUpdateStatus={onUpdateRecommendationStatus}
+      />
 
       <div className="grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
         <WebsiteSection
@@ -1757,6 +1895,10 @@ function AiVisibilityScoreCard({
   onCalculate: () => void;
 }) {
   const breakdown = score ? orderedVisibilityBreakdown(score) : [];
+  const rawScore = score ? visibilityRawScore(score) : null;
+  const cappedScore = score ? visibilityCappedScore(score) : null;
+  const capAdjustment =
+    rawScore !== null && cappedScore !== null ? cappedScore - rawScore : null;
   const capNote =
     score?.inputs?.isMvpCapped === true
       ? "Advanced visibility checks are not available yet, so this MVP score is capped. Higher-confidence scoring will unlock as BrandOS adds deeper visibility signals."
@@ -1798,6 +1940,34 @@ function AiVisibilityScoreCard({
               {capNote}
             </p>
           ) : null}
+          <div className="mt-4 rounded-xl border border-cyan-100 bg-white px-4 py-3">
+            <div className="flex items-center justify-between gap-4 text-sm">
+              <span className="font-semibold text-slate-700">
+                Foundation readiness
+              </span>
+              <span className="font-semibold text-slate-950">
+                {rawScore ?? score.score}/100
+              </span>
+            </div>
+            <div className="mt-2 flex items-center justify-between gap-4 text-sm">
+              <span className="font-semibold text-slate-700">
+                MVP confidence cap
+              </span>
+              <span className="font-semibold text-cyan-700">
+                {capAdjustment !== null && capAdjustment < 0
+                  ? capAdjustment
+                  : "0"}
+              </span>
+            </div>
+            <div className="mt-2 flex items-center justify-between gap-4 border-t border-slate-100 pt-2 text-sm">
+              <span className="font-semibold text-slate-700">
+                Displayed score
+              </span>
+              <span className="font-semibold text-slate-950">
+                {cappedScore ?? score.score}/100 {score.grade ?? ""}
+              </span>
+            </div>
+          </div>
           <p className="mt-3 text-xs text-slate-500">
             Last calculated {formatDateTime(score.calculatedAt)}
           </p>
@@ -1870,6 +2040,173 @@ function BusinessProfileCard({
         <ProfileFact label="Category" value={business.category ?? "Not set"} />
         <ProfileFact label="City" value={business.city ?? "Not set"} />
         <ProfileFact label="Country" value={business.country ?? "Not set"} />
+      </div>
+    </div>
+  );
+}
+
+function RecommendationsSection({
+  recommendations,
+  isGenerating,
+  updatingRecommendationId,
+  onGenerate,
+  onUpdateStatus,
+}: {
+  recommendations: BusinessRecommendation[];
+  isGenerating: boolean;
+  updatingRecommendationId: string | null;
+  onGenerate: () => void;
+  onUpdateStatus: (
+    recommendationId: string,
+    status: BusinessRecommendation["status"],
+  ) => void;
+}) {
+  const openRecommendations = recommendations.filter(
+    (recommendation) => recommendation.status === "OPEN",
+  );
+
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-5">
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div>
+          <p className="text-sm font-medium uppercase tracking-[0.14em] text-slate-500">
+            Recommended next actions
+          </p>
+          <h2 className="mt-2 text-2xl font-semibold text-slate-950">
+            Prioritized visibility tasks
+          </h2>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+            Deterministic recommendations based on website scans, audit
+            findings, local profile readiness, social presence, and AI
+            visibility foundations.
+          </p>
+        </div>
+        <button
+          type="button"
+          disabled={isGenerating}
+          onClick={onGenerate}
+          className="h-10 rounded-xl bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+        >
+          {isGenerating ? "Generating..." : "Generate recommendations"}
+        </button>
+      </div>
+
+      {recommendations.length === 0 ? (
+        <div className="mt-5 rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm leading-6 text-slate-600">
+          Calculate the visibility score or generate recommendations to create
+          the first set of prioritized tasks.
+        </div>
+      ) : (
+        <div className="mt-5 grid gap-3">
+          <div className="flex flex-wrap gap-2 text-xs font-semibold text-slate-600">
+            <span className="rounded-full bg-slate-100 px-3 py-1">
+              {openRecommendations.length} open
+            </span>
+            <span className="rounded-full bg-slate-100 px-3 py-1">
+              {recommendations.length} total
+            </span>
+          </div>
+          {sortRecommendations(recommendations).map((recommendation) => (
+            <RecommendationCard
+              key={recommendation.id}
+              recommendation={recommendation}
+              isUpdating={updatingRecommendationId === recommendation.id}
+              onUpdateStatus={onUpdateStatus}
+            />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function RecommendationCard({
+  recommendation,
+  isUpdating,
+  onUpdateStatus,
+}: {
+  recommendation: BusinessRecommendation;
+  isUpdating: boolean;
+  onUpdateStatus: (
+    recommendationId: string,
+    status: BusinessRecommendation["status"],
+  ) => void;
+}) {
+  return (
+    <div
+      className={`rounded-xl border p-4 ${
+        recommendation.status === "OPEN"
+          ? "border-slate-200 bg-slate-50"
+          : "border-slate-200 bg-white opacity-75"
+      }`}
+    >
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <div className="flex flex-wrap gap-2">
+            <span
+              className={`rounded-full px-2 py-1 text-xs font-semibold ${recommendationPriorityClass(
+                recommendation.priority,
+              )}`}
+            >
+              {formatEnumLabel(recommendation.priority)}
+            </span>
+            <span className="rounded-full bg-white px-2 py-1 text-xs font-semibold text-slate-600">
+              {formatEnumLabel(recommendation.sourceType)}
+            </span>
+            <span className="rounded-full bg-white px-2 py-1 text-xs font-semibold text-slate-600">
+              {formatEnumLabel(recommendation.status)}
+            </span>
+          </div>
+          <h3 className="mt-3 font-semibold text-slate-950">
+            {recommendation.title}
+          </h3>
+          <p className="mt-1 text-sm leading-6 text-slate-600">
+            {recommendation.description}
+          </p>
+          {recommendation.impact ? (
+            <p className="mt-2 text-sm leading-6 text-slate-700">
+              <span className="font-semibold">Impact: </span>
+              {recommendation.impact}
+            </p>
+          ) : null}
+          {recommendation.actionLabel ? (
+            <p className="mt-2 text-xs font-semibold uppercase tracking-[0.12em] text-cyan-700">
+              {recommendation.actionLabel}
+            </p>
+          ) : null}
+        </div>
+        <div className="flex flex-wrap gap-2 lg:justify-end">
+          {recommendation.status !== "DONE" ? (
+            <button
+              type="button"
+              disabled={isUpdating}
+              onClick={() => onUpdateStatus(recommendation.id, "DONE")}
+              className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isUpdating ? "Saving..." : "Done"}
+            </button>
+          ) : null}
+          {recommendation.status !== "IGNORED" ? (
+            <button
+              type="button"
+              disabled={isUpdating}
+              onClick={() => onUpdateStatus(recommendation.id, "IGNORED")}
+              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Ignore
+            </button>
+          ) : null}
+          {recommendation.status !== "OPEN" ? (
+            <button
+              type="button"
+              disabled={isUpdating}
+              onClick={() => onUpdateStatus(recommendation.id, "OPEN")}
+              className="rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-2 text-xs font-semibold text-cyan-700 hover:bg-cyan-100 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Reopen
+            </button>
+          ) : null}
+        </div>
       </div>
     </div>
   );
@@ -3062,6 +3399,18 @@ async function loadVisibilityScore(
   );
 }
 
+async function loadRecommendations(
+  apiBaseUrl: string,
+  organizationId: string,
+  businessId: string,
+) {
+  const recommendations = await getJson<BusinessRecommendation[]>(
+    `${apiBaseUrl}/organizations/${organizationId}/businesses/${businessId}/recommendations`,
+  );
+
+  return sortRecommendations(recommendations);
+}
+
 async function parseJsonResponse<TResponse>(
   response: Response,
 ): Promise<TResponse> {
@@ -3265,6 +3614,34 @@ function sortSocialProfiles(items: SocialProfile[]) {
   });
 }
 
+function sortRecommendations(items: BusinessRecommendation[]) {
+  const priorityRank = {
+    HIGH: 0,
+    MEDIUM: 1,
+    LOW: 2,
+  } satisfies Record<BusinessRecommendation["priority"], number>;
+  const statusRank = {
+    OPEN: 0,
+    DONE: 1,
+    IGNORED: 2,
+  } satisfies Record<BusinessRecommendation["status"], number>;
+
+  return [...items].sort((left, right) => {
+    const statusDifference = statusRank[left.status] - statusRank[right.status];
+    if (statusDifference !== 0) {
+      return statusDifference;
+    }
+
+    const priorityDifference =
+      priorityRank[left.priority] - priorityRank[right.priority];
+    if (priorityDifference !== 0) {
+      return priorityDifference;
+    }
+
+    return right.createdAt.localeCompare(left.createdAt);
+  });
+}
+
 function formatSocialPlatform(platform: SocialProfilePlatform) {
   const labels = {
     INSTAGRAM: "Instagram",
@@ -3303,6 +3680,29 @@ function orderedVisibilityBreakdown(score: BusinessVisibilityScore) {
     );
 }
 
+function visibilityRawScore(score: BusinessVisibilityScore) {
+  if (typeof score.inputs?.rawScore === "number") {
+    return score.inputs.rawScore;
+  }
+
+  return orderedVisibilityBreakdown(score).reduce(
+    (total, section) => total + section.earned,
+    0,
+  );
+}
+
+function visibilityCappedScore(score: BusinessVisibilityScore) {
+  if (typeof score.inputs?.cappedScore === "number") {
+    return score.inputs.cappedScore;
+  }
+
+  if (typeof score.inputs?.finalScore === "number") {
+    return score.inputs.finalScore;
+  }
+
+  return score.score;
+}
+
 function severityClass(severity: WebsiteAuditFinding["severity"]) {
   const classes = {
     HIGH: "bg-red-50 text-red-700",
@@ -3312,6 +3712,18 @@ function severityClass(severity: WebsiteAuditFinding["severity"]) {
   } satisfies Record<WebsiteAuditFinding["severity"], string>;
 
   return classes[severity];
+}
+
+function recommendationPriorityClass(
+  priority: BusinessRecommendation["priority"],
+) {
+  const classes = {
+    HIGH: "bg-red-50 text-red-700",
+    MEDIUM: "bg-amber-50 text-amber-700",
+    LOW: "bg-cyan-50 text-cyan-700",
+  } satisfies Record<BusinessRecommendation["priority"], string>;
+
+  return classes[priority];
 }
 
 function socialProfilePlaceholder(platform: SocialProfilePlatform) {

@@ -6,6 +6,9 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import {
+  BusinessRecommendationPriority,
+  BusinessRecommendationSourceType,
+  BusinessRecommendationStatus,
   GoogleBusinessProfileStatus,
   MembershipRole,
   Prisma,
@@ -24,6 +27,7 @@ import { CreateGoogleBusinessProfileDto } from "./dto/create-google-business-pro
 import { CreateOrganizationDto } from "./dto/create-organization.dto";
 import { CreateSocialProfileDto } from "./dto/create-social-profile.dto";
 import { CreateWebsiteDto } from "./dto/create-website.dto";
+import { UpdateBusinessRecommendationDto } from "./dto/update-business-recommendation.dto";
 import { UpdateGoogleBusinessProfileDto } from "./dto/update-google-business-profile.dto";
 import { UpdateSocialProfileDto } from "./dto/update-social-profile.dto";
 import { UpdateWebsiteAuditFindingDto } from "./dto/update-website-audit-finding.dto";
@@ -134,6 +138,33 @@ export type BusinessVisibilityScoreSummary = {
   calculatedAt: Date;
   createdAt: Date;
   updatedAt: Date;
+};
+
+export type BusinessRecommendationSummary = {
+  id: string;
+  businessId: string;
+  sourceType: BusinessRecommendationSourceType;
+  priority: BusinessRecommendationPriority;
+  status: BusinessRecommendationStatus;
+  code: string;
+  title: string;
+  description: string;
+  impact: string | null;
+  actionLabel: string | null;
+  evidence: Prisma.JsonValue | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type RecommendationCandidate = {
+  sourceType: BusinessRecommendationSourceType;
+  priority: BusinessRecommendationPriority;
+  code: string;
+  title: string;
+  description: string;
+  impact?: string;
+  actionLabel?: string;
+  evidence?: Prisma.InputJsonObject;
 };
 
 @Injectable()
@@ -296,6 +327,104 @@ export class OrganizationsService {
         calculatedAt,
       },
       select: businessVisibilityScoreSummarySelect,
+    });
+  }
+
+  async listBusinessRecommendations(
+    organizationId: string,
+    businessId: string,
+  ): Promise<BusinessRecommendationSummary[]> {
+    await this.requireBusiness(organizationId, businessId);
+
+    const recommendations = await this.prisma.businessRecommendation.findMany({
+      where: { businessId },
+      orderBy: [{ priority: "desc" }, { createdAt: "desc" }],
+      select: businessRecommendationSummarySelect,
+    });
+
+    return sortBusinessRecommendations(recommendations);
+  }
+
+  async generateBusinessRecommendations(
+    organizationId: string,
+    businessId: string,
+  ): Promise<BusinessRecommendationSummary[]> {
+    await this.requireBusiness(organizationId, businessId);
+
+    const candidates = await this.buildRecommendationCandidates(businessId);
+    const activeCodes = candidates.map((candidate) => candidate.code);
+
+    await this.prisma.$transaction(async (tx) => {
+      if (activeCodes.length > 0) {
+        await tx.businessRecommendation.updateMany({
+          where: {
+            businessId,
+            status: BusinessRecommendationStatus.OPEN,
+            code: { notIn: activeCodes },
+          },
+          data: { status: BusinessRecommendationStatus.DONE },
+        });
+      }
+
+      for (const candidate of candidates) {
+        await tx.businessRecommendation.upsert({
+          where: {
+            businessId_code: {
+              businessId,
+              code: candidate.code,
+            },
+          },
+          create: {
+            businessId,
+            sourceType: candidate.sourceType,
+            priority: candidate.priority,
+            code: candidate.code,
+            title: candidate.title,
+            description: candidate.description,
+            impact: candidate.impact,
+            actionLabel: candidate.actionLabel,
+            evidence: candidate.evidence,
+          },
+          update: {
+            sourceType: candidate.sourceType,
+            priority: candidate.priority,
+            title: candidate.title,
+            description: candidate.description,
+            impact: candidate.impact,
+            actionLabel: candidate.actionLabel,
+            evidence: candidate.evidence,
+          },
+        });
+      }
+    });
+
+    return this.listBusinessRecommendations(organizationId, businessId);
+  }
+
+  async updateBusinessRecommendation(
+    organizationId: string,
+    businessId: string,
+    recommendationId: string,
+    input: UpdateBusinessRecommendationDto,
+  ): Promise<BusinessRecommendationSummary> {
+    await this.requireBusiness(organizationId, businessId);
+
+    const recommendation = await this.prisma.businessRecommendation.findFirst({
+      where: {
+        id: recommendationId,
+        businessId,
+      },
+      select: { id: true },
+    });
+
+    if (!recommendation) {
+      throw new NotFoundException("Business recommendation not found.");
+    }
+
+    return this.prisma.businessRecommendation.update({
+      where: { id: recommendationId },
+      data: { status: input.status },
+      select: businessRecommendationSummarySelect,
     });
   }
 
@@ -892,6 +1021,378 @@ export class OrganizationsService {
     return socialProfile;
   }
 
+  private async buildRecommendationCandidates(
+    businessId: string,
+  ): Promise<RecommendationCandidate[]> {
+    const business = await this.prisma.business.findUnique({
+      where: { id: businessId },
+      select: {
+        id: true,
+        name: true,
+        websites: {
+          orderBy: [{ isPrimary: "desc" }, { createdAt: "desc" }],
+          select: {
+            id: true,
+            domain: true,
+            isPrimary: true,
+            crawls: {
+              where: { status: WebsiteCrawlStatus.COMPLETED },
+              orderBy: { completedAt: "desc" },
+              take: 1,
+              select: {
+                id: true,
+                completedAt: true,
+                metadata: true,
+              },
+            },
+            auditFindings: {
+              where: { status: WebsiteAuditFindingStatus.OPEN },
+              select: {
+                id: true,
+                code: true,
+                title: true,
+                severity: true,
+                category: true,
+              },
+            },
+          },
+        },
+        googleBusinessProfile: {
+          select: {
+            id: true,
+            status: true,
+            businessName: true,
+            address: true,
+            city: true,
+            country: true,
+            phone: true,
+          },
+        },
+        socialProfiles: {
+          where: { status: SocialProfileStatus.MANUAL_CONNECTED },
+          select: {
+            id: true,
+            platform: true,
+          },
+        },
+      },
+    });
+
+    if (!business) {
+      throw new NotFoundException("Business not found.");
+    }
+
+    const primaryWebsite =
+      business.websites.find((website) => website.isPrimary) ??
+      business.websites[0] ??
+      null;
+    const latestCrawl = primaryWebsite?.crawls[0] ?? null;
+    const metadata = parseHomepageMetadata(latestCrawl?.metadata);
+    const schemaTypes = metadata.schemaTypes.map((schemaType) =>
+      schemaType.toLowerCase(),
+    );
+    const openAuditFindings = business.websites.flatMap((website) =>
+      website.auditFindings.map((finding) => ({
+        ...finding,
+        websiteId: website.id,
+      })),
+    );
+
+    const recommendations: RecommendationCandidate[] = [];
+
+    if (!latestCrawl) {
+      recommendations.push({
+        sourceType: BusinessRecommendationSourceType.WEBSITE,
+        priority: BusinessRecommendationPriority.HIGH,
+        code: "website.scan_homepage",
+        title: "Scan the primary website homepage",
+        description:
+          "Run a website scan so BrandOS can inspect homepage metadata, headings, schema, and crawl health signals.",
+        impact:
+          "Website scan data unlocks stronger visibility scoring and better recommendations.",
+        actionLabel: "Scan website",
+        evidence: {
+          primaryWebsiteId: primaryWebsite?.id ?? null,
+          domain: primaryWebsite?.domain ?? null,
+          latestCompletedCrawlId: null,
+        },
+      });
+    }
+
+    if (latestCrawl && metadata.schemaTypes.length === 0) {
+      recommendations.push({
+        sourceType: BusinessRecommendationSourceType.WEBSITE,
+        priority: BusinessRecommendationPriority.HIGH,
+        code: "website.add_schema",
+        title: "Add structured data schema to the homepage",
+        description:
+          "The latest homepage scan did not detect JSON-LD schema. Add relevant schema so search and answer engines can understand the business entity.",
+        impact:
+          "Structured data improves machine-readable context for AI and search systems.",
+        actionLabel: "Add schema",
+        evidence: {
+          websiteId: primaryWebsite?.id ?? null,
+          crawlId: latestCrawl.id,
+          schemaTypes: metadata.schemaTypes,
+        },
+      });
+    }
+
+    if (latestCrawl && !schemaTypes.includes("localbusiness")) {
+      recommendations.push({
+        sourceType: BusinessRecommendationSourceType.WEBSITE,
+        priority: BusinessRecommendationPriority.HIGH,
+        code: "website.add_localbusiness_schema",
+        title: "Add LocalBusiness schema",
+        description:
+          "Add LocalBusiness schema with the business name, address, phone, website, and service area to strengthen local entity clarity.",
+        impact:
+          "LocalBusiness schema helps AI systems connect the website to the real-world local business.",
+        actionLabel: "Add LocalBusiness schema",
+        evidence: {
+          websiteId: primaryWebsite?.id ?? null,
+          crawlId: latestCrawl.id,
+          schemaTypes: metadata.schemaTypes,
+        },
+      });
+    }
+
+    if (latestCrawl && !schemaTypes.includes("faqpage")) {
+      recommendations.push({
+        sourceType: BusinessRecommendationSourceType.WEBSITE,
+        priority: BusinessRecommendationPriority.MEDIUM,
+        code: "website.add_faq_schema",
+        title: "Add service FAQ content",
+        description:
+          "Create helpful FAQ sections for common customer questions and mark them up with FAQPage schema where appropriate.",
+        impact:
+          "Clear FAQs give AI answer engines quotable, structured answers about services, pricing, process, and local availability.",
+        actionLabel: "Plan FAQ content",
+        evidence: {
+          websiteId: primaryWebsite?.id ?? null,
+          crawlId: latestCrawl.id,
+          schemaTypes: metadata.schemaTypes,
+        },
+      });
+    }
+
+    if (
+      latestCrawl &&
+      openAuditFindings.length === 0 &&
+      metadata.pageTitle &&
+      metadata.metaDescription &&
+      metadata.h1Count === 1 &&
+      metadata.schemaTypes.length > 0
+    ) {
+      recommendations.push({
+        sourceType: BusinessRecommendationSourceType.AI_VISIBILITY,
+        priority: BusinessRecommendationPriority.LOW,
+        code: "website.expand_service_pages",
+        title: "Expand service pages for AI answer visibility",
+        description:
+          "The homepage foundation looks healthy. Next, create detailed service pages that answer specific customer questions in your local market.",
+        impact:
+          "Service-specific pages increase the chances that AI systems can cite the business for precise local queries.",
+        actionLabel: "Plan service pages",
+        evidence: {
+          websiteId: primaryWebsite?.id ?? null,
+          crawlId: latestCrawl.id,
+          openAuditFindingCount: openAuditFindings.length,
+        },
+      });
+    }
+
+    const googleProfile = business.googleBusinessProfile;
+    if (!googleProfile) {
+      recommendations.push({
+        sourceType: BusinessRecommendationSourceType.GOOGLE_BUSINESS,
+        priority: BusinessRecommendationPriority.HIGH,
+        code: "google_business.connect_profile",
+        title: "Connect Google Business Profile details",
+        description:
+          "Add the business Google Maps or Google Business Profile URL and basic profile details so BrandOS can track local visibility readiness.",
+        impact:
+          "Google Business Profile is a core local visibility source for both search and AI-assisted local discovery.",
+        actionLabel: "Connect profile",
+        evidence: {
+          connected: false,
+        },
+      });
+    } else {
+      const missingFields = [
+        ["businessName", googleProfile.businessName],
+        ["address", googleProfile.address],
+        ["city", googleProfile.city],
+        ["country", googleProfile.country],
+        ["phone", googleProfile.phone],
+      ]
+        .filter(([, value]) => !value)
+        .map(([field]) => field);
+
+      if (missingFields.length > 0) {
+        recommendations.push({
+          sourceType: BusinessRecommendationSourceType.GOOGLE_BUSINESS,
+          priority: BusinessRecommendationPriority.MEDIUM,
+          code: "google_business.complete_profile",
+          title: "Complete local profile details",
+          description:
+            "Add the missing Google Business Profile fields so the business name, address, phone, city, and country are consistent across channels.",
+          impact:
+            "Complete local profile details improve entity confidence and local relevance signals.",
+          actionLabel: "Complete profile",
+          evidence: {
+            googleBusinessProfileId: googleProfile.id,
+            missingFields,
+          },
+        });
+      }
+
+      if (googleProfile.status === GoogleBusinessProfileStatus.MANUAL_CONNECTED) {
+        recommendations.push({
+          sourceType: BusinessRecommendationSourceType.GOOGLE_BUSINESS,
+          priority: BusinessRecommendationPriority.LOW,
+          code: "google_business.prepare_verification",
+          title: "Prepare for Google profile verification and live sync",
+          description:
+            "The profile is manually connected. Later, BrandOS can support verification and live sync when Google integration is added.",
+          impact:
+            "Verified live data will make future visibility intelligence more reliable.",
+          actionLabel: "Coming later",
+          evidence: {
+            googleBusinessProfileId: googleProfile.id,
+            status: googleProfile.status,
+          },
+        });
+      }
+    }
+
+    if (business.socialProfiles.length === 0) {
+      recommendations.push({
+        sourceType: BusinessRecommendationSourceType.SOCIAL,
+        priority: BusinessRecommendationPriority.MEDIUM,
+        code: "social.add_instagram_facebook",
+        title: "Add Instagram or Facebook profiles",
+        description:
+          "Add the business Instagram and Facebook profile URLs so BrandOS can include social presence in visibility readiness.",
+        impact:
+          "Social profiles reinforce brand consistency and give customers more trusted discovery paths.",
+        actionLabel: "Add social profile",
+        evidence: {
+          connectedProfileCount: 0,
+        },
+      });
+    } else if (business.socialProfiles.length === 1) {
+      recommendations.push({
+        sourceType: BusinessRecommendationSourceType.SOCIAL,
+        priority: BusinessRecommendationPriority.LOW,
+        code: "social.add_second_profile",
+        title: "Add one more social profile",
+        description:
+          "Connect one additional active social profile to strengthen cross-channel brand consistency.",
+        impact:
+          "Multiple consistent profiles make the business easier to recognize across discovery surfaces.",
+        actionLabel: "Add another profile",
+        evidence: {
+          connectedProfileCount: business.socialProfiles.length,
+          platforms: business.socialProfiles.map((profile) => profile.platform),
+        },
+      });
+    } else {
+      recommendations.push({
+        sourceType: BusinessRecommendationSourceType.SOCIAL,
+        priority: BusinessRecommendationPriority.LOW,
+        code: "social.presence_healthy",
+        title: "Social presence foundation is healthy",
+        description:
+          "At least two social profiles are connected. Keep profile names, website links, and contact details consistent.",
+        impact:
+          "Consistent social profiles support brand recognition and customer trust.",
+        actionLabel: "Maintain profiles",
+        evidence: {
+          connectedProfileCount: business.socialProfiles.length,
+          platforms: business.socialProfiles.map((profile) => profile.platform),
+        },
+      });
+    }
+
+    recommendations.push(
+      {
+        sourceType: BusinessRecommendationSourceType.AI_VISIBILITY,
+        priority: BusinessRecommendationPriority.MEDIUM,
+        code: "ai_visibility.about_entity_description",
+        title: "Add a clear About page entity description",
+        description:
+          "Write a concise About page that explains who the business serves, where it operates, what it offers, and why customers choose it.",
+        impact:
+          "A clear entity description helps AI systems summarize the business accurately.",
+        actionLabel: "Improve About page",
+        evidence: { businessName: business.name },
+      },
+      {
+        sourceType: BusinessRecommendationSourceType.AI_VISIBILITY,
+        priority: BusinessRecommendationPriority.MEDIUM,
+        code: "ai_visibility.service_faq_pages",
+        title: "Create service-specific FAQ pages",
+        description:
+          "Publish FAQ pages for important services with direct, customer-friendly answers to common local questions.",
+        impact:
+          "Question-led pages make the business more eligible for AI answer-style discovery.",
+        actionLabel: "Plan FAQ pages",
+        evidence: { businessName: business.name },
+      },
+      {
+        sourceType: BusinessRecommendationSourceType.AI_VISIBILITY,
+        priority: BusinessRecommendationPriority.MEDIUM,
+        code: "ai_visibility.local_service_content",
+        title: "Publish citation-worthy local service content",
+        description:
+          "Create practical local content that explains services, neighborhoods served, credentials, process, and customer decision factors.",
+        impact:
+          "Helpful, specific content gives AI systems better evidence to cite or summarize.",
+        actionLabel: "Plan content",
+        evidence: { businessName: business.name },
+      },
+      {
+        sourceType: BusinessRecommendationSourceType.AI_VISIBILITY,
+        priority: BusinessRecommendationPriority.HIGH,
+        code: "ai_visibility.nap_consistency",
+        title: "Keep business name, address, phone, and website consistent",
+        description:
+          "Review the website, Google Business Profile, social profiles, and other listings so name, address, phone, and website are consistent.",
+        impact:
+          "Consistent business facts improve entity confidence across search, maps, social, and AI answer systems.",
+        actionLabel: "Check consistency",
+        evidence: {
+          googleBusinessProfileConnected: Boolean(googleProfile),
+          socialProfileCount: business.socialProfiles.length,
+        },
+      },
+    );
+
+    for (const finding of openAuditFindings) {
+      recommendations.push({
+        sourceType: BusinessRecommendationSourceType.AUDIT_FINDING,
+        priority: recommendationPriorityFromSeverity(finding.severity),
+        code: `audit_finding.${finding.code}`,
+        title: finding.title,
+        description:
+          "Resolve this open website audit finding to improve the deterministic visibility foundation.",
+        impact:
+          "Fixing audit findings improves the website health portion of the AI Visibility Score.",
+        actionLabel: "Review finding",
+        evidence: {
+          findingId: finding.id,
+          websiteId: finding.websiteId,
+          findingCode: finding.code,
+          severity: finding.severity,
+          category: finding.category,
+        },
+      });
+    }
+
+    return recommendations;
+  }
+
   private async buildVisibilityScoreCalculation(businessId: string) {
     const business = await this.prisma.business.findUnique({
       where: { id: businessId },
@@ -1046,14 +1547,16 @@ export class OrganizationsService {
       rawScore > MVP_VISIBILITY_SCORE_CAP;
     const score = isMvpCapped ? MVP_VISIBILITY_SCORE_CAP : rawScore;
     const grade = gradeVisibilityScore(score);
+    const capAdjustment = score - rawScore;
     const scoreCalibration = {
       key: "scoreCalibration",
-      label: "Score calibration",
-      earned: score,
-      possible: rawScore,
+      label: "MVP confidence cap",
+      earned: capAdjustment,
+      possible: 0,
       details: {
         rawScore,
-        finalScore: score,
+        cappedScore: score,
+        capAdjustment,
         isMvpCapped,
         mvpScoreCap: MVP_VISIBILITY_SCORE_CAP,
         advancedVisibilityChecksAvailable: ADVANCED_VISIBILITY_CHECKS_AVAILABLE,
@@ -1064,7 +1567,7 @@ export class OrganizationsService {
     return {
       score,
       grade,
-      summary: visibilityScoreSummary(score, grade, isMvpCapped),
+      summary: visibilityScoreSummary(rawScore, score, grade, isMvpCapped),
       inputs: {
         businessId,
         primaryWebsiteId: primaryWebsite?.id ?? null,
@@ -1073,7 +1576,8 @@ export class OrganizationsService {
         socialProfileCount,
         openFindingCount: openFindings.length,
         rawScore,
-        finalScore: score,
+        cappedScore: score,
+        capAdjustment,
         isMvpCapped,
         mvpScoreCap: MVP_VISIBILITY_SCORE_CAP,
         advancedVisibilityChecksAvailable: ADVANCED_VISIBILITY_CHECKS_AVAILABLE,
@@ -1242,6 +1746,22 @@ const businessVisibilityScoreSummarySelect = {
   createdAt: true,
   updatedAt: true,
 } satisfies Prisma.BusinessVisibilityScoreSelect;
+
+const businessRecommendationSummarySelect = {
+  id: true,
+  businessId: true,
+  sourceType: true,
+  priority: true,
+  status: true,
+  code: true,
+  title: true,
+  description: true,
+  impact: true,
+  actionLabel: true,
+  evidence: true,
+  createdAt: true,
+  updatedAt: true,
+} satisfies Prisma.BusinessRecommendationSelect;
 
 function assertGoogleBusinessProfileUrl(rawUrl: string) {
   if (!isValidGoogleBusinessProfileUrl(rawUrl)) {
@@ -1469,6 +1989,56 @@ function countFindingsBySeverity(
   );
 }
 
+function recommendationPriorityFromSeverity(
+  severity: WebsiteAuditFindingSeverity,
+) {
+  const priorities = {
+    HIGH: BusinessRecommendationPriority.HIGH,
+    MEDIUM: BusinessRecommendationPriority.MEDIUM,
+    LOW: BusinessRecommendationPriority.LOW,
+    INFO: BusinessRecommendationPriority.LOW,
+  } satisfies Record<
+    WebsiteAuditFindingSeverity,
+    BusinessRecommendationPriority
+  >;
+
+  return priorities[severity];
+}
+
+function sortBusinessRecommendations<
+  TRecommendation extends {
+    priority: BusinessRecommendationPriority;
+    status: BusinessRecommendationStatus;
+    createdAt: Date;
+  },
+>(recommendations: TRecommendation[]) {
+  const priorityRank = {
+    HIGH: 0,
+    MEDIUM: 1,
+    LOW: 2,
+  } satisfies Record<BusinessRecommendationPriority, number>;
+  const statusRank = {
+    OPEN: 0,
+    DONE: 1,
+    IGNORED: 2,
+  } satisfies Record<BusinessRecommendationStatus, number>;
+
+  return [...recommendations].sort((left, right) => {
+    const statusDifference = statusRank[left.status] - statusRank[right.status];
+    if (statusDifference !== 0) {
+      return statusDifference;
+    }
+
+    const priorityDifference =
+      priorityRank[left.priority] - priorityRank[right.priority];
+    if (priorityDifference !== 0) {
+      return priorityDifference;
+    }
+
+    return right.createdAt.getTime() - left.createdAt.getTime();
+  });
+}
+
 function clampScore(score: number) {
   return Math.max(0, Math.min(100, Math.round(score)));
 }
@@ -1494,13 +2064,24 @@ function gradeVisibilityScore(score: number) {
 }
 
 function visibilityScoreSummary(
+  rawScore: number,
   score: number,
   grade: string,
   isMvpCapped: boolean,
 ) {
-  const summary = `BrandOS calculated a ${score}/100 ${grade.toLowerCase()} visibility foundation from deterministic website, local, social, and audit health signals.`;
+  const foundationLabel =
+    rawScore === 100
+      ? "perfect"
+      : rawScore >= 75
+        ? "strong"
+        : rawScore >= 60
+          ? "developing"
+          : "early";
+  const summary = `Foundation readiness is ${foundationLabel} at ${rawScore}/100 based on current deterministic website, local, social, and audit health checks. The displayed AI Visibility Score is ${score}/100 ${grade.toLowerCase()}.`;
 
-  return isMvpCapped ? `${summary} ${MVP_SCORE_CAP_MESSAGE}` : summary;
+  return isMvpCapped
+    ? `${summary} Final displayed score is capped until advanced AI answer visibility checks are available.`
+    : summary;
 }
 
 function normalizeWebsiteUrl(rawUrl: string) {
