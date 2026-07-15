@@ -5,6 +5,8 @@ export {
   MembershipRole,
   Prisma,
   PrismaClient,
+  SocialProfilePlatform,
+  SocialProfileStatus,
   WebsiteCrawlStatus,
 } from "@prisma/client";
 export type {
@@ -12,6 +14,7 @@ export type {
   GoogleBusinessProfile,
   Membership,
   Organization,
+  SocialProfile,
   Website,
   WebsiteCrawl,
 } from "@prisma/client";

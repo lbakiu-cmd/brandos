@@ -10,14 +10,17 @@ import {
 import { CreateBusinessDto } from "./dto/create-business.dto";
 import { CreateGoogleBusinessProfileDto } from "./dto/create-google-business-profile.dto";
 import { CreateOrganizationDto } from "./dto/create-organization.dto";
+import { CreateSocialProfileDto } from "./dto/create-social-profile.dto";
 import { CreateWebsiteDto } from "./dto/create-website.dto";
 import { UpdateGoogleBusinessProfileDto } from "./dto/update-google-business-profile.dto";
+import { UpdateSocialProfileDto } from "./dto/update-social-profile.dto";
 import { UpdateWebsiteDto } from "./dto/update-website.dto";
 import {
   type BusinessSummary,
   type GoogleBusinessProfileSummary,
   type OrganizationDetail,
   type OrganizationSummary,
+  type SocialProfileSummary,
   type WebsiteCrawlSummary,
   type WebsiteSummary,
   OrganizationsService,
@@ -155,6 +158,62 @@ export class OrganizationsController {
     return this.organizationsService.deleteGoogleBusinessProfile(
       organizationId,
       businessId,
+    );
+  }
+
+  @Get(":organizationId/businesses/:businessId/social-profiles")
+  listSocialProfiles(
+    @Param("organizationId") organizationId: string,
+    @Param("businessId") businessId: string,
+  ): Promise<SocialProfileSummary[]> {
+    return this.organizationsService.listSocialProfiles(
+      organizationId,
+      businessId,
+    );
+  }
+
+  @Post(":organizationId/businesses/:businessId/social-profiles")
+  createSocialProfile(
+    @Param("organizationId") organizationId: string,
+    @Param("businessId") businessId: string,
+    @Body() body: CreateSocialProfileDto,
+  ): Promise<SocialProfileSummary> {
+    return this.organizationsService.createSocialProfile(
+      organizationId,
+      businessId,
+      body,
+    );
+  }
+
+  @Patch(
+    ":organizationId/businesses/:businessId/social-profiles/:socialProfileId",
+  )
+  updateSocialProfile(
+    @Param("organizationId") organizationId: string,
+    @Param("businessId") businessId: string,
+    @Param("socialProfileId") socialProfileId: string,
+    @Body() body: UpdateSocialProfileDto,
+  ): Promise<SocialProfileSummary> {
+    return this.organizationsService.updateSocialProfile(
+      organizationId,
+      businessId,
+      socialProfileId,
+      body,
+    );
+  }
+
+  @Delete(
+    ":organizationId/businesses/:businessId/social-profiles/:socialProfileId",
+  )
+  deleteSocialProfile(
+    @Param("organizationId") organizationId: string,
+    @Param("businessId") businessId: string,
+    @Param("socialProfileId") socialProfileId: string,
+  ): Promise<SocialProfileSummary> {
+    return this.organizationsService.deleteSocialProfile(
+      organizationId,
+      businessId,
+      socialProfileId,
     );
   }
 

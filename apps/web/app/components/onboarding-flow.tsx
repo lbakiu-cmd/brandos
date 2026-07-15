@@ -61,6 +61,22 @@ type GoogleBusinessProfile = {
   updatedAt: string;
 };
 
+type SocialProfilePlatform =
+  "INSTAGRAM" | "FACEBOOK" | "TIKTOK" | "LINKEDIN" | "YOUTUBE" | "X" | "OTHER";
+
+type SocialProfile = {
+  id: string;
+  businessId: string;
+  platform: SocialProfilePlatform;
+  profileUrl: string;
+  handle: string | null;
+  displayName: string | null;
+  status: "MANUAL_CONNECTED" | "VERIFIED" | "DISCONNECTED";
+  isPrimary: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
 type CrawlMetadata = {
   finalUrl: string;
   httpStatus: number;
@@ -111,6 +127,13 @@ type GoogleBusinessProfileForm = {
   phone: string;
 };
 
+type SocialProfileForm = {
+  platform: SocialProfilePlatform;
+  profileUrl: string;
+  handle: string;
+  displayName: string;
+};
+
 const selectedOrganizationStorageKey = "brandos.selectedOrganizationId";
 const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -141,6 +164,23 @@ const initialGoogleBusinessProfileForm: GoogleBusinessProfileForm = {
   phone: "",
 };
 
+const initialSocialProfileForm: SocialProfileForm = {
+  platform: "INSTAGRAM",
+  profileUrl: "",
+  handle: "",
+  displayName: "",
+};
+
+const socialPlatforms: SocialProfilePlatform[] = [
+  "INSTAGRAM",
+  "FACEBOOK",
+  "TIKTOK",
+  "LINKEDIN",
+  "YOUTUBE",
+  "X",
+  "OTHER",
+];
+
 export function OnboardingFlow() {
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL;
   const [step, setStep] = useState<Step>("organization");
@@ -158,6 +198,7 @@ export function OnboardingFlow() {
   const [websites, setWebsites] = useState<Website[]>([]);
   const [googleBusinessProfile, setGoogleBusinessProfile] =
     useState<GoogleBusinessProfile | null>(null);
+  const [socialProfiles, setSocialProfiles] = useState<SocialProfile[]>([]);
   const [latestCrawls, setLatestCrawls] = useState<
     Record<string, WebsiteCrawl>
   >({});
@@ -165,6 +206,12 @@ export function OnboardingFlow() {
     useState<WebsiteForm>(initialWebsiteForm);
   const [googleBusinessProfileForm, setGoogleBusinessProfileForm] =
     useState<GoogleBusinessProfileForm>(initialGoogleBusinessProfileForm);
+  const [socialProfileForm, setSocialProfileForm] = useState<SocialProfileForm>(
+    initialSocialProfileForm,
+  );
+  const [editingSocialProfileId, setEditingSocialProfileId] = useState<
+    string | null
+  >(null);
   const [isAddWebsiteFormVisible, setIsAddWebsiteFormVisible] = useState(false);
   const [
     isGoogleBusinessProfileFormVisible,
@@ -178,6 +225,8 @@ export function OnboardingFlow() {
     isGoogleBusinessProfileSubmitting,
     setIsGoogleBusinessProfileSubmitting,
   ] = useState(false);
+  const [isSocialProfileSubmitting, setIsSocialProfileSubmitting] =
+    useState(false);
   const [queuedCrawlWebsiteId, setQueuedCrawlWebsiteId] = useState<
     string | null
   >(null);
@@ -272,6 +321,13 @@ export function OnboardingFlow() {
               restoredBusiness.id,
             )
           : null;
+        const restoredSocialProfiles = restoredBusiness
+          ? await loadSocialProfiles(
+              apiBaseUrl,
+              organizationToRestore.id,
+              restoredBusiness.id,
+            )
+          : [];
 
         if (!isMounted) {
           return;
@@ -283,8 +339,10 @@ export function OnboardingFlow() {
         setBusiness(restoredBusiness);
         setWebsites(restoredWebsites);
         setGoogleBusinessProfile(restoredGoogleBusinessProfile);
+        setSocialProfiles(restoredSocialProfiles);
         setIsAddWebsiteFormVisible(false);
         setIsGoogleBusinessProfileFormVisible(false);
+        setEditingSocialProfileId(null);
         setLatestCrawls(restoredCrawls);
         setStep(restoredBusinesses.length > 0 ? "workspace" : "business");
       } catch (requestError) {
@@ -298,8 +356,10 @@ export function OnboardingFlow() {
         setBusinesses([]);
         setWebsites([]);
         setGoogleBusinessProfile(null);
+        setSocialProfiles([]);
         setIsAddWebsiteFormVisible(false);
         setIsGoogleBusinessProfileFormVisible(false);
+        setEditingSocialProfileId(null);
         setLatestCrawls({});
         setStep("organization");
         setError(
@@ -356,6 +416,7 @@ export function OnboardingFlow() {
       setBusiness(null);
       setWebsites([]);
       setGoogleBusinessProfile(null);
+      setSocialProfiles([]);
       setLatestCrawls({});
       setStep("business");
       setSuccess("Organization created. Add your first business.");
@@ -413,8 +474,10 @@ export function OnboardingFlow() {
       setBusinesses((current) => [createdBusiness, ...current]);
       setWebsites(createdWebsites);
       setGoogleBusinessProfile(null);
+      setSocialProfiles([]);
       setIsAddWebsiteFormVisible(false);
       setIsGoogleBusinessProfileFormVisible(false);
+      setEditingSocialProfileId(null);
       setLatestCrawls(createdCrawls);
       setBusinessForm(initialBusinessForm);
       setStep("workspace");
@@ -448,8 +511,10 @@ export function OnboardingFlow() {
     setBusinesses([]);
     setWebsites([]);
     setGoogleBusinessProfile(null);
+    setSocialProfiles([]);
     setIsAddWebsiteFormVisible(false);
     setIsGoogleBusinessProfileFormVisible(false);
+    setEditingSocialProfileId(null);
     setLatestCrawls({});
     setWebsiteForm(initialWebsiteForm);
     setOrganizationForm(initialOrganizationForm);
@@ -498,6 +563,13 @@ export function OnboardingFlow() {
             selectedBusiness.id,
           )
         : null;
+      const selectedSocialProfiles = selectedBusiness
+        ? await loadSocialProfiles(
+            apiBaseUrl,
+            organizationId,
+            selectedBusiness.id,
+          )
+        : [];
 
       window.localStorage.setItem(
         selectedOrganizationStorageKey,
@@ -508,8 +580,10 @@ export function OnboardingFlow() {
       setBusiness(selectedBusiness);
       setWebsites(selectedWebsites);
       setGoogleBusinessProfile(selectedGoogleBusinessProfile);
+      setSocialProfiles(selectedSocialProfiles);
       setIsAddWebsiteFormVisible(false);
       setIsGoogleBusinessProfileFormVisible(false);
+      setEditingSocialProfileId(null);
       setLatestCrawls(selectedCrawls);
       setStep(selectedBusiness ? "workspace" : "business");
     } catch (requestError) {
@@ -524,8 +598,10 @@ export function OnboardingFlow() {
     setBusiness(null);
     setWebsites([]);
     setGoogleBusinessProfile(null);
+    setSocialProfiles([]);
     setIsAddWebsiteFormVisible(false);
     setIsGoogleBusinessProfileFormVisible(false);
+    setEditingSocialProfileId(null);
     setLatestCrawls({});
     setWebsiteForm(initialWebsiteForm);
     setStep("business");
@@ -791,6 +867,111 @@ export function OnboardingFlow() {
     }
   }
 
+  function editSocialProfile(profile: SocialProfile) {
+    setSocialProfileForm({
+      platform: profile.platform,
+      profileUrl: profile.profileUrl,
+      handle: profile.handle ?? "",
+      displayName: profile.displayName ?? "",
+    });
+    setEditingSocialProfileId(profile.id);
+    setError(null);
+    setSuccess(null);
+  }
+
+  function cancelSocialProfileEdit() {
+    setSocialProfileForm(initialSocialProfileForm);
+    setEditingSocialProfileId(null);
+  }
+
+  async function handleSocialProfileSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(null);
+    setSuccess(null);
+
+    if (!apiBaseUrl || !organization || !business) {
+      setError("Workspace is not ready.");
+      return;
+    }
+
+    const profileUrl = socialProfileForm.profileUrl.trim();
+    if (!profileUrl) {
+      setError("Social profile URL is required.");
+      return;
+    }
+
+    if (!isSocialProfileUrl(socialProfileForm.platform, profileUrl)) {
+      setError("Social profile URL does not match the selected platform.");
+      return;
+    }
+
+    setIsSocialProfileSubmitting(true);
+    try {
+      const endpoint = `${apiBaseUrl}/organizations/${organization.id}/businesses/${business.id}/social-profiles`;
+      const body = compactPayload({
+        platform: socialProfileForm.platform,
+        profileUrl,
+        handle: socialProfileForm.handle.trim(),
+        displayName: socialProfileForm.displayName.trim(),
+      });
+      const savedProfile = editingSocialProfileId
+        ? await patchJson<SocialProfile>(
+            `${endpoint}/${editingSocialProfileId}`,
+            body,
+          )
+        : await postJson<SocialProfile>(endpoint, body);
+
+      setSocialProfiles((current) =>
+        sortSocialProfiles(
+          editingSocialProfileId
+            ? current.map((profile) =>
+                profile.id === savedProfile.id ? savedProfile : profile,
+              )
+            : [savedProfile, ...current],
+        ),
+      );
+      setSocialProfileForm(initialSocialProfileForm);
+      setEditingSocialProfileId(null);
+      setSuccess("Social profile saved.");
+    } catch (requestError) {
+      setError(getErrorMessage(requestError));
+    } finally {
+      setIsSocialProfileSubmitting(false);
+    }
+  }
+
+  async function deleteSocialProfile(socialProfileId: string) {
+    setError(null);
+    setSuccess(null);
+
+    if (!apiBaseUrl || !organization || !business) {
+      setError("Workspace is not ready.");
+      return;
+    }
+
+    setIsSocialProfileSubmitting(true);
+    try {
+      const deletedProfile = await deleteJson<SocialProfile>(
+        `${apiBaseUrl}/organizations/${organization.id}/businesses/${business.id}/social-profiles/${socialProfileId}`,
+      );
+      const remainingProfiles = await loadSocialProfiles(
+        apiBaseUrl,
+        organization.id,
+        business.id,
+      );
+      setSocialProfiles(remainingProfiles);
+      if (editingSocialProfileId === deletedProfile.id) {
+        setSocialProfileForm(initialSocialProfileForm);
+        setEditingSocialProfileId(null);
+      }
+      setSuccess("Social profile deleted.");
+    } catch (requestError) {
+      setError(getErrorMessage(requestError));
+    } finally {
+      setIsSocialProfileSubmitting(false);
+    }
+  }
+
   if (isRestoring) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-slate-950 px-6 text-white">
@@ -817,12 +998,16 @@ export function OnboardingFlow() {
                 websites={websites}
                 googleBusinessProfile={googleBusinessProfile}
                 googleBusinessProfileForm={googleBusinessProfileForm}
+                socialProfiles={socialProfiles}
+                socialProfileForm={socialProfileForm}
+                editingSocialProfileId={editingSocialProfileId}
                 latestCrawls={latestCrawls}
                 isWebsiteSubmitting={isWebsiteSubmitting}
                 isWebsiteLoading={isWebsiteLoading}
                 isGoogleBusinessProfileSubmitting={
                   isGoogleBusinessProfileSubmitting
                 }
+                isSocialProfileSubmitting={isSocialProfileSubmitting}
                 isAddWebsiteFormVisible={isAddWebsiteFormVisible}
                 isGoogleBusinessProfileFormVisible={
                   isGoogleBusinessProfileFormVisible
@@ -836,10 +1021,17 @@ export function OnboardingFlow() {
                     [field]: value,
                   }))
                 }
+                onSocialProfileFieldChange={(field, value) =>
+                  setSocialProfileForm((current) => ({
+                    ...current,
+                    [field]: value,
+                  }))
+                }
                 onWebsiteSubmit={handleWebsiteSubmit}
                 onGoogleBusinessProfileSubmit={
                   handleGoogleBusinessProfileSubmit
                 }
+                onSocialProfileSubmit={handleSocialProfileSubmit}
                 onShowAddWebsiteForm={() => setIsAddWebsiteFormVisible(true)}
                 onShowGoogleBusinessProfileForm={() =>
                   setIsGoogleBusinessProfileFormVisible(true)
@@ -860,6 +1052,9 @@ export function OnboardingFlow() {
                 onDisconnectGoogleBusinessProfile={
                   disconnectGoogleBusinessProfile
                 }
+                onEditSocialProfile={editSocialProfile}
+                onDeleteSocialProfile={deleteSocialProfile}
+                onCancelSocialProfileEdit={cancelSocialProfileEdit}
                 onQueueWebsiteCrawl={queueWebsiteCrawl}
                 onSwitchWorkspace={switchWorkspace}
               />
@@ -1195,18 +1390,24 @@ function WorkspaceDashboard({
   websites,
   googleBusinessProfile,
   googleBusinessProfileForm,
+  socialProfiles,
+  socialProfileForm,
+  editingSocialProfileId,
   latestCrawls,
   isWebsiteSubmitting,
   isWebsiteLoading,
   isGoogleBusinessProfileSubmitting,
+  isSocialProfileSubmitting,
   isAddWebsiteFormVisible,
   isGoogleBusinessProfileFormVisible,
   queuedCrawlWebsiteId,
   onCreateAnotherBusiness,
   onWebsiteUrlChange,
   onGoogleBusinessProfileFieldChange,
+  onSocialProfileFieldChange,
   onWebsiteSubmit,
   onGoogleBusinessProfileSubmit,
+  onSocialProfileSubmit,
   onShowAddWebsiteForm,
   onShowGoogleBusinessProfileForm,
   onCancelAddWebsite,
@@ -1215,6 +1416,9 @@ function WorkspaceDashboard({
   onDeleteWebsite,
   onEditGoogleBusinessProfile,
   onDisconnectGoogleBusinessProfile,
+  onEditSocialProfile,
+  onDeleteSocialProfile,
+  onCancelSocialProfileEdit,
   onQueueWebsiteCrawl,
   onSwitchWorkspace,
 }: {
@@ -1224,10 +1428,14 @@ function WorkspaceDashboard({
   websites: Website[];
   googleBusinessProfile: GoogleBusinessProfile | null;
   googleBusinessProfileForm: GoogleBusinessProfileForm;
+  socialProfiles: SocialProfile[];
+  socialProfileForm: SocialProfileForm;
+  editingSocialProfileId: string | null;
   latestCrawls: Record<string, WebsiteCrawl>;
   isWebsiteSubmitting: boolean;
   isWebsiteLoading: boolean;
   isGoogleBusinessProfileSubmitting: boolean;
+  isSocialProfileSubmitting: boolean;
   isAddWebsiteFormVisible: boolean;
   isGoogleBusinessProfileFormVisible: boolean;
   queuedCrawlWebsiteId: string | null;
@@ -1237,8 +1445,13 @@ function WorkspaceDashboard({
     field: keyof GoogleBusinessProfileForm,
     value: string,
   ) => void;
+  onSocialProfileFieldChange: (
+    field: keyof SocialProfileForm,
+    value: string,
+  ) => void;
   onWebsiteSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onGoogleBusinessProfileSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onSocialProfileSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onShowAddWebsiteForm: () => void;
   onShowGoogleBusinessProfileForm: () => void;
   onCancelAddWebsite: () => void;
@@ -1247,6 +1460,9 @@ function WorkspaceDashboard({
   onDeleteWebsite: (websiteId: string) => void;
   onEditGoogleBusinessProfile: () => void;
   onDisconnectGoogleBusinessProfile: () => void;
+  onEditSocialProfile: (profile: SocialProfile) => void;
+  onDeleteSocialProfile: (socialProfileId: string) => void;
+  onCancelSocialProfileEdit: () => void;
   onQueueWebsiteCrawl: (websiteId: string) => void;
   onSwitchWorkspace: () => void;
 }) {
@@ -1315,6 +1531,15 @@ function WorkspaceDashboard({
           onCancelEdit={onCancelGoogleBusinessProfileEdit}
           onEdit={onEditGoogleBusinessProfile}
           onDisconnect={onDisconnectGoogleBusinessProfile}
+          socialProfiles={socialProfiles}
+          socialProfileForm={socialProfileForm}
+          editingSocialProfileId={editingSocialProfileId}
+          isSocialProfileSubmitting={isSocialProfileSubmitting}
+          onSocialProfileFieldChange={onSocialProfileFieldChange}
+          onSocialProfileSubmit={onSocialProfileSubmit}
+          onEditSocialProfile={onEditSocialProfile}
+          onDeleteSocialProfile={onDeleteSocialProfile}
+          onCancelSocialProfileEdit={onCancelSocialProfileEdit}
         />
       </div>
 
@@ -1620,6 +1845,15 @@ function NextVisibilitySteps({
   onCancelEdit,
   onEdit,
   onDisconnect,
+  socialProfiles,
+  socialProfileForm,
+  editingSocialProfileId,
+  isSocialProfileSubmitting,
+  onSocialProfileFieldChange,
+  onSocialProfileSubmit,
+  onEditSocialProfile,
+  onDeleteSocialProfile,
+  onCancelSocialProfileEdit,
 }: {
   hasPrimaryWebsite: boolean;
   googleBusinessProfile: GoogleBusinessProfile | null;
@@ -1635,6 +1869,18 @@ function NextVisibilitySteps({
   onCancelEdit: () => void;
   onEdit: () => void;
   onDisconnect: () => void;
+  socialProfiles: SocialProfile[];
+  socialProfileForm: SocialProfileForm;
+  editingSocialProfileId: string | null;
+  isSocialProfileSubmitting: boolean;
+  onSocialProfileFieldChange: (
+    field: keyof SocialProfileForm,
+    value: string,
+  ) => void;
+  onSocialProfileSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onEditSocialProfile: (profile: SocialProfile) => void;
+  onDeleteSocialProfile: (socialProfileId: string) => void;
+  onCancelSocialProfileEdit: () => void;
 }) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5">
@@ -1674,10 +1920,16 @@ function NextVisibilitySteps({
           onEdit={onEdit}
           onDisconnect={onDisconnect}
         />
-        <VisibilityStep
-          title="Add social profiles"
-          description="Instagram, Facebook, TikTok, and other profiles will connect later."
-          state="optional"
+        <SocialProfilesSection
+          profiles={socialProfiles}
+          form={socialProfileForm}
+          editingSocialProfileId={editingSocialProfileId}
+          isSubmitting={isSocialProfileSubmitting}
+          onFieldChange={onSocialProfileFieldChange}
+          onSubmit={onSocialProfileSubmit}
+          onEdit={onEditSocialProfile}
+          onDelete={onDeleteSocialProfile}
+          onCancelEdit={onCancelSocialProfileEdit}
         />
         <VisibilityStep
           title="Run first visibility audit"
@@ -1900,6 +2152,180 @@ function InlineInput({
         className="mt-2 h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none transition focus:border-cyan-500 focus:ring-4 focus:ring-cyan-100"
       />
     </label>
+  );
+}
+
+function SocialProfilesSection({
+  profiles,
+  form,
+  editingSocialProfileId,
+  isSubmitting,
+  onFieldChange,
+  onSubmit,
+  onEdit,
+  onDelete,
+  onCancelEdit,
+}: {
+  profiles: SocialProfile[];
+  form: SocialProfileForm;
+  editingSocialProfileId: string | null;
+  isSubmitting: boolean;
+  onFieldChange: (field: keyof SocialProfileForm, value: string) => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onEdit: (profile: SocialProfile) => void;
+  onDelete: (socialProfileId: string) => void;
+  onCancelEdit: () => void;
+}) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="font-semibold text-slate-950">Social profiles</p>
+          <p className="mt-1 text-sm leading-6 text-slate-600">
+            Add optional public profile URLs manually. Posting, inbox, OAuth,
+            and live sync are coming later.
+          </p>
+        </div>
+        {profiles.length > 0 ? (
+          <span className="w-fit rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
+            {profiles.length} saved
+          </span>
+        ) : null}
+      </div>
+
+      {profiles.length > 0 ? (
+        <div className="mt-4 grid gap-3">
+          {profiles.map((profile) => (
+            <div
+              key={profile.id}
+              className="rounded-xl border border-slate-200 bg-white p-3"
+            >
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-semibold text-slate-950">
+                      {formatSocialPlatform(profile.platform)}
+                    </p>
+                    <span className="rounded-full bg-cyan-50 px-2 py-1 text-xs font-semibold text-cyan-700">
+                      Manual connected
+                    </span>
+                    {profile.isPrimary ? (
+                      <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600">
+                        Primary
+                      </span>
+                    ) : null}
+                  </div>
+                  {profile.displayName ? (
+                    <p className="mt-1 text-sm font-medium text-slate-700">
+                      {profile.displayName}
+                    </p>
+                  ) : null}
+                  {profile.handle ? (
+                    <p className="mt-1 text-sm text-slate-500">
+                      {profile.handle}
+                    </p>
+                  ) : null}
+                  <a
+                    href={profile.profileUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-2 block break-all text-sm font-medium text-cyan-700"
+                  >
+                    {profile.profileUrl}
+                  </a>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => onEdit(profile)}
+                    className="rounded-lg border border-cyan-200 px-3 py-2 text-xs font-semibold text-cyan-800 hover:bg-cyan-50"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isSubmitting}
+                    onClick={() => onDelete(profile.id)}
+                    className="rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      <form onSubmit={onSubmit} className="mt-4 rounded-xl bg-white p-3">
+        <p className="text-sm font-semibold text-slate-950">
+          {editingSocialProfileId
+            ? "Edit social profile"
+            : "Add social profile"}
+        </p>
+        <div className="mt-3 grid gap-3">
+          <label className="block">
+            <span className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+              Platform
+            </span>
+            <select
+              value={form.platform}
+              onChange={(event) =>
+                onFieldChange(
+                  "platform",
+                  event.target.value as SocialProfilePlatform,
+                )
+              }
+              className="mt-2 h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none transition focus:border-cyan-500 focus:ring-4 focus:ring-cyan-100"
+            >
+              {socialPlatforms.map((platform) => (
+                <option key={platform} value={platform}>
+                  {formatSocialPlatform(platform)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <InlineInput
+            label="Profile URL"
+            value={form.profileUrl}
+            placeholder={socialProfilePlaceholder(form.platform)}
+            onChange={(value) => onFieldChange("profileUrl", value)}
+          />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <InlineInput
+              label="Handle"
+              value={form.handle}
+              placeholder="@brand"
+              onChange={(value) => onFieldChange("handle", value)}
+            />
+            <InlineInput
+              label="Display name"
+              value={form.displayName}
+              placeholder="Brand profile"
+              onChange={(value) => onFieldChange("displayName", value)}
+            />
+          </div>
+        </div>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="rounded-lg bg-slate-950 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+          >
+            {isSubmitting ? "Saving..." : "Save social profile"}
+          </button>
+          {editingSocialProfileId ? (
+            <button
+              type="button"
+              onClick={onCancelEdit}
+              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              Cancel
+            </button>
+          ) : null}
+        </div>
+      </form>
+    </div>
   );
 }
 
@@ -2254,6 +2680,16 @@ async function loadGoogleBusinessProfile(
   );
 }
 
+async function loadSocialProfiles(
+  apiBaseUrl: string,
+  organizationId: string,
+  businessId: string,
+) {
+  return getJson<SocialProfile[]>(
+    `${apiBaseUrl}/organizations/${organizationId}/businesses/${businessId}/social-profiles`,
+  );
+}
+
 async function parseJsonResponse<TResponse>(
   response: Response,
 ): Promise<TResponse> {
@@ -2368,6 +2804,75 @@ function isGoogleBusinessProfileUrl(value: string) {
   }
 }
 
+function isSocialProfileUrl(platform: SocialProfilePlatform, value: string) {
+  let url: URL;
+
+  try {
+    url = new URL(value);
+  } catch {
+    return false;
+  }
+
+  if (!isSafePublicHttpUrl(url)) {
+    return false;
+  }
+
+  const hostname = url.hostname.toLowerCase().replace(/^www\./, "");
+
+  return (
+    platform === "OTHER" ||
+    (platform === "INSTAGRAM" && hostname === "instagram.com") ||
+    (platform === "FACEBOOK" &&
+      (hostname === "facebook.com" || hostname === "fb.com")) ||
+    (platform === "TIKTOK" && hostname === "tiktok.com") ||
+    (platform === "LINKEDIN" && hostname === "linkedin.com") ||
+    (platform === "YOUTUBE" &&
+      (hostname === "youtube.com" || hostname === "youtu.be")) ||
+    (platform === "X" && (hostname === "x.com" || hostname === "twitter.com"))
+  );
+}
+
+function isSafePublicHttpUrl(url: URL) {
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    return false;
+  }
+
+  const hostname = url.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  return (
+    hostname.length > 0 &&
+    hostname !== "localhost" &&
+    !hostname.endsWith(".localhost") &&
+    !hostname.endsWith(".local") &&
+    !hostname.endsWith(".internal") &&
+    !isPrivateIp(hostname)
+  );
+}
+
+function isPrivateIp(hostname: string) {
+  const ipv4Match = /^(\d{1,3})(?:\.(\d{1,3})){3}$/.test(hostname);
+  if (!ipv4Match) {
+    return (
+      hostname === "::" || hostname === "::1" || hostname.startsWith("fe80:")
+    );
+  }
+
+  const octets = hostname.split(".").map(Number);
+  const [first = 0, second = 0] = octets;
+
+  return (
+    octets.some((octet) => octet < 0 || octet > 255) ||
+    first === 0 ||
+    first === 10 ||
+    first === 127 ||
+    (first === 100 && second >= 64 && second <= 127) ||
+    (first === 169 && second === 254) ||
+    (first === 172 && second >= 16 && second <= 31) ||
+    (first === 192 && second === 168) ||
+    (first === 198 && (second === 18 || second === 19)) ||
+    first >= 224
+  );
+}
+
 function sortWebsites(items: Website[]) {
   return [...items].sort((left, right) => {
     if (left.isPrimary !== right.isPrimary) {
@@ -2376,6 +2881,44 @@ function sortWebsites(items: Website[]) {
 
     return right.createdAt.localeCompare(left.createdAt);
   });
+}
+
+function sortSocialProfiles(items: SocialProfile[]) {
+  return [...items].sort((left, right) => {
+    if (left.isPrimary !== right.isPrimary) {
+      return left.isPrimary ? -1 : 1;
+    }
+
+    return right.createdAt.localeCompare(left.createdAt);
+  });
+}
+
+function formatSocialPlatform(platform: SocialProfilePlatform) {
+  const labels = {
+    INSTAGRAM: "Instagram",
+    FACEBOOK: "Facebook",
+    TIKTOK: "TikTok",
+    LINKEDIN: "LinkedIn",
+    YOUTUBE: "YouTube",
+    X: "X / Twitter",
+    OTHER: "Other",
+  } satisfies Record<SocialProfilePlatform, string>;
+
+  return labels[platform];
+}
+
+function socialProfilePlaceholder(platform: SocialProfilePlatform) {
+  const placeholders = {
+    INSTAGRAM: "https://instagram.com/brand",
+    FACEBOOK: "https://facebook.com/brand",
+    TIKTOK: "https://tiktok.com/@brand",
+    LINKEDIN: "https://linkedin.com/company/brand",
+    YOUTUBE: "https://youtube.com/@brand",
+    X: "https://x.com/brand",
+    OTHER: "https://example.com/profile",
+  } satisfies Record<SocialProfilePlatform, string>;
+
+  return placeholders[platform];
 }
 
 function removeKey<TValue>(record: Record<string, TValue>, key: string) {

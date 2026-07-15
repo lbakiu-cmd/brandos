@@ -9,15 +9,20 @@ import {
   GoogleBusinessProfileStatus,
   MembershipRole,
   Prisma,
+  SocialProfilePlatform,
+  SocialProfileStatus,
 } from "@brandos/database";
 import { WebsiteCrawlStatus } from "@brandos/database";
 import { PrismaService } from "../database/prisma.service";
 import { CrawlQueueService } from "../queues/crawl-queue.service";
+import { isIP } from "node:net";
 import { CreateBusinessDto } from "./dto/create-business.dto";
 import { CreateGoogleBusinessProfileDto } from "./dto/create-google-business-profile.dto";
 import { CreateOrganizationDto } from "./dto/create-organization.dto";
+import { CreateSocialProfileDto } from "./dto/create-social-profile.dto";
 import { CreateWebsiteDto } from "./dto/create-website.dto";
 import { UpdateGoogleBusinessProfileDto } from "./dto/update-google-business-profile.dto";
+import { UpdateSocialProfileDto } from "./dto/update-social-profile.dto";
 import { UpdateWebsiteDto } from "./dto/update-website.dto";
 
 const TEMPORARY_USER_ID = "temporary-local-user";
@@ -77,6 +82,19 @@ export type GoogleBusinessProfileSummary = {
   phone: string | null;
   websiteUrl: string | null;
   status: GoogleBusinessProfileStatus;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type SocialProfileSummary = {
+  id: string;
+  businessId: string;
+  platform: SocialProfilePlatform;
+  profileUrl: string;
+  handle: string | null;
+  displayName: string | null;
+  status: SocialProfileStatus;
+  isPrimary: boolean;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -455,6 +473,149 @@ export class OrganizationsService {
     }
   }
 
+  async listSocialProfiles(
+    organizationId: string,
+    businessId: string,
+  ): Promise<SocialProfileSummary[]> {
+    await this.requireBusiness(organizationId, businessId);
+
+    return this.prisma.socialProfile.findMany({
+      where: { businessId },
+      orderBy: [{ isPrimary: "desc" }, { createdAt: "desc" }],
+      select: socialProfileSummarySelect,
+    });
+  }
+
+  async createSocialProfile(
+    organizationId: string,
+    businessId: string,
+    input: CreateSocialProfileDto,
+  ): Promise<SocialProfileSummary> {
+    await this.requireBusiness(organizationId, businessId);
+    assertSocialProfileUrl(input.platform, input.profileUrl);
+
+    const shouldBePrimary =
+      input.isPrimary ??
+      (await this.prisma.socialProfile.count({ where: { businessId } })) === 0;
+
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        if (shouldBePrimary) {
+          await tx.socialProfile.updateMany({
+            where: { businessId },
+            data: { isPrimary: false },
+          });
+        }
+
+        return tx.socialProfile.create({
+          data: {
+            businessId,
+            platform: input.platform,
+            profileUrl: input.profileUrl.trim(),
+            handle: optionalTrim(input.handle),
+            displayName: optionalTrim(input.displayName),
+            status: SocialProfileStatus.MANUAL_CONNECTED,
+            isPrimary: shouldBePrimary,
+          },
+          select: socialProfileSummarySelect,
+        });
+      });
+    } catch (error) {
+      this.handleUniqueConstraint(error, "Social profile already exists.");
+      throw error;
+    }
+  }
+
+  async updateSocialProfile(
+    organizationId: string,
+    businessId: string,
+    socialProfileId: string,
+    input: UpdateSocialProfileDto,
+  ): Promise<SocialProfileSummary> {
+    const existingProfile = await this.requireSocialProfile(
+      organizationId,
+      businessId,
+      socialProfileId,
+    );
+
+    const nextPlatform = input.platform ?? existingProfile.platform;
+    const nextProfileUrl = input.profileUrl ?? existingProfile.profileUrl;
+    assertSocialProfileUrl(nextPlatform, nextProfileUrl);
+
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        if (input.isPrimary === true) {
+          await tx.socialProfile.updateMany({
+            where: { businessId },
+            data: { isPrimary: false },
+          });
+        }
+
+        return tx.socialProfile.update({
+          where: { id: socialProfileId },
+          data: {
+            ...(input.platform === undefined
+              ? {}
+              : { platform: input.platform }),
+            ...(input.profileUrl === undefined
+              ? {}
+              : { profileUrl: input.profileUrl.trim() }),
+            ...(input.handle === undefined
+              ? {}
+              : { handle: optionalTrim(input.handle) }),
+            ...(input.displayName === undefined
+              ? {}
+              : { displayName: optionalTrim(input.displayName) }),
+            ...(input.isPrimary === undefined
+              ? {}
+              : { isPrimary: input.isPrimary }),
+            status: SocialProfileStatus.MANUAL_CONNECTED,
+          },
+          select: socialProfileSummarySelect,
+        });
+      });
+    } catch (error) {
+      this.handleUniqueConstraint(error, "Social profile already exists.");
+      throw error;
+    }
+  }
+
+  async deleteSocialProfile(
+    organizationId: string,
+    businessId: string,
+    socialProfileId: string,
+  ): Promise<SocialProfileSummary> {
+    await this.requireSocialProfile(
+      organizationId,
+      businessId,
+      socialProfileId,
+    );
+
+    return this.prisma.$transaction(async (tx) => {
+      const deletedProfile = await tx.socialProfile.delete({
+        where: { id: socialProfileId },
+        select: socialProfileSummarySelect,
+      });
+
+      if (deletedProfile.isPrimary) {
+        const nextProfile = await tx.socialProfile.findFirst({
+          where: { businessId },
+          orderBy: { createdAt: "asc" },
+          select: { id: true },
+        });
+
+        if (nextProfile) {
+          await tx.socialProfile.update({
+            where: { id: nextProfile.id },
+            data: { isPrimary: true },
+          });
+        }
+      }
+
+      return deletedProfile;
+    });
+  }
+
   async createWebsiteCrawl(
     organizationId: string,
     businessId: string,
@@ -582,6 +743,32 @@ export class OrganizationsService {
     return website;
   }
 
+  private async requireSocialProfile(
+    organizationId: string,
+    businessId: string,
+    socialProfileId: string,
+  ) {
+    await this.requireBusiness(organizationId, businessId);
+
+    const socialProfile = await this.prisma.socialProfile.findFirst({
+      where: {
+        id: socialProfileId,
+        businessId,
+      },
+      select: {
+        id: true,
+        platform: true,
+        profileUrl: true,
+      },
+    });
+
+    if (!socialProfile) {
+      throw new NotFoundException("Social profile not found.");
+    }
+
+    return socialProfile;
+  }
+
   private countWebsites(businessId: string) {
     return this.prisma.website.count({
       where: { businessId },
@@ -695,6 +882,19 @@ const googleBusinessProfileSummarySelect = {
   updatedAt: true,
 } satisfies Prisma.GoogleBusinessProfileSelect;
 
+const socialProfileSummarySelect = {
+  id: true,
+  businessId: true,
+  platform: true,
+  profileUrl: true,
+  handle: true,
+  displayName: true,
+  status: true,
+  isPrimary: true,
+  createdAt: true,
+  updatedAt: true,
+} satisfies Prisma.SocialProfileSelect;
+
 function assertGoogleBusinessProfileUrl(rawUrl: string) {
   if (!isValidGoogleBusinessProfileUrl(rawUrl)) {
     throw new BadRequestException(
@@ -749,6 +949,115 @@ function isValidGoogleBusinessProfileUrl(rawUrl: string) {
 function optionalTrim(value: string | undefined) {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;
+}
+
+function assertSocialProfileUrl(
+  platform: SocialProfilePlatform,
+  rawUrl: string,
+) {
+  let url: URL;
+
+  try {
+    url = new URL(rawUrl.trim());
+  } catch {
+    throw new BadRequestException("Social profile URL is invalid.");
+  }
+
+  if (!isSafePublicHttpUrl(url)) {
+    throw new BadRequestException(
+      "Social profile URL must be a safe public HTTP or HTTPS URL.",
+    );
+  }
+
+  const hostname = url.hostname.toLowerCase().replace(/^www\./, "");
+
+  const isValidForPlatform =
+    platform === SocialProfilePlatform.OTHER ||
+    (platform === SocialProfilePlatform.INSTAGRAM &&
+      hostname === "instagram.com") ||
+    (platform === SocialProfilePlatform.FACEBOOK &&
+      (hostname === "facebook.com" || hostname === "fb.com")) ||
+    (platform === SocialProfilePlatform.TIKTOK && hostname === "tiktok.com") ||
+    (platform === SocialProfilePlatform.LINKEDIN &&
+      hostname === "linkedin.com") ||
+    (platform === SocialProfilePlatform.YOUTUBE &&
+      (hostname === "youtube.com" || hostname === "youtu.be")) ||
+    (platform === SocialProfilePlatform.X &&
+      (hostname === "x.com" || hostname === "twitter.com"));
+
+  if (!isValidForPlatform) {
+    throw new BadRequestException(
+      "Social profile URL does not match the selected platform.",
+    );
+  }
+}
+
+function isSafePublicHttpUrl(url: URL) {
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    return false;
+  }
+
+  const hostname = url.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  if (
+    hostname === "localhost" ||
+    hostname.endsWith(".localhost") ||
+    hostname.endsWith(".local") ||
+    hostname.endsWith(".internal")
+  ) {
+    return false;
+  }
+
+  const ipVersion = isIP(hostname);
+  if (ipVersion === 4) {
+    return !isPrivateIpv4(hostname);
+  }
+
+  if (ipVersion === 6) {
+    return !isPrivateIpv6(hostname);
+  }
+
+  return hostname.length > 0;
+}
+
+function isPrivateIpv4(address: string) {
+  const octets = address.split(".").map(Number);
+  const [first = 0, second = 0] = octets;
+
+  return (
+    first === 0 ||
+    first === 10 ||
+    first === 127 ||
+    (first === 100 && second >= 64 && second <= 127) ||
+    (first === 169 && second === 254) ||
+    (first === 172 && second >= 16 && second <= 31) ||
+    (first === 192 && second === 168) ||
+    (first === 198 && (second === 18 || second === 19)) ||
+    first >= 224
+  );
+}
+
+function isPrivateIpv6(address: string) {
+  const normalized = address.toLowerCase();
+
+  if (
+    normalized === "::" ||
+    normalized === "::1" ||
+    normalized.startsWith("fe80:") ||
+    normalized.startsWith("ff")
+  ) {
+    return true;
+  }
+
+  if (normalized.startsWith("::ffff:")) {
+    const mappedAddress = normalized.slice("::ffff:".length);
+    return isIP(mappedAddress) === 4 && isPrivateIpv4(mappedAddress);
+  }
+
+  const firstSegment = Number.parseInt(normalized.split(":")[0] ?? "", 16);
+  return (
+    Number.isFinite(firstSegment) &&
+    ((firstSegment & 0xfe00) === 0xfc00 || (firstSegment & 0xffc0) === 0xfe80)
+  );
 }
 
 function normalizeWebsiteUrl(rawUrl: string) {

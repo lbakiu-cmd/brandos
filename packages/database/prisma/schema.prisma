@@ -26,6 +26,22 @@ enum GoogleBusinessProfileStatus {
   VERIFIED
 }
 
+enum SocialProfilePlatform {
+  INSTAGRAM
+  FACEBOOK
+  TIKTOK
+  LINKEDIN
+  YOUTUBE
+  X
+  OTHER
+}
+
+enum SocialProfileStatus {
+  MANUAL_CONNECTED
+  VERIFIED
+  DISCONNECTED
+}
+
 model Organization {
   id          String       @id @default(cuid())
   name        String
@@ -61,6 +77,7 @@ model Business {
   organization          Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   websites              Website[]
   googleBusinessProfile GoogleBusinessProfile?
+  socialProfiles        SocialProfile[]
   createdAt             DateTime               @default(now())
   updatedAt             DateTime               @updatedAt
 
@@ -121,5 +138,25 @@ model GoogleBusinessProfile {
   createdAt    DateTime                    @default(now())
   updatedAt    DateTime                    @updatedAt
 
+  @@index([status])
+}
+
+model SocialProfile {
+  id          String                @id @default(cuid())
+  businessId  String
+  platform    SocialProfilePlatform
+  profileUrl  String
+  handle      String?
+  displayName String?
+  status      SocialProfileStatus   @default(MANUAL_CONNECTED)
+  isPrimary   Boolean               @default(false)
+  business    Business              @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+
+  @@unique([businessId, platform, profileUrl])
+  @@index([businessId])
+  @@index([businessId, platform])
+  @@index([businessId, isPrimary])
   @@index([status])
 }
