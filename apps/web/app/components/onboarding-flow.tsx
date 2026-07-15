@@ -1810,6 +1810,16 @@ function WorkspaceDashboard({
         <BusinessProfileCard
           business={business}
           primaryWebsite={primaryWebsite}
+          googleBusinessProfile={googleBusinessProfile}
+          socialProfiles={socialProfiles}
+          latestCrawl={
+            primaryWebsite ? latestCrawls[primaryWebsite.id] : undefined
+          }
+          openRecommendationsCount={
+            recommendations.filter(
+              (recommendation) => recommendation.status === "OPEN",
+            ).length
+          }
         />
       </div>
 
@@ -2048,38 +2058,77 @@ function AiVisibilityScoreCard({
 function BusinessProfileCard({
   business,
   primaryWebsite,
+  googleBusinessProfile,
+  socialProfiles,
+  latestCrawl,
+  openRecommendationsCount,
 }: {
   business: Business;
   primaryWebsite: Website | null;
+  googleBusinessProfile: GoogleBusinessProfile | null;
+  socialProfiles: SocialProfile[];
+  latestCrawl: WebsiteCrawl | undefined;
+  openRecommendationsCount: number;
 }) {
+  const location = [business.city, business.country].filter(Boolean).join(", ");
+
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5">
-      <p className="text-sm font-medium uppercase tracking-[0.14em] text-slate-500">
-        Business Profile
-      </p>
-      <h2 className="mt-2 text-2xl font-semibold text-slate-950">
-        {business.name}
-      </h2>
+    <div className="self-start rounded-2xl border border-slate-200 bg-white p-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-sm font-medium uppercase tracking-[0.14em] text-slate-500">
+            Business Profile
+          </p>
+          <h2 className="mt-2 text-2xl font-semibold text-slate-950">
+            {business.name}
+          </h2>
+          <p className="mt-1 text-sm text-slate-500">
+            {[business.category, location || null].filter(Boolean).join(" • ") ||
+              "Profile details not set"}
+          </p>
+        </div>
+        <span className="w-fit rounded-full bg-cyan-50 px-3 py-1 text-xs font-semibold text-cyan-700">
+          Summary
+        </span>
+      </div>
       {primaryWebsite ? (
         <a
           href={primaryWebsite.normalizedUrl}
-          className="mt-2 inline-block break-all text-sm font-medium text-cyan-700"
+          className="mt-3 block truncate text-sm font-medium text-cyan-700"
           target="_blank"
           rel="noreferrer"
         >
           {primaryWebsite.normalizedUrl}
         </a>
-      ) : business.websiteUrl ? (
-        <p className="mt-2 text-sm text-slate-500">
-          Website setup pending for {business.websiteUrl}.
-        </p>
       ) : (
-        <p className="mt-2 text-sm text-slate-500">No website added yet.</p>
+        <p className="mt-3 text-sm text-slate-500">No primary website yet.</p>
       )}
-      <div className="mt-4 grid gap-3 text-sm sm:grid-cols-3">
-        <ProfileFact label="Category" value={business.category ?? "Not set"} />
-        <ProfileFact label="City" value={business.city ?? "Not set"} />
-        <ProfileFact label="Country" value={business.country ?? "Not set"} />
+      <div className="mt-4 grid gap-2 text-sm sm:grid-cols-2">
+        <ProfileStatusItem
+          label="Website connected"
+          value={primaryWebsite ? "Connected" : "Missing"}
+          isPositive={Boolean(primaryWebsite)}
+        />
+        <ProfileStatusItem
+          label="Google Business"
+          value={googleBusinessProfile ? "Connected" : "Not connected"}
+          isPositive={Boolean(googleBusinessProfile)}
+        />
+        <ProfileStatusItem
+          label="Social profiles"
+          value={`${socialProfiles.length} connected`}
+          isPositive={socialProfiles.length > 0}
+        />
+        <ProfileStatusItem
+          label="Latest website scan"
+          value={latestCrawl ? formatCrawlStatus(latestCrawl.status) : "Not run"}
+          isPositive={latestCrawl?.status === "COMPLETED"}
+        />
+        <ProfileStatusItem
+          label="Open recommendations"
+          value={String(openRecommendationsCount)}
+          isPositive={openRecommendationsCount === 0}
+        />
       </div>
     </div>
   );
@@ -2143,7 +2192,13 @@ function RecommendationsSection({
           onClick={onGenerate}
           className="h-10 rounded-xl bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
         >
-          {isGenerating ? "Generating..." : "Generate recommendations"}
+          {isGenerating
+            ? recommendations.length > 0
+              ? "Refreshing..."
+              : "Generating..."
+            : recommendations.length > 0
+              ? "Refresh recommendations"
+              : "Generate recommendations"}
         </button>
       </div>
 
@@ -2212,93 +2267,117 @@ function RecommendationCard({
     status: BusinessRecommendation["status"],
   ) => void;
 }) {
+  const description = truncateText(recommendation.description, 180);
+
   return (
     <div
-      className={`rounded-xl border p-4 ${
+      className={`rounded-xl border px-4 py-3 ${
         recommendation.status === "OPEN"
           ? "border-slate-200 bg-slate-50"
           : "border-slate-200 bg-white opacity-75"
       }`}
     >
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <div className="flex flex-wrap gap-2">
-            <span
-              className={`rounded-full px-2 py-1 text-xs font-semibold ${recommendationPriorityClass(
-                recommendation.priority,
-              )}`}
-            >
-              {formatEnumLabel(recommendation.priority)}
-            </span>
-            <span className="rounded-full bg-white px-2 py-1 text-xs font-semibold text-slate-600">
-              {formatEnumLabel(recommendation.sourceType)}
-            </span>
-            <span className="rounded-full bg-white px-2 py-1 text-xs font-semibold text-slate-600">
-              {formatEnumLabel(recommendation.status)}
-            </span>
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0">
+            <div className="flex flex-wrap gap-2">
+              <span
+                className={`rounded-full px-2 py-1 text-xs font-semibold ${recommendationPriorityClass(
+                  recommendation.priority,
+                )}`}
+              >
+                {formatEnumLabel(recommendation.priority)}
+              </span>
+              <span className="rounded-full bg-white px-2 py-1 text-xs font-semibold text-slate-600">
+                {formatEnumLabel(recommendation.sourceType)}
+              </span>
+              <span className="rounded-full bg-white px-2 py-1 text-xs font-semibold text-slate-600">
+                {formatEnumLabel(recommendation.status)}
+              </span>
+            </div>
+            <h3 className="mt-2 font-semibold text-slate-950">
+              {recommendation.title}
+            </h3>
           </div>
-          <h3 className="mt-3 font-semibold text-slate-950">
-            {recommendation.title}
-          </h3>
-          <p className="mt-1 text-sm leading-6 text-slate-600">
-            {recommendation.description}
-          </p>
-          {recommendation.impact ? (
-            <p className="mt-2 text-sm leading-6 text-slate-700">
-              <span className="font-semibold">Impact: </span>
-              {recommendation.impact}
-            </p>
-          ) : null}
-          {recommendation.actionLabel ? (
-            <p className="mt-2 text-xs font-semibold uppercase tracking-[0.12em] text-cyan-700">
-              {recommendation.actionLabel}
-            </p>
-          ) : null}
+          <div className="flex shrink-0 flex-wrap gap-2 lg:justify-end">
+            {recommendation.status !== "DONE" ? (
+              <button
+                type="button"
+                disabled={isUpdating}
+                onClick={() => onUpdateStatus(recommendation.id, "DONE")}
+                className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isUpdating ? "Saving..." : "Done"}
+              </button>
+            ) : null}
+            {recommendation.status !== "IGNORED" ? (
+              <button
+                type="button"
+                disabled={isUpdating}
+                onClick={() => onUpdateStatus(recommendation.id, "IGNORED")}
+                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Ignore
+              </button>
+            ) : null}
+            {recommendation.status !== "OPEN" ? (
+              <button
+                type="button"
+                disabled={isUpdating}
+                onClick={() => onUpdateStatus(recommendation.id, "OPEN")}
+                className="rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-2 text-xs font-semibold text-cyan-700 hover:bg-cyan-100 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Reopen
+              </button>
+            ) : null}
+          </div>
         </div>
-        <div className="flex flex-wrap gap-2 lg:justify-end">
-          {recommendation.status !== "DONE" ? (
-            <button
-              type="button"
-              disabled={isUpdating}
-              onClick={() => onUpdateStatus(recommendation.id, "DONE")}
-              className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isUpdating ? "Saving..." : "Done"}
-            </button>
-          ) : null}
-          {recommendation.status !== "IGNORED" ? (
-            <button
-              type="button"
-              disabled={isUpdating}
-              onClick={() => onUpdateStatus(recommendation.id, "IGNORED")}
-              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              Ignore
-            </button>
-          ) : null}
-          {recommendation.status !== "OPEN" ? (
-            <button
-              type="button"
-              disabled={isUpdating}
-              onClick={() => onUpdateStatus(recommendation.id, "OPEN")}
-              className="rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-2 text-xs font-semibold text-cyan-700 hover:bg-cyan-100 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              Reopen
-            </button>
-          ) : null}
+        <div className="grid gap-3 lg:grid-cols-[1.4fr_1fr]">
+          <div>
+            <p className="text-sm leading-5 text-slate-600">{description}</p>
+            {recommendation.impact ? (
+              <p className="mt-2 text-sm leading-5 text-slate-700">
+                <span className="font-semibold">Impact: </span>
+                {recommendation.impact}
+              </p>
+            ) : null}
+          </div>
+          <div className="rounded-lg border border-cyan-100 bg-white px-3 py-2">
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+              Suggested action
+            </p>
+            <p className="mt-1 text-sm font-semibold text-cyan-700">
+              {recommendation.actionLabel ?? "Review recommendation"}
+            </p>
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-function ProfileFact({ label, value }: { label: string; value: string }) {
+function ProfileStatusItem({
+  label,
+  value,
+  isPositive,
+}: {
+  label: string;
+  value: string;
+  isPositive: boolean;
+}) {
   return (
-    <div className="rounded-xl bg-slate-50 px-3 py-3">
+    <div className="rounded-xl bg-slate-50 px-3 py-2">
       <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
         {label}
       </p>
-      <p className="mt-1 font-medium text-slate-800">{value}</p>
+      <div className="mt-1 flex items-center gap-2">
+        <span
+          className={`h-2 w-2 rounded-full ${
+            isPositive ? "bg-emerald-500" : "bg-amber-500"
+          }`}
+        />
+        <p className="font-medium text-slate-800">{value}</p>
+      </div>
     </div>
   );
 }
@@ -3839,6 +3918,14 @@ function formatDateTime(value: string) {
   } catch {
     return value;
   }
+}
+
+function truncateText(value: string, maxLength: number) {
+  if (value.length <= maxLength) {
+    return value;
+  }
+
+  return `${value.slice(0, maxLength).trimEnd()}...`;
 }
 
 function getErrorMessage(error: unknown) {
