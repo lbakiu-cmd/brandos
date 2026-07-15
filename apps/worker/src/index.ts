@@ -2,6 +2,9 @@ import { env } from "@brandos/config";
 import {
   createPrismaClient,
   Prisma,
+  WebsiteAuditFindingCategory,
+  WebsiteAuditFindingSeverity,
+  WebsiteAuditFindingStatus,
   WebsiteCrawlStatus,
 } from "@brandos/database";
 import {
@@ -34,6 +37,32 @@ type HomepageMetadata = {
   fetchedAt: string;
   responseContentType: string | null;
 };
+
+type AuditFindingDraft = {
+  code: string;
+  category: WebsiteAuditFindingCategory;
+  severity: WebsiteAuditFindingSeverity;
+  title: string;
+  description: string;
+  recommendation?: string;
+  evidence?: Prisma.InputJsonObject;
+};
+
+const deterministicFindingCodes = [
+  "missing_title",
+  "title_too_short",
+  "title_too_long",
+  "missing_meta_description",
+  "meta_description_too_short",
+  "meta_description_too_long",
+  "missing_canonical_url",
+  "missing_h1",
+  "multiple_h1s",
+  "missing_json_ld_schema",
+  "missing_local_business_schema",
+  "robots_noindex_detected",
+  "missing_language_attribute",
+];
 
 const worker = new Worker<WebsiteCrawlJobData>(
   websiteCrawlQueueName,
@@ -107,6 +136,7 @@ async function processWebsiteCrawl(data: WebsiteCrawlJobData) {
         metadata: metadata as Prisma.InputJsonObject,
       },
     });
+    await syncAuditFindings(crawl.websiteId, crawl.id, metadata);
 
     console.log(`Completed website crawl ${crawl.id}.`);
   } catch (error) {
@@ -114,6 +144,271 @@ async function processWebsiteCrawl(data: WebsiteCrawlJobData) {
     await failCrawl(crawl.id, message);
     console.warn(`Website crawl ${crawl.id} failed: ${message}`);
   }
+}
+
+async function syncAuditFindings(
+  websiteId: string,
+  crawlId: string,
+  metadata: HomepageMetadata,
+) {
+  const findings = analyzeHomepageMetadata(metadata);
+  const activeCodes = new Set(findings.map((finding) => finding.code));
+
+  await prisma.$transaction(async (tx) => {
+    await tx.websiteAuditFinding.updateMany({
+      where: {
+        websiteId,
+        status: WebsiteAuditFindingStatus.OPEN,
+        code: {
+          in: deterministicFindingCodes.filter(
+            (code) => !activeCodes.has(code),
+          ),
+        },
+      },
+      data: {
+        status: WebsiteAuditFindingStatus.RESOLVED,
+        crawlId,
+      },
+    });
+
+    for (const finding of findings) {
+      const existingFinding = await tx.websiteAuditFinding.findUnique({
+        where: {
+          websiteId_code: {
+            websiteId,
+            code: finding.code,
+          },
+        },
+        select: {
+          id: true,
+          status: true,
+        },
+      });
+
+      if (existingFinding?.status === WebsiteAuditFindingStatus.IGNORED) {
+        continue;
+      }
+
+      await tx.websiteAuditFinding.upsert({
+        where: {
+          websiteId_code: {
+            websiteId,
+            code: finding.code,
+          },
+        },
+        create: {
+          websiteId,
+          crawlId,
+          category: finding.category,
+          severity: finding.severity,
+          status: WebsiteAuditFindingStatus.OPEN,
+          code: finding.code,
+          title: finding.title,
+          description: finding.description,
+          recommendation: finding.recommendation,
+          evidence: finding.evidence,
+        },
+        update: {
+          crawlId,
+          category: finding.category,
+          severity: finding.severity,
+          status: WebsiteAuditFindingStatus.OPEN,
+          title: finding.title,
+          description: finding.description,
+          recommendation: finding.recommendation,
+          evidence: finding.evidence,
+        },
+      });
+    }
+  });
+}
+
+function analyzeHomepageMetadata(metadata: HomepageMetadata) {
+  const findings: AuditFindingDraft[] = [];
+  const titleLength = metadata.pageTitle?.length ?? 0;
+  const metaDescriptionLength = metadata.metaDescription?.length ?? 0;
+  const schemaTypes = metadata.schemaTypes.map((schemaType) =>
+    schemaType.toLowerCase(),
+  );
+
+  if (!metadata.pageTitle) {
+    findings.push({
+      code: "missing_title",
+      category: WebsiteAuditFindingCategory.CONTENT,
+      severity: WebsiteAuditFindingSeverity.HIGH,
+      title: "Homepage title is missing",
+      description:
+        "The homepage does not expose a title tag in the fetched HTML metadata.",
+      recommendation:
+        "Add a concise, descriptive title tag that names the business and primary service.",
+      evidence: { pageTitle: metadata.pageTitle },
+    });
+  } else if (titleLength < 30) {
+    findings.push({
+      code: "title_too_short",
+      category: WebsiteAuditFindingCategory.CONTENT,
+      severity: WebsiteAuditFindingSeverity.LOW,
+      title: "Homepage title is very short",
+      description:
+        "The homepage title may not give search and AI systems enough context.",
+      recommendation:
+        "Expand the title to include the business name, main offer, and local context where useful.",
+      evidence: { pageTitle: metadata.pageTitle, length: titleLength },
+    });
+  } else if (titleLength > 60) {
+    findings.push({
+      code: "title_too_long",
+      category: WebsiteAuditFindingCategory.CONTENT,
+      severity: WebsiteAuditFindingSeverity.LOW,
+      title: "Homepage title is long",
+      description:
+        "The homepage title is likely to be truncated in search surfaces.",
+      recommendation:
+        "Keep the title focused and closer to 50-60 characters where possible.",
+      evidence: { pageTitle: metadata.pageTitle, length: titleLength },
+    });
+  }
+
+  if (!metadata.metaDescription) {
+    findings.push({
+      code: "missing_meta_description",
+      category: WebsiteAuditFindingCategory.CONTENT,
+      severity: WebsiteAuditFindingSeverity.MEDIUM,
+      title: "Meta description is missing",
+      description:
+        "The homepage does not expose a meta description in the fetched HTML metadata.",
+      recommendation:
+        "Add a clear meta description summarizing the business, service, and location.",
+      evidence: { metaDescription: metadata.metaDescription },
+    });
+  } else if (metaDescriptionLength < 70) {
+    findings.push({
+      code: "meta_description_too_short",
+      category: WebsiteAuditFindingCategory.CONTENT,
+      severity: WebsiteAuditFindingSeverity.LOW,
+      title: "Meta description is short",
+      description:
+        "The meta description may not provide enough context for search and AI summaries.",
+      recommendation:
+        "Write a fuller description that explains what the business does and who it serves.",
+      evidence: {
+        metaDescription: metadata.metaDescription,
+        length: metaDescriptionLength,
+      },
+    });
+  } else if (metaDescriptionLength > 160) {
+    findings.push({
+      code: "meta_description_too_long",
+      category: WebsiteAuditFindingCategory.CONTENT,
+      severity: WebsiteAuditFindingSeverity.LOW,
+      title: "Meta description is long",
+      description:
+        "The meta description may be truncated in search result snippets.",
+      recommendation:
+        "Trim the description while keeping the strongest business and local signals.",
+      evidence: {
+        metaDescription: metadata.metaDescription,
+        length: metaDescriptionLength,
+      },
+    });
+  }
+
+  if (!metadata.canonicalUrl) {
+    findings.push({
+      code: "missing_canonical_url",
+      category: WebsiteAuditFindingCategory.TECHNICAL,
+      severity: WebsiteAuditFindingSeverity.LOW,
+      title: "Canonical URL is missing",
+      description:
+        "The homepage does not expose a canonical URL in the fetched HTML metadata.",
+      recommendation:
+        "Add a canonical link tag that points to the preferred homepage URL.",
+      evidence: { canonicalUrl: metadata.canonicalUrl },
+    });
+  }
+
+  if (metadata.h1Count === 0) {
+    findings.push({
+      code: "missing_h1",
+      category: WebsiteAuditFindingCategory.CONTENT,
+      severity: WebsiteAuditFindingSeverity.MEDIUM,
+      title: "Homepage H1 is missing",
+      description:
+        "The homepage does not expose an H1 heading in the fetched HTML.",
+      recommendation:
+        "Add one clear H1 that describes the business or primary service.",
+      evidence: { h1Count: metadata.h1Count, h1Texts: metadata.h1Texts },
+    });
+  } else if (metadata.h1Count > 1) {
+    findings.push({
+      code: "multiple_h1s",
+      category: WebsiteAuditFindingCategory.CONTENT,
+      severity: WebsiteAuditFindingSeverity.INFO,
+      title: "Multiple H1 headings detected",
+      description:
+        "The homepage exposes more than one H1 heading, which can make page structure less clear.",
+      recommendation:
+        "Use one primary H1 and demote secondary headings to H2 or H3 where appropriate.",
+      evidence: { h1Count: metadata.h1Count, h1Texts: metadata.h1Texts },
+    });
+  }
+
+  if (metadata.schemaTypes.length === 0) {
+    findings.push({
+      code: "missing_json_ld_schema",
+      category: WebsiteAuditFindingCategory.SCHEMA,
+      severity: WebsiteAuditFindingSeverity.MEDIUM,
+      title: "JSON-LD schema is missing",
+      description: "No JSON-LD schema types were detected on the homepage.",
+      recommendation:
+        "Add structured data for the business, organization, services, or local entity.",
+      evidence: { schemaTypes: metadata.schemaTypes },
+    });
+  }
+
+  if (!schemaTypes.includes("localbusiness")) {
+    findings.push({
+      code: "missing_local_business_schema",
+      category: WebsiteAuditFindingCategory.LOCAL_SEO,
+      severity: WebsiteAuditFindingSeverity.MEDIUM,
+      title: "LocalBusiness schema is missing",
+      description:
+        "The homepage does not expose LocalBusiness schema in detected JSON-LD types.",
+      recommendation:
+        "Add LocalBusiness schema with accurate name, address, phone, URL, and business category when applicable.",
+      evidence: { schemaTypes: metadata.schemaTypes },
+    });
+  }
+
+  if (metadata.robotsMeta?.toLowerCase().includes("noindex")) {
+    findings.push({
+      code: "robots_noindex_detected",
+      category: WebsiteAuditFindingCategory.TECHNICAL,
+      severity: WebsiteAuditFindingSeverity.HIGH,
+      title: "Robots noindex detected",
+      description:
+        "The homepage robots meta tag includes noindex, which can prevent indexing.",
+      recommendation:
+        "Remove noindex from the homepage unless this page is intentionally hidden from search engines.",
+      evidence: { robotsMeta: metadata.robotsMeta },
+    });
+  }
+
+  if (!metadata.language) {
+    findings.push({
+      code: "missing_language_attribute",
+      category: WebsiteAuditFindingCategory.TECHNICAL,
+      severity: WebsiteAuditFindingSeverity.INFO,
+      title: "Language attribute is missing",
+      description:
+        "The homepage HTML element does not expose a language attribute.",
+      recommendation:
+        'Add a lang attribute such as lang="en" to help systems understand the page language.',
+      evidence: { language: metadata.language },
+    });
+  }
+
+  return findings;
 }
 
 async function failCrawl(crawlId: string, errorMessage: string) {

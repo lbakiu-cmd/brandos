@@ -77,6 +77,22 @@ type SocialProfile = {
   updatedAt: string;
 };
 
+type WebsiteAuditFinding = {
+  id: string;
+  websiteId: string;
+  crawlId: string | null;
+  category: "TECHNICAL" | "CONTENT" | "SCHEMA" | "LOCAL_SEO" | "AI_VISIBILITY";
+  severity: "INFO" | "LOW" | "MEDIUM" | "HIGH";
+  status: "OPEN" | "RESOLVED" | "IGNORED";
+  code: string;
+  title: string;
+  description: string;
+  recommendation: string | null;
+  evidence: unknown;
+  createdAt: string;
+  updatedAt: string;
+};
+
 type CrawlMetadata = {
   finalUrl: string;
   httpStatus: number;
@@ -202,6 +218,9 @@ export function OnboardingFlow() {
   const [latestCrawls, setLatestCrawls] = useState<
     Record<string, WebsiteCrawl>
   >({});
+  const [auditFindings, setAuditFindings] = useState<
+    Record<string, WebsiteAuditFinding[]>
+  >({});
   const [websiteForm, setWebsiteForm] =
     useState<WebsiteForm>(initialWebsiteForm);
   const [googleBusinessProfileForm, setGoogleBusinessProfileForm] =
@@ -221,6 +240,7 @@ export function OnboardingFlow() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isWebsiteSubmitting, setIsWebsiteSubmitting] = useState(false);
   const [isWebsiteLoading, setIsWebsiteLoading] = useState(false);
+  const [ignoredFindingId, setIgnoredFindingId] = useState<string | null>(null);
   const [
     isGoogleBusinessProfileSubmitting,
     setIsGoogleBusinessProfileSubmitting,
@@ -314,6 +334,15 @@ export function OnboardingFlow() {
                 restoredBusiness.id,
                 restoredWebsites,
               );
+        const restoredAuditFindings =
+          restoredBusiness === null
+            ? {}
+            : await loadAuditFindings(
+                apiBaseUrl,
+                organizationToRestore.id,
+                restoredBusiness.id,
+                restoredWebsites,
+              );
         const restoredGoogleBusinessProfile = restoredBusiness
           ? await loadGoogleBusinessProfile(
               apiBaseUrl,
@@ -344,6 +373,7 @@ export function OnboardingFlow() {
         setIsGoogleBusinessProfileFormVisible(false);
         setEditingSocialProfileId(null);
         setLatestCrawls(restoredCrawls);
+        setAuditFindings(restoredAuditFindings);
         setStep(restoredBusinesses.length > 0 ? "workspace" : "business");
       } catch (requestError) {
         if (!isMounted) {
@@ -361,6 +391,7 @@ export function OnboardingFlow() {
         setIsGoogleBusinessProfileFormVisible(false);
         setEditingSocialProfileId(null);
         setLatestCrawls({});
+        setAuditFindings({});
         setStep("organization");
         setError(
           `Could not restore the saved workspace. ${getErrorMessage(
@@ -418,6 +449,7 @@ export function OnboardingFlow() {
       setGoogleBusinessProfile(null);
       setSocialProfiles([]);
       setLatestCrawls({});
+      setAuditFindings({});
       setStep("business");
       setSuccess("Organization created. Add your first business.");
     } catch (requestError) {
@@ -470,6 +502,12 @@ export function OnboardingFlow() {
         createdBusiness.id,
         createdWebsites,
       );
+      const createdAuditFindings = await loadAuditFindings(
+        apiBaseUrl,
+        organization.id,
+        createdBusiness.id,
+        createdWebsites,
+      );
       setBusiness(createdBusiness);
       setBusinesses((current) => [createdBusiness, ...current]);
       setWebsites(createdWebsites);
@@ -479,6 +517,7 @@ export function OnboardingFlow() {
       setIsGoogleBusinessProfileFormVisible(false);
       setEditingSocialProfileId(null);
       setLatestCrawls(createdCrawls);
+      setAuditFindings(createdAuditFindings);
       setBusinessForm(initialBusinessForm);
       setStep("workspace");
       setSuccess("Business workspace created.");
@@ -516,6 +555,7 @@ export function OnboardingFlow() {
     setIsGoogleBusinessProfileFormVisible(false);
     setEditingSocialProfileId(null);
     setLatestCrawls({});
+    setAuditFindings({});
     setWebsiteForm(initialWebsiteForm);
     setOrganizationForm(initialOrganizationForm);
     setBusinessForm(initialBusinessForm);
@@ -556,6 +596,15 @@ export function OnboardingFlow() {
               selectedBusiness.id,
               selectedWebsites,
             );
+      const selectedAuditFindings =
+        selectedBusiness === null
+          ? {}
+          : await loadAuditFindings(
+              apiBaseUrl,
+              organizationId,
+              selectedBusiness.id,
+              selectedWebsites,
+            );
       const selectedGoogleBusinessProfile = selectedBusiness
         ? await loadGoogleBusinessProfile(
             apiBaseUrl,
@@ -585,6 +634,7 @@ export function OnboardingFlow() {
       setIsGoogleBusinessProfileFormVisible(false);
       setEditingSocialProfileId(null);
       setLatestCrawls(selectedCrawls);
+      setAuditFindings(selectedAuditFindings);
       setStep(selectedBusiness ? "workspace" : "business");
     } catch (requestError) {
       setError(getErrorMessage(requestError));
@@ -603,6 +653,7 @@ export function OnboardingFlow() {
     setIsGoogleBusinessProfileFormVisible(false);
     setEditingSocialProfileId(null);
     setLatestCrawls({});
+    setAuditFindings({});
     setWebsiteForm(initialWebsiteForm);
     setStep("business");
     setError(null);
@@ -655,6 +706,7 @@ export function OnboardingFlow() {
         ]),
       );
       setLatestCrawls((current) => removeKey(current, createdWebsite.id));
+      setAuditFindings((current) => removeKey(current, createdWebsite.id));
       setWebsiteForm(initialWebsiteForm);
       setIsAddWebsiteFormVisible(false);
       setSuccess("Website saved.");
@@ -701,6 +753,7 @@ export function OnboardingFlow() {
         );
       }
       setLatestCrawls((current) => removeKey(current, deletedWebsite.id));
+      setAuditFindings((current) => removeKey(current, deletedWebsite.id));
       setSuccess("Website deleted.");
     } catch (requestError) {
       setError(getErrorMessage(requestError));
@@ -732,6 +785,35 @@ export function OnboardingFlow() {
       setError(getErrorMessage(requestError));
     } finally {
       setQueuedCrawlWebsiteId(null);
+    }
+  }
+
+  async function ignoreAuditFinding(websiteId: string, findingId: string) {
+    setError(null);
+    setSuccess(null);
+
+    if (!apiBaseUrl || !organization || !business) {
+      setError("Workspace is not ready.");
+      return;
+    }
+
+    setIgnoredFindingId(findingId);
+    try {
+      const updatedFinding = await patchJson<WebsiteAuditFinding>(
+        `${apiBaseUrl}/organizations/${organization.id}/businesses/${business.id}/websites/${websiteId}/audit-findings/${findingId}`,
+        { status: "IGNORED" },
+      );
+      setAuditFindings((current) => ({
+        ...current,
+        [websiteId]: (current[websiteId] ?? []).map((finding) =>
+          finding.id === updatedFinding.id ? updatedFinding : finding,
+        ),
+      }));
+      setSuccess("Audit finding ignored.");
+    } catch (requestError) {
+      setError(getErrorMessage(requestError));
+    } finally {
+      setIgnoredFindingId(null);
     }
   }
 
@@ -1002,6 +1084,7 @@ export function OnboardingFlow() {
                 socialProfileForm={socialProfileForm}
                 editingSocialProfileId={editingSocialProfileId}
                 latestCrawls={latestCrawls}
+                auditFindings={auditFindings}
                 isWebsiteSubmitting={isWebsiteSubmitting}
                 isWebsiteLoading={isWebsiteLoading}
                 isGoogleBusinessProfileSubmitting={
@@ -1013,6 +1096,7 @@ export function OnboardingFlow() {
                   isGoogleBusinessProfileFormVisible
                 }
                 queuedCrawlWebsiteId={queuedCrawlWebsiteId}
+                ignoredFindingId={ignoredFindingId}
                 onCreateAnotherBusiness={createAnotherBusiness}
                 onWebsiteUrlChange={(url) => setWebsiteForm({ url })}
                 onGoogleBusinessProfileFieldChange={(field, value) =>
@@ -1056,6 +1140,7 @@ export function OnboardingFlow() {
                 onDeleteSocialProfile={deleteSocialProfile}
                 onCancelSocialProfileEdit={cancelSocialProfileEdit}
                 onQueueWebsiteCrawl={queueWebsiteCrawl}
+                onIgnoreAuditFinding={ignoreAuditFinding}
                 onSwitchWorkspace={switchWorkspace}
               />
             </div>
@@ -1394,6 +1479,7 @@ function WorkspaceDashboard({
   socialProfileForm,
   editingSocialProfileId,
   latestCrawls,
+  auditFindings,
   isWebsiteSubmitting,
   isWebsiteLoading,
   isGoogleBusinessProfileSubmitting,
@@ -1401,6 +1487,7 @@ function WorkspaceDashboard({
   isAddWebsiteFormVisible,
   isGoogleBusinessProfileFormVisible,
   queuedCrawlWebsiteId,
+  ignoredFindingId,
   onCreateAnotherBusiness,
   onWebsiteUrlChange,
   onGoogleBusinessProfileFieldChange,
@@ -1420,6 +1507,7 @@ function WorkspaceDashboard({
   onDeleteSocialProfile,
   onCancelSocialProfileEdit,
   onQueueWebsiteCrawl,
+  onIgnoreAuditFinding,
   onSwitchWorkspace,
 }: {
   business: Business;
@@ -1432,6 +1520,7 @@ function WorkspaceDashboard({
   socialProfileForm: SocialProfileForm;
   editingSocialProfileId: string | null;
   latestCrawls: Record<string, WebsiteCrawl>;
+  auditFindings: Record<string, WebsiteAuditFinding[]>;
   isWebsiteSubmitting: boolean;
   isWebsiteLoading: boolean;
   isGoogleBusinessProfileSubmitting: boolean;
@@ -1439,6 +1528,7 @@ function WorkspaceDashboard({
   isAddWebsiteFormVisible: boolean;
   isGoogleBusinessProfileFormVisible: boolean;
   queuedCrawlWebsiteId: string | null;
+  ignoredFindingId: string | null;
   onCreateAnotherBusiness: () => void;
   onWebsiteUrlChange: (url: string) => void;
   onGoogleBusinessProfileFieldChange: (
@@ -1464,6 +1554,7 @@ function WorkspaceDashboard({
   onDeleteSocialProfile: (socialProfileId: string) => void;
   onCancelSocialProfileEdit: () => void;
   onQueueWebsiteCrawl: (websiteId: string) => void;
+  onIgnoreAuditFinding: (websiteId: string, findingId: string) => void;
   onSwitchWorkspace: () => void;
 }) {
   const primaryWebsite = websites.find((website) => website.isPrimary) ?? null;
@@ -1506,10 +1597,12 @@ function WorkspaceDashboard({
           form={websiteForm}
           websites={websites}
           latestCrawls={latestCrawls}
+          auditFindings={auditFindings}
           isSubmitting={isWebsiteSubmitting}
           isLoading={isWebsiteLoading}
           isAddWebsiteFormVisible={isAddWebsiteFormVisible}
           queuedCrawlWebsiteId={queuedCrawlWebsiteId}
+          ignoredFindingId={ignoredFindingId}
           onUrlChange={onWebsiteUrlChange}
           onSubmit={onWebsiteSubmit}
           onShowAddWebsiteForm={onShowAddWebsiteForm}
@@ -1517,6 +1610,7 @@ function WorkspaceDashboard({
           onMakePrimary={onMakePrimaryWebsite}
           onDelete={onDeleteWebsite}
           onQueueCrawl={onQueueWebsiteCrawl}
+          onIgnoreFinding={onIgnoreAuditFinding}
         />
 
         <NextVisibilitySteps
@@ -1637,10 +1731,12 @@ function WebsiteSection({
   form,
   websites,
   latestCrawls,
+  auditFindings,
   isSubmitting,
   isLoading,
   isAddWebsiteFormVisible,
   queuedCrawlWebsiteId,
+  ignoredFindingId,
   onUrlChange,
   onSubmit,
   onShowAddWebsiteForm,
@@ -1648,14 +1744,17 @@ function WebsiteSection({
   onMakePrimary,
   onDelete,
   onQueueCrawl,
+  onIgnoreFinding,
 }: {
   form: WebsiteForm;
   websites: Website[];
   latestCrawls: Record<string, WebsiteCrawl>;
+  auditFindings: Record<string, WebsiteAuditFinding[]>;
   isSubmitting: boolean;
   isLoading: boolean;
   isAddWebsiteFormVisible: boolean;
   queuedCrawlWebsiteId: string | null;
+  ignoredFindingId: string | null;
   onUrlChange: (url: string) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onShowAddWebsiteForm: () => void;
@@ -1663,6 +1762,7 @@ function WebsiteSection({
   onMakePrimary: (websiteId: string) => void;
   onDelete: (websiteId: string) => void;
   onQueueCrawl: (websiteId: string) => void;
+  onIgnoreFinding: (websiteId: string, findingId: string) => void;
 }) {
   const hasPrimaryWebsite = websites.some((website) => website.isPrimary);
   const isWebsiteManagementVisible =
@@ -1707,6 +1807,7 @@ function WebsiteSection({
             >
               {(() => {
                 const latestCrawl = latestCrawls[website.id];
+                const websiteFindings = auditFindings[website.id] ?? [];
 
                 return (
                   <div className="space-y-3">
@@ -1777,6 +1878,12 @@ function WebsiteSection({
                       </div>
                     </div>
                     <CrawlDetails crawl={latestCrawl} />
+                    <AuditFindingsSection
+                      websiteId={website.id}
+                      findings={websiteFindings}
+                      ignoredFindingId={ignoredFindingId}
+                      onIgnoreFinding={onIgnoreFinding}
+                    />
                   </div>
                 );
               })()}
@@ -2406,6 +2513,83 @@ function CrawlDetails({ crawl }: { crawl: WebsiteCrawl | undefined }) {
   return <HomepageSignalsPanel metadata={crawl.metadata} />;
 }
 
+function AuditFindingsSection({
+  websiteId,
+  findings,
+  ignoredFindingId,
+  onIgnoreFinding,
+}: {
+  websiteId: string;
+  findings: WebsiteAuditFinding[];
+  ignoredFindingId: string | null;
+  onIgnoreFinding: (websiteId: string, findingId: string) => void;
+}) {
+  const openFindings = findings.filter((finding) => finding.status === "OPEN");
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm font-semibold text-slate-950">Audit findings</p>
+        <span className="w-fit rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
+          {openFindings.length} open
+        </span>
+      </div>
+      {openFindings.length === 0 ? (
+        <p className="mt-3 text-sm leading-6 text-slate-600">
+          No open findings yet. Run or refresh a website scan to generate
+          deterministic homepage findings.
+        </p>
+      ) : (
+        <div className="mt-3 grid gap-3">
+          {openFindings.map((finding) => (
+            <div
+              key={finding.id}
+              className="rounded-xl border border-slate-200 bg-slate-50 p-3"
+            >
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <div className="flex flex-wrap gap-2">
+                    <span
+                      className={`rounded-full px-2 py-1 text-xs font-semibold ${severityClass(
+                        finding.severity,
+                      )}`}
+                    >
+                      {formatEnumLabel(finding.severity)}
+                    </span>
+                    <span className="rounded-full bg-white px-2 py-1 text-xs font-semibold text-slate-600">
+                      {formatEnumLabel(finding.category)}
+                    </span>
+                  </div>
+                  <p className="mt-3 font-semibold text-slate-950">
+                    {finding.title}
+                  </p>
+                  <p className="mt-1 text-sm leading-6 text-slate-600">
+                    {finding.description}
+                  </p>
+                  {finding.recommendation ? (
+                    <p className="mt-2 text-sm leading-6 text-slate-700">
+                      <span className="font-semibold">Recommendation: </span>
+                      {finding.recommendation}
+                    </p>
+                  ) : null}
+                </div>
+                <button
+                  type="button"
+                  disabled={ignoredFindingId === finding.id}
+                  onClick={() => onIgnoreFinding(websiteId, finding.id)}
+                  className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {ignoredFindingId === finding.id ? "Ignoring..." : "Ignore"}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function HomepageSignalsPanel({ metadata }: { metadata: CrawlMetadata }) {
   return (
     <div className="rounded-xl border border-cyan-100 bg-white px-4 py-3">
@@ -2670,6 +2854,25 @@ async function loadLatestCrawls(
   );
 }
 
+async function loadAuditFindings(
+  apiBaseUrl: string,
+  organizationId: string,
+  businessId: string,
+  websites: Website[],
+) {
+  const entries = await Promise.all(
+    websites.map(async (website) => {
+      const findings = await getJson<WebsiteAuditFinding[]>(
+        `${apiBaseUrl}/organizations/${organizationId}/businesses/${businessId}/websites/${website.id}/audit-findings`,
+      );
+
+      return [website.id, findings] as const;
+    }),
+  );
+
+  return Object.fromEntries(entries);
+}
+
 async function loadGoogleBusinessProfile(
   apiBaseUrl: string,
   organizationId: string,
@@ -2905,6 +3108,25 @@ function formatSocialPlatform(platform: SocialProfilePlatform) {
   } satisfies Record<SocialProfilePlatform, string>;
 
   return labels[platform];
+}
+
+function formatEnumLabel(value: string) {
+  return value
+    .toLowerCase()
+    .split("_")
+    .map((part) => part.replace(/^\w/, (letter) => letter.toUpperCase()))
+    .join(" ");
+}
+
+function severityClass(severity: WebsiteAuditFinding["severity"]) {
+  const classes = {
+    HIGH: "bg-red-50 text-red-700",
+    MEDIUM: "bg-amber-50 text-amber-700",
+    LOW: "bg-cyan-50 text-cyan-700",
+    INFO: "bg-slate-100 text-slate-600",
+  } satisfies Record<WebsiteAuditFinding["severity"], string>;
+
+  return classes[severity];
 }
 
 function socialProfilePlaceholder(platform: SocialProfilePlatform) {

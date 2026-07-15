@@ -11,6 +11,9 @@ import {
   Prisma,
   SocialProfilePlatform,
   SocialProfileStatus,
+  WebsiteAuditFindingCategory,
+  WebsiteAuditFindingSeverity,
+  WebsiteAuditFindingStatus,
 } from "@brandos/database";
 import { WebsiteCrawlStatus } from "@brandos/database";
 import { PrismaService } from "../database/prisma.service";
@@ -23,6 +26,7 @@ import { CreateSocialProfileDto } from "./dto/create-social-profile.dto";
 import { CreateWebsiteDto } from "./dto/create-website.dto";
 import { UpdateGoogleBusinessProfileDto } from "./dto/update-google-business-profile.dto";
 import { UpdateSocialProfileDto } from "./dto/update-social-profile.dto";
+import { UpdateWebsiteAuditFindingDto } from "./dto/update-website-audit-finding.dto";
 import { UpdateWebsiteDto } from "./dto/update-website.dto";
 
 const TEMPORARY_USER_ID = "temporary-local-user";
@@ -95,6 +99,22 @@ export type SocialProfileSummary = {
   displayName: string | null;
   status: SocialProfileStatus;
   isPrimary: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type WebsiteAuditFindingSummary = {
+  id: string;
+  websiteId: string;
+  crawlId: string | null;
+  category: WebsiteAuditFindingCategory;
+  severity: WebsiteAuditFindingSeverity;
+  status: WebsiteAuditFindingStatus;
+  code: string;
+  title: string;
+  description: string;
+  recommendation: string | null;
+  evidence: Prisma.JsonValue | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -677,6 +697,48 @@ export class OrganizationsService {
     return crawl;
   }
 
+  async listWebsiteAuditFindings(
+    organizationId: string,
+    businessId: string,
+    websiteId: string,
+  ): Promise<WebsiteAuditFindingSummary[]> {
+    await this.requireWebsite(organizationId, businessId, websiteId);
+
+    return this.prisma.websiteAuditFinding.findMany({
+      where: { websiteId },
+      orderBy: [{ severity: "desc" }, { status: "asc" }, { createdAt: "desc" }],
+      select: websiteAuditFindingSummarySelect,
+    });
+  }
+
+  async updateWebsiteAuditFinding(
+    organizationId: string,
+    businessId: string,
+    websiteId: string,
+    findingId: string,
+    input: UpdateWebsiteAuditFindingDto,
+  ): Promise<WebsiteAuditFindingSummary> {
+    await this.requireWebsite(organizationId, businessId, websiteId);
+
+    const finding = await this.prisma.websiteAuditFinding.findFirst({
+      where: {
+        id: findingId,
+        websiteId,
+      },
+      select: { id: true },
+    });
+
+    if (!finding) {
+      throw new NotFoundException("Website audit finding not found.");
+    }
+
+    return this.prisma.websiteAuditFinding.update({
+      where: { id: findingId },
+      data: { status: input.status },
+      select: websiteAuditFindingSummarySelect,
+    });
+  }
+
   private async requireMembership(organizationId: string) {
     const organization = await this.prisma.organization.findUnique({
       where: { id: organizationId },
@@ -894,6 +956,22 @@ const socialProfileSummarySelect = {
   createdAt: true,
   updatedAt: true,
 } satisfies Prisma.SocialProfileSelect;
+
+const websiteAuditFindingSummarySelect = {
+  id: true,
+  websiteId: true,
+  crawlId: true,
+  category: true,
+  severity: true,
+  status: true,
+  code: true,
+  title: true,
+  description: true,
+  recommendation: true,
+  evidence: true,
+  createdAt: true,
+  updatedAt: true,
+} satisfies Prisma.WebsiteAuditFindingSelect;
 
 function assertGoogleBusinessProfileUrl(rawUrl: string) {
   if (!isValidGoogleBusinessProfileUrl(rawUrl)) {

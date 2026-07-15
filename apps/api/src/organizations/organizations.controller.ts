@@ -14,6 +14,7 @@ import { CreateSocialProfileDto } from "./dto/create-social-profile.dto";
 import { CreateWebsiteDto } from "./dto/create-website.dto";
 import { UpdateGoogleBusinessProfileDto } from "./dto/update-google-business-profile.dto";
 import { UpdateSocialProfileDto } from "./dto/update-social-profile.dto";
+import { UpdateWebsiteAuditFindingDto } from "./dto/update-website-audit-finding.dto";
 import { UpdateWebsiteDto } from "./dto/update-website.dto";
 import {
   type BusinessSummary,
@@ -21,6 +22,7 @@ import {
   type OrganizationDetail,
   type OrganizationSummary,
   type SocialProfileSummary,
+  type WebsiteAuditFindingSummary,
   type WebsiteCrawlSummary,
   type WebsiteSummary,
   OrganizationsService,
@@ -257,6 +259,40 @@ export class OrganizationsController {
       businessId,
       websiteId,
       crawlId,
+    );
+  }
+
+  @Get(
+    ":organizationId/businesses/:businessId/websites/:websiteId/audit-findings",
+  )
+  listWebsiteAuditFindings(
+    @Param("organizationId") organizationId: string,
+    @Param("businessId") businessId: string,
+    @Param("websiteId") websiteId: string,
+  ): Promise<WebsiteAuditFindingSummary[]> {
+    return this.organizationsService.listWebsiteAuditFindings(
+      organizationId,
+      businessId,
+      websiteId,
+    );
+  }
+
+  @Patch(
+    ":organizationId/businesses/:businessId/websites/:websiteId/audit-findings/:findingId",
+  )
+  updateWebsiteAuditFinding(
+    @Param("organizationId") organizationId: string,
+    @Param("businessId") businessId: string,
+    @Param("websiteId") websiteId: string,
+    @Param("findingId") findingId: string,
+    @Body() body: UpdateWebsiteAuditFindingDto,
+  ): Promise<WebsiteAuditFindingSummary> {
+    return this.organizationsService.updateWebsiteAuditFinding(
+      organizationId,
+      businessId,
+      websiteId,
+      findingId,
+      body,
     );
   }
 }
