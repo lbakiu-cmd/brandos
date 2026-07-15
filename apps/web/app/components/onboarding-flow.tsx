@@ -93,6 +93,27 @@ type WebsiteAuditFinding = {
   updatedAt: string;
 };
 
+type VisibilityBreakdownSection = {
+  key: string;
+  label: string;
+  earned: number;
+  possible: number;
+  details: Record<string, unknown>;
+};
+
+type BusinessVisibilityScore = {
+  id: string;
+  businessId: string;
+  score: number;
+  grade: string | null;
+  summary: string | null;
+  inputs: unknown;
+  breakdown: Record<string, VisibilityBreakdownSection>;
+  calculatedAt: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 type CrawlMetadata = {
   finalUrl: string;
   httpStatus: number;
@@ -221,6 +242,8 @@ export function OnboardingFlow() {
   const [auditFindings, setAuditFindings] = useState<
     Record<string, WebsiteAuditFinding[]>
   >({});
+  const [visibilityScore, setVisibilityScore] =
+    useState<BusinessVisibilityScore | null>(null);
   const [websiteForm, setWebsiteForm] =
     useState<WebsiteForm>(initialWebsiteForm);
   const [googleBusinessProfileForm, setGoogleBusinessProfileForm] =
@@ -246,6 +269,8 @@ export function OnboardingFlow() {
     setIsGoogleBusinessProfileSubmitting,
   ] = useState(false);
   const [isSocialProfileSubmitting, setIsSocialProfileSubmitting] =
+    useState(false);
+  const [isVisibilityScoreCalculating, setIsVisibilityScoreCalculating] =
     useState(false);
   const [queuedCrawlWebsiteId, setQueuedCrawlWebsiteId] = useState<
     string | null
@@ -357,6 +382,13 @@ export function OnboardingFlow() {
               restoredBusiness.id,
             )
           : [];
+        const restoredVisibilityScore = restoredBusiness
+          ? await loadVisibilityScore(
+              apiBaseUrl,
+              organizationToRestore.id,
+              restoredBusiness.id,
+            )
+          : null;
 
         if (!isMounted) {
           return;
@@ -369,6 +401,7 @@ export function OnboardingFlow() {
         setWebsites(restoredWebsites);
         setGoogleBusinessProfile(restoredGoogleBusinessProfile);
         setSocialProfiles(restoredSocialProfiles);
+        setVisibilityScore(restoredVisibilityScore);
         setIsAddWebsiteFormVisible(false);
         setIsGoogleBusinessProfileFormVisible(false);
         setEditingSocialProfileId(null);
@@ -387,6 +420,7 @@ export function OnboardingFlow() {
         setWebsites([]);
         setGoogleBusinessProfile(null);
         setSocialProfiles([]);
+        setVisibilityScore(null);
         setIsAddWebsiteFormVisible(false);
         setIsGoogleBusinessProfileFormVisible(false);
         setEditingSocialProfileId(null);
@@ -448,6 +482,7 @@ export function OnboardingFlow() {
       setWebsites([]);
       setGoogleBusinessProfile(null);
       setSocialProfiles([]);
+      setVisibilityScore(null);
       setLatestCrawls({});
       setAuditFindings({});
       setStep("business");
@@ -513,6 +548,7 @@ export function OnboardingFlow() {
       setWebsites(createdWebsites);
       setGoogleBusinessProfile(null);
       setSocialProfiles([]);
+      setVisibilityScore(null);
       setIsAddWebsiteFormVisible(false);
       setIsGoogleBusinessProfileFormVisible(false);
       setEditingSocialProfileId(null);
@@ -551,6 +587,7 @@ export function OnboardingFlow() {
     setWebsites([]);
     setGoogleBusinessProfile(null);
     setSocialProfiles([]);
+    setVisibilityScore(null);
     setIsAddWebsiteFormVisible(false);
     setIsGoogleBusinessProfileFormVisible(false);
     setEditingSocialProfileId(null);
@@ -619,6 +656,13 @@ export function OnboardingFlow() {
             selectedBusiness.id,
           )
         : [];
+      const selectedVisibilityScore = selectedBusiness
+        ? await loadVisibilityScore(
+            apiBaseUrl,
+            organizationId,
+            selectedBusiness.id,
+          )
+        : null;
 
       window.localStorage.setItem(
         selectedOrganizationStorageKey,
@@ -630,6 +674,7 @@ export function OnboardingFlow() {
       setWebsites(selectedWebsites);
       setGoogleBusinessProfile(selectedGoogleBusinessProfile);
       setSocialProfiles(selectedSocialProfiles);
+      setVisibilityScore(selectedVisibilityScore);
       setIsAddWebsiteFormVisible(false);
       setIsGoogleBusinessProfileFormVisible(false);
       setEditingSocialProfileId(null);
@@ -649,6 +694,7 @@ export function OnboardingFlow() {
     setWebsites([]);
     setGoogleBusinessProfile(null);
     setSocialProfiles([]);
+    setVisibilityScore(null);
     setIsAddWebsiteFormVisible(false);
     setIsGoogleBusinessProfileFormVisible(false);
     setEditingSocialProfileId(null);
@@ -814,6 +860,30 @@ export function OnboardingFlow() {
       setError(getErrorMessage(requestError));
     } finally {
       setIgnoredFindingId(null);
+    }
+  }
+
+  async function calculateVisibilityScore() {
+    setError(null);
+    setSuccess(null);
+
+    if (!apiBaseUrl || !organization || !business) {
+      setError("Workspace is not ready.");
+      return;
+    }
+
+    setIsVisibilityScoreCalculating(true);
+    try {
+      const score = await postJson<BusinessVisibilityScore>(
+        `${apiBaseUrl}/organizations/${organization.id}/businesses/${business.id}/visibility-score/calculate`,
+        {},
+      );
+      setVisibilityScore(score);
+      setSuccess("AI Visibility Score calculated.");
+    } catch (requestError) {
+      setError(getErrorMessage(requestError));
+    } finally {
+      setIsVisibilityScoreCalculating(false);
     }
   }
 
@@ -1083,6 +1153,7 @@ export function OnboardingFlow() {
                 socialProfiles={socialProfiles}
                 socialProfileForm={socialProfileForm}
                 editingSocialProfileId={editingSocialProfileId}
+                visibilityScore={visibilityScore}
                 latestCrawls={latestCrawls}
                 auditFindings={auditFindings}
                 isWebsiteSubmitting={isWebsiteSubmitting}
@@ -1091,6 +1162,7 @@ export function OnboardingFlow() {
                   isGoogleBusinessProfileSubmitting
                 }
                 isSocialProfileSubmitting={isSocialProfileSubmitting}
+                isVisibilityScoreCalculating={isVisibilityScoreCalculating}
                 isAddWebsiteFormVisible={isAddWebsiteFormVisible}
                 isGoogleBusinessProfileFormVisible={
                   isGoogleBusinessProfileFormVisible
@@ -1139,6 +1211,7 @@ export function OnboardingFlow() {
                 onEditSocialProfile={editSocialProfile}
                 onDeleteSocialProfile={deleteSocialProfile}
                 onCancelSocialProfileEdit={cancelSocialProfileEdit}
+                onCalculateVisibilityScore={calculateVisibilityScore}
                 onQueueWebsiteCrawl={queueWebsiteCrawl}
                 onIgnoreAuditFinding={ignoreAuditFinding}
                 onSwitchWorkspace={switchWorkspace}
@@ -1478,12 +1551,14 @@ function WorkspaceDashboard({
   socialProfiles,
   socialProfileForm,
   editingSocialProfileId,
+  visibilityScore,
   latestCrawls,
   auditFindings,
   isWebsiteSubmitting,
   isWebsiteLoading,
   isGoogleBusinessProfileSubmitting,
   isSocialProfileSubmitting,
+  isVisibilityScoreCalculating,
   isAddWebsiteFormVisible,
   isGoogleBusinessProfileFormVisible,
   queuedCrawlWebsiteId,
@@ -1506,6 +1581,7 @@ function WorkspaceDashboard({
   onEditSocialProfile,
   onDeleteSocialProfile,
   onCancelSocialProfileEdit,
+  onCalculateVisibilityScore,
   onQueueWebsiteCrawl,
   onIgnoreAuditFinding,
   onSwitchWorkspace,
@@ -1519,12 +1595,14 @@ function WorkspaceDashboard({
   socialProfiles: SocialProfile[];
   socialProfileForm: SocialProfileForm;
   editingSocialProfileId: string | null;
+  visibilityScore: BusinessVisibilityScore | null;
   latestCrawls: Record<string, WebsiteCrawl>;
   auditFindings: Record<string, WebsiteAuditFinding[]>;
   isWebsiteSubmitting: boolean;
   isWebsiteLoading: boolean;
   isGoogleBusinessProfileSubmitting: boolean;
   isSocialProfileSubmitting: boolean;
+  isVisibilityScoreCalculating: boolean;
   isAddWebsiteFormVisible: boolean;
   isGoogleBusinessProfileFormVisible: boolean;
   queuedCrawlWebsiteId: string | null;
@@ -1553,6 +1631,7 @@ function WorkspaceDashboard({
   onEditSocialProfile: (profile: SocialProfile) => void;
   onDeleteSocialProfile: (socialProfileId: string) => void;
   onCancelSocialProfileEdit: () => void;
+  onCalculateVisibilityScore: () => void;
   onQueueWebsiteCrawl: (websiteId: string) => void;
   onIgnoreAuditFinding: (websiteId: string, findingId: string) => void;
   onSwitchWorkspace: () => void;
@@ -1585,7 +1664,11 @@ function WorkspaceDashboard({
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
-        <AiVisibilityScoreCard />
+        <AiVisibilityScoreCard
+          score={visibilityScore}
+          isCalculating={isVisibilityScoreCalculating}
+          onCalculate={onCalculateVisibilityScore}
+        />
         <BusinessProfileCard
           business={business}
           primaryWebsite={primaryWebsite}
@@ -1658,20 +1741,81 @@ function WorkspaceDashboard({
   );
 }
 
-function AiVisibilityScoreCard() {
+function AiVisibilityScoreCard({
+  score,
+  isCalculating,
+  onCalculate,
+}: {
+  score: BusinessVisibilityScore | null;
+  isCalculating: boolean;
+  onCalculate: () => void;
+}) {
+  const breakdown = score ? orderedVisibilityBreakdown(score) : [];
+
   return (
     <div className="rounded-2xl border border-cyan-200 bg-cyan-50 p-5">
-      <p className="text-sm font-medium text-cyan-700">AI Visibility Score</p>
-      <div className="mt-3 flex items-end gap-2">
-        <span className="text-6xl font-semibold text-slate-950">--</span>
-        <span className="pb-2 text-sm font-medium text-slate-500">
-          pending first audit
-        </span>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-sm font-medium text-cyan-700">
+            AI Visibility Score
+          </p>
+          <div className="mt-3 flex items-end gap-2">
+            <span className="text-6xl font-semibold text-slate-950">
+              {score ? score.score : "--"}
+            </span>
+            <span className="pb-2 text-sm font-medium text-slate-500">
+              {score ? `/100 ${score.grade ?? ""}` : "not calculated yet"}
+            </span>
+          </div>
+        </div>
+        <button
+          type="button"
+          disabled={isCalculating}
+          onClick={onCalculate}
+          className="h-10 rounded-xl bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+        >
+          {isCalculating ? "Calculating..." : "Calculate visibility score"}
+        </button>
       </div>
       <p className="mt-4 text-sm leading-6 text-slate-600">
-        Scores will become explainable once website intelligence, local profile,
-        reviews, and recommendation signals are connected.
+        {score?.summary ??
+          "Calculate an explainable score from website health, local presence, social profiles, and open audit findings."}
       </p>
+      {score ? (
+        <>
+          <p className="mt-3 text-xs text-slate-500">
+            Last calculated {formatDateTime(score.calculatedAt)}
+          </p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            {breakdown.map((section) => (
+              <div
+                key={section.key}
+                className="rounded-xl border border-cyan-100 bg-white px-3 py-3"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-semibold text-slate-950">
+                    {section.label}
+                  </p>
+                  <span className="rounded-full bg-cyan-50 px-2 py-1 text-xs font-semibold text-cyan-700">
+                    {section.earned}/{section.possible}
+                  </span>
+                </div>
+                <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100">
+                  <div
+                    className="h-full rounded-full bg-cyan-500"
+                    style={{
+                      width: `${Math.min(
+                        100,
+                        Math.round((section.earned / section.possible) * 100),
+                      )}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      ) : null}
     </div>
   );
 }
@@ -2893,6 +3037,16 @@ async function loadSocialProfiles(
   );
 }
 
+async function loadVisibilityScore(
+  apiBaseUrl: string,
+  organizationId: string,
+  businessId: string,
+) {
+  return getJson<BusinessVisibilityScore | null>(
+    `${apiBaseUrl}/organizations/${organizationId}/businesses/${businessId}/visibility-score`,
+  );
+}
+
 async function parseJsonResponse<TResponse>(
   response: Response,
 ): Promise<TResponse> {
@@ -3116,6 +3270,22 @@ function formatEnumLabel(value: string) {
     .split("_")
     .map((part) => part.replace(/^\w/, (letter) => letter.toUpperCase()))
     .join(" ");
+}
+
+function orderedVisibilityBreakdown(score: BusinessVisibilityScore) {
+  const order = [
+    "websiteFoundation",
+    "localPresence",
+    "socialPresence",
+    "auditHealth",
+  ];
+
+  return order
+    .map((key) => score.breakdown[key])
+    .filter(
+      (section): section is VisibilityBreakdownSection =>
+        section !== undefined,
+    );
 }
 
 function severityClass(severity: WebsiteAuditFinding["severity"]) {

@@ -14,6 +14,7 @@ export {
 } from "@prisma/client";
 export type {
   Business,
+  BusinessVisibilityScore,
   GoogleBusinessProfile,
   Membership,
   Organization,

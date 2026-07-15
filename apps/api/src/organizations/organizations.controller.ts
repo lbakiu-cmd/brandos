@@ -18,6 +18,7 @@ import { UpdateWebsiteAuditFindingDto } from "./dto/update-website-audit-finding
 import { UpdateWebsiteDto } from "./dto/update-website.dto";
 import {
   type BusinessSummary,
+  type BusinessVisibilityScoreSummary,
   type GoogleBusinessProfileSummary,
   type OrganizationDetail,
   type OrganizationSummary,
@@ -64,6 +65,28 @@ export class OrganizationsController {
     @Param("organizationId") organizationId: string,
   ): Promise<BusinessSummary[]> {
     return this.organizationsService.listBusinesses(organizationId);
+  }
+
+  @Get(":organizationId/businesses/:businessId/visibility-score")
+  getBusinessVisibilityScore(
+    @Param("organizationId") organizationId: string,
+    @Param("businessId") businessId: string,
+  ): Promise<BusinessVisibilityScoreSummary | null> {
+    return this.organizationsService.getBusinessVisibilityScore(
+      organizationId,
+      businessId,
+    );
+  }
+
+  @Post(":organizationId/businesses/:businessId/visibility-score/calculate")
+  calculateBusinessVisibilityScore(
+    @Param("organizationId") organizationId: string,
+    @Param("businessId") businessId: string,
+  ): Promise<BusinessVisibilityScoreSummary> {
+    return this.organizationsService.calculateBusinessVisibilityScore(
+      organizationId,
+      businessId,
+    );
   }
 
   @Post(":organizationId/businesses/:businessId/websites")

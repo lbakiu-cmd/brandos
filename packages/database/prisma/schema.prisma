@@ -87,7 +87,7 @@ model Membership {
 }
 
 model Business {
-  id                    String                 @id @default(cuid())
+  id                    String                   @id @default(cuid())
   organizationId        String
   name                  String
   slug                  String
@@ -95,12 +95,13 @@ model Business {
   category              String?
   country               String?
   city                  String?
-  organization          Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization          Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   websites              Website[]
   googleBusinessProfile GoogleBusinessProfile?
   socialProfiles        SocialProfile[]
-  createdAt             DateTime               @default(now())
-  updatedAt             DateTime               @updatedAt
+  visibilityScore       BusinessVisibilityScore?
+  createdAt             DateTime                 @default(now())
+  updatedAt             DateTime                 @updatedAt
 
   @@unique([organizationId, slug])
   @@index([organizationId])
@@ -208,4 +209,22 @@ model SocialProfile {
   @@index([businessId, platform])
   @@index([businessId, isPrimary])
   @@index([status])
+}
+
+model BusinessVisibilityScore {
+  id           String   @id @default(cuid())
+  businessId   String   @unique
+  score        Int
+  grade        String?
+  summary      String?
+  inputs       Json
+  breakdown    Json
+  calculatedAt DateTime
+  business     Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([businessId])
+  @@index([score])
+  @@index([calculatedAt])
 }

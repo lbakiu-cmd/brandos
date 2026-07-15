@@ -119,6 +119,19 @@ export type WebsiteAuditFindingSummary = {
   updatedAt: Date;
 };
 
+export type BusinessVisibilityScoreSummary = {
+  id: string;
+  businessId: string;
+  score: number;
+  grade: string | null;
+  summary: string | null;
+  inputs: Prisma.JsonValue;
+  breakdown: Prisma.JsonValue;
+  calculatedAt: Date;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
 @Injectable()
 export class OrganizationsService {
   constructor(
@@ -235,6 +248,50 @@ export class OrganizationsService {
       where: { organizationId },
       orderBy: { createdAt: "desc" },
       select: businessSummarySelect,
+    });
+  }
+
+  async getBusinessVisibilityScore(
+    organizationId: string,
+    businessId: string,
+  ): Promise<BusinessVisibilityScoreSummary | null> {
+    await this.requireBusiness(organizationId, businessId);
+
+    return this.prisma.businessVisibilityScore.findUnique({
+      where: { businessId },
+      select: businessVisibilityScoreSummarySelect,
+    });
+  }
+
+  async calculateBusinessVisibilityScore(
+    organizationId: string,
+    businessId: string,
+  ): Promise<BusinessVisibilityScoreSummary> {
+    await this.requireBusiness(organizationId, businessId);
+
+    const calculation = await this.buildVisibilityScoreCalculation(businessId);
+    const calculatedAt = new Date();
+
+    return this.prisma.businessVisibilityScore.upsert({
+      where: { businessId },
+      create: {
+        businessId,
+        score: calculation.score,
+        grade: calculation.grade,
+        summary: calculation.summary,
+        inputs: calculation.inputs,
+        breakdown: calculation.breakdown,
+        calculatedAt,
+      },
+      update: {
+        score: calculation.score,
+        grade: calculation.grade,
+        summary: calculation.summary,
+        inputs: calculation.inputs,
+        breakdown: calculation.breakdown,
+        calculatedAt,
+      },
+      select: businessVisibilityScoreSummarySelect,
     });
   }
 
@@ -831,6 +888,178 @@ export class OrganizationsService {
     return socialProfile;
   }
 
+  private async buildVisibilityScoreCalculation(businessId: string) {
+    const business = await this.prisma.business.findUnique({
+      where: { id: businessId },
+      select: {
+        id: true,
+        websites: {
+          orderBy: [{ isPrimary: "desc" }, { createdAt: "desc" }],
+          select: {
+            id: true,
+            isPrimary: true,
+            crawls: {
+              where: { status: WebsiteCrawlStatus.COMPLETED },
+              orderBy: { completedAt: "desc" },
+              take: 1,
+              select: {
+                id: true,
+                status: true,
+                completedAt: true,
+                metadata: true,
+              },
+            },
+          },
+        },
+        googleBusinessProfile: {
+          select: {
+            id: true,
+            status: true,
+            businessName: true,
+            address: true,
+            city: true,
+            country: true,
+          },
+        },
+        socialProfiles: {
+          where: {
+            status: SocialProfileStatus.MANUAL_CONNECTED,
+          },
+          select: {
+            id: true,
+            platform: true,
+          },
+        },
+      },
+    });
+
+    if (!business) {
+      throw new NotFoundException("Business not found.");
+    }
+
+    const websiteIds = business.websites.map((website) => website.id);
+    const openFindings =
+      websiteIds.length === 0
+        ? []
+        : await this.prisma.websiteAuditFinding.findMany({
+            where: {
+              websiteId: { in: websiteIds },
+              status: WebsiteAuditFindingStatus.OPEN,
+            },
+            select: {
+              severity: true,
+              code: true,
+            },
+          });
+
+    const primaryWebsite =
+      business.websites.find((website) => website.isPrimary) ??
+      business.websites[0] ??
+      null;
+    const latestCrawl = primaryWebsite?.crawls[0] ?? null;
+    const metadata = parseHomepageMetadata(latestCrawl?.metadata);
+    const schemaTypes = metadata.schemaTypes.map((schemaType) =>
+      schemaType.toLowerCase(),
+    );
+    const googleProfile = business.googleBusinessProfile;
+    const googleConnected =
+      googleProfile?.status === GoogleBusinessProfileStatus.MANUAL_CONNECTED ||
+      googleProfile?.status === GoogleBusinessProfileStatus.VERIFIED;
+    const googleComplete = Boolean(
+      googleProfile?.businessName &&
+        googleProfile.address &&
+        googleProfile.city &&
+        googleProfile.country,
+    );
+    const socialProfileCount = business.socialProfiles.length;
+    const auditPenalty = openFindings.reduce(
+      (total, finding) => total + auditPenaltyBySeverity(finding.severity),
+      0,
+    );
+
+    const websiteFoundation = {
+      key: "websiteFoundation",
+      label: "Website foundation",
+      earned:
+        (primaryWebsite ? 10 : 0) +
+        (latestCrawl ? 10 : 0) +
+        (metadata.pageTitle ? 4 : 0) +
+        (metadata.metaDescription ? 4 : 0) +
+        (metadata.h1Count === 1 ? 4 : 0) +
+        (metadata.schemaTypes.length > 0 ? 4 : 0) +
+        (schemaTypes.includes("localbusiness") ? 4 : 0),
+      possible: 40,
+      details: {
+        primaryWebsiteExists: Boolean(primaryWebsite),
+        latestCrawlCompleted: Boolean(latestCrawl),
+        titlePresent: Boolean(metadata.pageTitle),
+        metaDescriptionPresent: Boolean(metadata.metaDescription),
+        exactlyOneH1: metadata.h1Count === 1,
+        schemaPresent: metadata.schemaTypes.length > 0,
+        localBusinessSchemaPresent: schemaTypes.includes("localbusiness"),
+      },
+    };
+    const localPresence = {
+      key: "localPresence",
+      label: "Local presence",
+      earned: (googleConnected ? 20 : 0) + (googleComplete ? 5 : 0),
+      possible: 25,
+      details: {
+        googleBusinessProfileConnected: googleConnected,
+        googleBusinessProfileComplete: googleComplete,
+      },
+    };
+    const socialPresence = {
+      key: "socialPresence",
+      label: "Social presence",
+      earned: (socialProfileCount >= 1 ? 10 : 0) + (socialProfileCount >= 2 ? 5 : 0),
+      possible: 15,
+      details: {
+        connectedProfileCount: socialProfileCount,
+        hasOneSocialProfile: socialProfileCount >= 1,
+        hasTwoOrMoreSocialProfiles: socialProfileCount >= 2,
+      },
+    };
+    const auditHealth = {
+      key: "auditHealth",
+      label: "Audit health",
+      earned: Math.max(0, 20 - auditPenalty),
+      possible: 20,
+      details: {
+        openFindingCount: openFindings.length,
+        penalty: auditPenalty,
+        findingsBySeverity: countFindingsBySeverity(openFindings),
+      },
+    };
+    const score = clampScore(
+      websiteFoundation.earned +
+        localPresence.earned +
+        socialPresence.earned +
+        auditHealth.earned,
+    );
+    const grade = gradeVisibilityScore(score);
+
+    return {
+      score,
+      grade,
+      summary: visibilityScoreSummary(score, grade),
+      inputs: {
+        businessId,
+        primaryWebsiteId: primaryWebsite?.id ?? null,
+        latestCompletedCrawlId: latestCrawl?.id ?? null,
+        googleBusinessProfileId: googleProfile?.id ?? null,
+        socialProfileCount,
+        openFindingCount: openFindings.length,
+      } satisfies Prisma.InputJsonObject,
+      breakdown: {
+        websiteFoundation,
+        localPresence,
+        socialPresence,
+        auditHealth,
+      } satisfies Prisma.InputJsonObject,
+    };
+  }
+
   private countWebsites(businessId: string) {
     return this.prisma.website.count({
       where: { businessId },
@@ -972,6 +1201,19 @@ const websiteAuditFindingSummarySelect = {
   createdAt: true,
   updatedAt: true,
 } satisfies Prisma.WebsiteAuditFindingSelect;
+
+const businessVisibilityScoreSummarySelect = {
+  id: true,
+  businessId: true,
+  score: true,
+  grade: true,
+  summary: true,
+  inputs: true,
+  breakdown: true,
+  calculatedAt: true,
+  createdAt: true,
+  updatedAt: true,
+} satisfies Prisma.BusinessVisibilityScoreSelect;
 
 function assertGoogleBusinessProfileUrl(rawUrl: string) {
   if (!isValidGoogleBusinessProfileUrl(rawUrl)) {
@@ -1136,6 +1378,95 @@ function isPrivateIpv6(address: string) {
     Number.isFinite(firstSegment) &&
     ((firstSegment & 0xfe00) === 0xfc00 || (firstSegment & 0xffc0) === 0xfe80)
   );
+}
+
+function parseHomepageMetadata(
+  metadata: Prisma.JsonValue | null | undefined,
+) {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
+    return {
+      pageTitle: null,
+      metaDescription: null,
+      h1Count: 0,
+      schemaTypes: [] as string[],
+    };
+  }
+
+  const record = metadata as Record<string, unknown>;
+
+  return {
+    pageTitle:
+      typeof record.pageTitle === "string" && record.pageTitle.trim()
+        ? record.pageTitle
+        : null,
+    metaDescription:
+      typeof record.metaDescription === "string" &&
+      record.metaDescription.trim()
+        ? record.metaDescription
+        : null,
+    h1Count: typeof record.h1Count === "number" ? record.h1Count : 0,
+    schemaTypes: Array.isArray(record.schemaTypes)
+      ? record.schemaTypes.filter(
+          (schemaType): schemaType is string => typeof schemaType === "string",
+        )
+      : [],
+  };
+}
+
+function auditPenaltyBySeverity(severity: WebsiteAuditFindingSeverity) {
+  const penalties = {
+    HIGH: 8,
+    MEDIUM: 5,
+    LOW: 2,
+    INFO: 1,
+  } satisfies Record<WebsiteAuditFindingSeverity, number>;
+
+  return penalties[severity];
+}
+
+function countFindingsBySeverity(
+  findings: Array<{ severity: WebsiteAuditFindingSeverity }>,
+) {
+  return findings.reduce(
+    (counts, finding) => ({
+      ...counts,
+      [finding.severity]: counts[finding.severity] + 1,
+    }),
+    {
+      HIGH: 0,
+      MEDIUM: 0,
+      LOW: 0,
+      INFO: 0,
+    } satisfies Record<WebsiteAuditFindingSeverity, number>,
+  );
+}
+
+function clampScore(score: number) {
+  return Math.max(0, Math.min(100, Math.round(score)));
+}
+
+function gradeVisibilityScore(score: number) {
+  if (score >= 90) {
+    return "Excellent";
+  }
+
+  if (score >= 75) {
+    return "Strong";
+  }
+
+  if (score >= 60) {
+    return "Needs work";
+  }
+
+  if (score >= 40) {
+    return "Weak";
+  }
+
+  return "Critical";
+}
+
+function visibilityScoreSummary(score: number, grade: string) {
+  return `BrandOS calculated a ${score}/100 ${grade.toLowerCase()} visibility foundation from deterministic website, local, social, and audit health signals.`;
 }
 
 function normalizeWebsiteUrl(rawUrl: string) {
