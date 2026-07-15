@@ -45,6 +45,22 @@ type WebsiteCrawl = {
   updatedAt: string;
 };
 
+type GoogleBusinessProfile = {
+  id: string;
+  businessId: string;
+  profileUrl: string;
+  placeId: string | null;
+  businessName: string | null;
+  address: string | null;
+  city: string | null;
+  country: string | null;
+  phone: string | null;
+  websiteUrl: string | null;
+  status: "NOT_CONNECTED" | "MANUAL_CONNECTED" | "VERIFIED";
+  createdAt: string;
+  updatedAt: string;
+};
+
 type CrawlMetadata = {
   finalUrl: string;
   httpStatus: number;
@@ -86,6 +102,15 @@ type WebsiteForm = {
   url: string;
 };
 
+type GoogleBusinessProfileForm = {
+  profileUrl: string;
+  businessName: string;
+  address: string;
+  city: string;
+  country: string;
+  phone: string;
+};
+
 const selectedOrganizationStorageKey = "brandos.selectedOrganizationId";
 const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -107,6 +132,15 @@ const initialWebsiteForm: WebsiteForm = {
   url: "",
 };
 
+const initialGoogleBusinessProfileForm: GoogleBusinessProfileForm = {
+  profileUrl: "",
+  businessName: "",
+  address: "",
+  city: "",
+  country: "",
+  phone: "",
+};
+
 export function OnboardingFlow() {
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL;
   const [step, setStep] = useState<Step>("organization");
@@ -122,16 +156,28 @@ export function OnboardingFlow() {
   const [business, setBusiness] = useState<Business | null>(null);
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [websites, setWebsites] = useState<Website[]>([]);
+  const [googleBusinessProfile, setGoogleBusinessProfile] =
+    useState<GoogleBusinessProfile | null>(null);
   const [latestCrawls, setLatestCrawls] = useState<
     Record<string, WebsiteCrawl>
   >({});
   const [websiteForm, setWebsiteForm] =
     useState<WebsiteForm>(initialWebsiteForm);
+  const [googleBusinessProfileForm, setGoogleBusinessProfileForm] =
+    useState<GoogleBusinessProfileForm>(initialGoogleBusinessProfileForm);
   const [isAddWebsiteFormVisible, setIsAddWebsiteFormVisible] = useState(false);
+  const [
+    isGoogleBusinessProfileFormVisible,
+    setIsGoogleBusinessProfileFormVisible,
+  ] = useState(false);
   const [isRestoring, setIsRestoring] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isWebsiteSubmitting, setIsWebsiteSubmitting] = useState(false);
   const [isWebsiteLoading, setIsWebsiteLoading] = useState(false);
+  const [
+    isGoogleBusinessProfileSubmitting,
+    setIsGoogleBusinessProfileSubmitting,
+  ] = useState(false);
   const [queuedCrawlWebsiteId, setQueuedCrawlWebsiteId] = useState<
     string | null
   >(null);
@@ -219,6 +265,13 @@ export function OnboardingFlow() {
                 restoredBusiness.id,
                 restoredWebsites,
               );
+        const restoredGoogleBusinessProfile = restoredBusiness
+          ? await loadGoogleBusinessProfile(
+              apiBaseUrl,
+              organizationToRestore.id,
+              restoredBusiness.id,
+            )
+          : null;
 
         if (!isMounted) {
           return;
@@ -229,7 +282,9 @@ export function OnboardingFlow() {
         setBusinesses(restoredBusinesses);
         setBusiness(restoredBusiness);
         setWebsites(restoredWebsites);
+        setGoogleBusinessProfile(restoredGoogleBusinessProfile);
         setIsAddWebsiteFormVisible(false);
+        setIsGoogleBusinessProfileFormVisible(false);
         setLatestCrawls(restoredCrawls);
         setStep(restoredBusinesses.length > 0 ? "workspace" : "business");
       } catch (requestError) {
@@ -242,7 +297,9 @@ export function OnboardingFlow() {
         setBusiness(null);
         setBusinesses([]);
         setWebsites([]);
+        setGoogleBusinessProfile(null);
         setIsAddWebsiteFormVisible(false);
+        setIsGoogleBusinessProfileFormVisible(false);
         setLatestCrawls({});
         setStep("organization");
         setError(
@@ -298,6 +355,7 @@ export function OnboardingFlow() {
       setBusinesses([]);
       setBusiness(null);
       setWebsites([]);
+      setGoogleBusinessProfile(null);
       setLatestCrawls({});
       setStep("business");
       setSuccess("Organization created. Add your first business.");
@@ -354,7 +412,9 @@ export function OnboardingFlow() {
       setBusiness(createdBusiness);
       setBusinesses((current) => [createdBusiness, ...current]);
       setWebsites(createdWebsites);
+      setGoogleBusinessProfile(null);
       setIsAddWebsiteFormVisible(false);
+      setIsGoogleBusinessProfileFormVisible(false);
       setLatestCrawls(createdCrawls);
       setBusinessForm(initialBusinessForm);
       setStep("workspace");
@@ -387,7 +447,9 @@ export function OnboardingFlow() {
     setBusiness(null);
     setBusinesses([]);
     setWebsites([]);
+    setGoogleBusinessProfile(null);
     setIsAddWebsiteFormVisible(false);
+    setIsGoogleBusinessProfileFormVisible(false);
     setLatestCrawls({});
     setWebsiteForm(initialWebsiteForm);
     setOrganizationForm(initialOrganizationForm);
@@ -429,6 +491,13 @@ export function OnboardingFlow() {
               selectedBusiness.id,
               selectedWebsites,
             );
+      const selectedGoogleBusinessProfile = selectedBusiness
+        ? await loadGoogleBusinessProfile(
+            apiBaseUrl,
+            organizationId,
+            selectedBusiness.id,
+          )
+        : null;
 
       window.localStorage.setItem(
         selectedOrganizationStorageKey,
@@ -438,7 +507,9 @@ export function OnboardingFlow() {
       setBusinesses(selectedBusinesses);
       setBusiness(selectedBusiness);
       setWebsites(selectedWebsites);
+      setGoogleBusinessProfile(selectedGoogleBusinessProfile);
       setIsAddWebsiteFormVisible(false);
+      setIsGoogleBusinessProfileFormVisible(false);
       setLatestCrawls(selectedCrawls);
       setStep(selectedBusiness ? "workspace" : "business");
     } catch (requestError) {
@@ -452,7 +523,9 @@ export function OnboardingFlow() {
     setBusinessForm(initialBusinessForm);
     setBusiness(null);
     setWebsites([]);
+    setGoogleBusinessProfile(null);
     setIsAddWebsiteFormVisible(false);
+    setIsGoogleBusinessProfileFormVisible(false);
     setLatestCrawls({});
     setWebsiteForm(initialWebsiteForm);
     setStep("business");
@@ -626,6 +699,98 @@ export function OnboardingFlow() {
     }
   }
 
+  function editGoogleBusinessProfile() {
+    if (!googleBusinessProfile) {
+      return;
+    }
+
+    setGoogleBusinessProfileForm({
+      profileUrl: googleBusinessProfile.profileUrl,
+      businessName: googleBusinessProfile.businessName ?? "",
+      address: googleBusinessProfile.address ?? "",
+      city: googleBusinessProfile.city ?? "",
+      country: googleBusinessProfile.country ?? "",
+      phone: googleBusinessProfile.phone ?? "",
+    });
+    setIsGoogleBusinessProfileFormVisible(true);
+    setError(null);
+    setSuccess(null);
+  }
+
+  async function handleGoogleBusinessProfileSubmit(
+    event: FormEvent<HTMLFormElement>,
+  ) {
+    event.preventDefault();
+    setError(null);
+    setSuccess(null);
+
+    if (!apiBaseUrl || !organization || !business) {
+      setError("Workspace is not ready.");
+      return;
+    }
+
+    const profileUrl = googleBusinessProfileForm.profileUrl.trim();
+    if (!profileUrl) {
+      setError("Google Business Profile URL is required.");
+      return;
+    }
+
+    if (!isGoogleBusinessProfileUrl(profileUrl)) {
+      setError("Enter a Google Maps or Google Business Profile URL.");
+      return;
+    }
+
+    setIsGoogleBusinessProfileSubmitting(true);
+    try {
+      const endpoint = `${apiBaseUrl}/organizations/${organization.id}/businesses/${business.id}/google-business-profile`;
+      const body = compactPayload({
+        profileUrl,
+        businessName: googleBusinessProfileForm.businessName.trim(),
+        address: googleBusinessProfileForm.address.trim(),
+        city: googleBusinessProfileForm.city.trim(),
+        country: googleBusinessProfileForm.country.trim(),
+        phone: googleBusinessProfileForm.phone.trim(),
+      });
+      const savedProfile = googleBusinessProfile
+        ? await patchJson<GoogleBusinessProfile>(endpoint, body)
+        : await postJson<GoogleBusinessProfile>(endpoint, body);
+
+      setGoogleBusinessProfile(savedProfile);
+      setGoogleBusinessProfileForm(initialGoogleBusinessProfileForm);
+      setIsGoogleBusinessProfileFormVisible(false);
+      setSuccess("Google Business Profile saved.");
+    } catch (requestError) {
+      setError(getErrorMessage(requestError));
+    } finally {
+      setIsGoogleBusinessProfileSubmitting(false);
+    }
+  }
+
+  async function disconnectGoogleBusinessProfile() {
+    setError(null);
+    setSuccess(null);
+
+    if (!apiBaseUrl || !organization || !business) {
+      setError("Workspace is not ready.");
+      return;
+    }
+
+    setIsGoogleBusinessProfileSubmitting(true);
+    try {
+      await deleteJson<GoogleBusinessProfile>(
+        `${apiBaseUrl}/organizations/${organization.id}/businesses/${business.id}/google-business-profile`,
+      );
+      setGoogleBusinessProfile(null);
+      setGoogleBusinessProfileForm(initialGoogleBusinessProfileForm);
+      setIsGoogleBusinessProfileFormVisible(false);
+      setSuccess("Google Business Profile disconnected.");
+    } catch (requestError) {
+      setError(getErrorMessage(requestError));
+    } finally {
+      setIsGoogleBusinessProfileSubmitting(false);
+    }
+  }
+
   if (isRestoring) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-slate-950 px-6 text-white">
@@ -650,21 +815,51 @@ export function OnboardingFlow() {
                 businessCount={businesses.length}
                 websiteForm={websiteForm}
                 websites={websites}
+                googleBusinessProfile={googleBusinessProfile}
+                googleBusinessProfileForm={googleBusinessProfileForm}
                 latestCrawls={latestCrawls}
                 isWebsiteSubmitting={isWebsiteSubmitting}
                 isWebsiteLoading={isWebsiteLoading}
+                isGoogleBusinessProfileSubmitting={
+                  isGoogleBusinessProfileSubmitting
+                }
                 isAddWebsiteFormVisible={isAddWebsiteFormVisible}
+                isGoogleBusinessProfileFormVisible={
+                  isGoogleBusinessProfileFormVisible
+                }
                 queuedCrawlWebsiteId={queuedCrawlWebsiteId}
                 onCreateAnotherBusiness={createAnotherBusiness}
                 onWebsiteUrlChange={(url) => setWebsiteForm({ url })}
+                onGoogleBusinessProfileFieldChange={(field, value) =>
+                  setGoogleBusinessProfileForm((current) => ({
+                    ...current,
+                    [field]: value,
+                  }))
+                }
                 onWebsiteSubmit={handleWebsiteSubmit}
+                onGoogleBusinessProfileSubmit={
+                  handleGoogleBusinessProfileSubmit
+                }
                 onShowAddWebsiteForm={() => setIsAddWebsiteFormVisible(true)}
+                onShowGoogleBusinessProfileForm={() =>
+                  setIsGoogleBusinessProfileFormVisible(true)
+                }
                 onCancelAddWebsite={() => {
                   setWebsiteForm(initialWebsiteForm);
                   setIsAddWebsiteFormVisible(false);
                 }}
+                onCancelGoogleBusinessProfileEdit={() => {
+                  setGoogleBusinessProfileForm(
+                    initialGoogleBusinessProfileForm,
+                  );
+                  setIsGoogleBusinessProfileFormVisible(false);
+                }}
                 onMakePrimaryWebsite={makePrimaryWebsite}
                 onDeleteWebsite={deleteWebsite}
+                onEditGoogleBusinessProfile={editGoogleBusinessProfile}
+                onDisconnectGoogleBusinessProfile={
+                  disconnectGoogleBusinessProfile
+                }
                 onQueueWebsiteCrawl={queueWebsiteCrawl}
                 onSwitchWorkspace={switchWorkspace}
               />
@@ -998,18 +1193,28 @@ function WorkspaceDashboard({
   businessCount,
   websiteForm,
   websites,
+  googleBusinessProfile,
+  googleBusinessProfileForm,
   latestCrawls,
   isWebsiteSubmitting,
   isWebsiteLoading,
+  isGoogleBusinessProfileSubmitting,
   isAddWebsiteFormVisible,
+  isGoogleBusinessProfileFormVisible,
   queuedCrawlWebsiteId,
   onCreateAnotherBusiness,
   onWebsiteUrlChange,
+  onGoogleBusinessProfileFieldChange,
   onWebsiteSubmit,
+  onGoogleBusinessProfileSubmit,
   onShowAddWebsiteForm,
+  onShowGoogleBusinessProfileForm,
   onCancelAddWebsite,
+  onCancelGoogleBusinessProfileEdit,
   onMakePrimaryWebsite,
   onDeleteWebsite,
+  onEditGoogleBusinessProfile,
+  onDisconnectGoogleBusinessProfile,
   onQueueWebsiteCrawl,
   onSwitchWorkspace,
 }: {
@@ -1017,18 +1222,31 @@ function WorkspaceDashboard({
   businessCount: number;
   websiteForm: WebsiteForm;
   websites: Website[];
+  googleBusinessProfile: GoogleBusinessProfile | null;
+  googleBusinessProfileForm: GoogleBusinessProfileForm;
   latestCrawls: Record<string, WebsiteCrawl>;
   isWebsiteSubmitting: boolean;
   isWebsiteLoading: boolean;
+  isGoogleBusinessProfileSubmitting: boolean;
   isAddWebsiteFormVisible: boolean;
+  isGoogleBusinessProfileFormVisible: boolean;
   queuedCrawlWebsiteId: string | null;
   onCreateAnotherBusiness: () => void;
   onWebsiteUrlChange: (url: string) => void;
+  onGoogleBusinessProfileFieldChange: (
+    field: keyof GoogleBusinessProfileForm,
+    value: string,
+  ) => void;
   onWebsiteSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onGoogleBusinessProfileSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onShowAddWebsiteForm: () => void;
+  onShowGoogleBusinessProfileForm: () => void;
   onCancelAddWebsite: () => void;
+  onCancelGoogleBusinessProfileEdit: () => void;
   onMakePrimaryWebsite: (websiteId: string) => void;
   onDeleteWebsite: (websiteId: string) => void;
+  onEditGoogleBusinessProfile: () => void;
+  onDisconnectGoogleBusinessProfile: () => void;
   onQueueWebsiteCrawl: (websiteId: string) => void;
   onSwitchWorkspace: () => void;
 }) {
@@ -1085,7 +1303,19 @@ function WorkspaceDashboard({
           onQueueCrawl={onQueueWebsiteCrawl}
         />
 
-        <NextVisibilitySteps hasPrimaryWebsite={Boolean(primaryWebsite)} />
+        <NextVisibilitySteps
+          hasPrimaryWebsite={Boolean(primaryWebsite)}
+          googleBusinessProfile={googleBusinessProfile}
+          form={googleBusinessProfileForm}
+          isFormVisible={isGoogleBusinessProfileFormVisible}
+          isSubmitting={isGoogleBusinessProfileSubmitting}
+          onFieldChange={onGoogleBusinessProfileFieldChange}
+          onSubmit={onGoogleBusinessProfileSubmit}
+          onShowForm={onShowGoogleBusinessProfileForm}
+          onCancelEdit={onCancelGoogleBusinessProfileEdit}
+          onEdit={onEditGoogleBusinessProfile}
+          onDisconnect={onDisconnectGoogleBusinessProfile}
+        />
       </div>
 
       <div className="rounded-2xl border border-slate-200 bg-white p-5">
@@ -1380,8 +1610,31 @@ function WebsiteSection({
 
 function NextVisibilitySteps({
   hasPrimaryWebsite,
+  googleBusinessProfile,
+  form,
+  isFormVisible,
+  isSubmitting,
+  onFieldChange,
+  onSubmit,
+  onShowForm,
+  onCancelEdit,
+  onEdit,
+  onDisconnect,
 }: {
   hasPrimaryWebsite: boolean;
+  googleBusinessProfile: GoogleBusinessProfile | null;
+  form: GoogleBusinessProfileForm;
+  isFormVisible: boolean;
+  isSubmitting: boolean;
+  onFieldChange: (
+    field: keyof GoogleBusinessProfileForm,
+    value: string,
+  ) => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onShowForm: () => void;
+  onCancelEdit: () => void;
+  onEdit: () => void;
+  onDisconnect: () => void;
 }) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5">
@@ -1409,11 +1662,17 @@ function NextVisibilitySteps({
           }
           state={hasPrimaryWebsite ? "complete" : "todo"}
         />
-        <VisibilityStep
-          title="Connect Google Business Profile"
-          description="Local search intelligence and reviews will start here."
-          state="coming-soon"
-          isPrimary
+        <GoogleBusinessProfileSection
+          profile={googleBusinessProfile}
+          form={form}
+          isFormVisible={isFormVisible}
+          isSubmitting={isSubmitting}
+          onFieldChange={onFieldChange}
+          onSubmit={onSubmit}
+          onShowForm={onShowForm}
+          onCancelEdit={onCancelEdit}
+          onEdit={onEdit}
+          onDisconnect={onDisconnect}
         />
         <VisibilityStep
           title="Add social profiles"
@@ -1427,6 +1686,220 @@ function NextVisibilitySteps({
         />
       </div>
     </div>
+  );
+}
+
+function GoogleBusinessProfileSection({
+  profile,
+  form,
+  isFormVisible,
+  isSubmitting,
+  onFieldChange,
+  onSubmit,
+  onShowForm,
+  onCancelEdit,
+  onEdit,
+  onDisconnect,
+}: {
+  profile: GoogleBusinessProfile | null;
+  form: GoogleBusinessProfileForm;
+  isFormVisible: boolean;
+  isSubmitting: boolean;
+  onFieldChange: (
+    field: keyof GoogleBusinessProfileForm,
+    value: string,
+  ) => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onShowForm: () => void;
+  onCancelEdit: () => void;
+  onEdit: () => void;
+  onDisconnect: () => void;
+}) {
+  if (profile && !isFormVisible) {
+    return (
+      <div className="rounded-xl border border-cyan-200 bg-cyan-50/50 p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="font-semibold text-slate-950">
+                Google Business Profile
+              </p>
+              <span className="rounded-full bg-cyan-100 px-3 py-1 text-xs font-semibold text-cyan-800">
+                Manual connected
+              </span>
+            </div>
+            {profile.businessName ? (
+              <p className="mt-2 text-sm font-medium text-slate-800">
+                {profile.businessName}
+              </p>
+            ) : null}
+            <a
+              href={profile.profileUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-2 block break-all text-sm font-medium text-cyan-700"
+            >
+              {profile.profileUrl}
+            </a>
+            {profile.address || profile.city || profile.country ? (
+              <p className="mt-2 text-sm text-slate-600">
+                {[profile.address, profile.city, profile.country]
+                  .filter(Boolean)
+                  .join(", ")}
+              </p>
+            ) : null}
+            {profile.phone ? (
+              <p className="mt-1 text-sm text-slate-600">{profile.phone}</p>
+            ) : null}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={onEdit}
+              className="rounded-lg border border-cyan-200 px-3 py-2 text-xs font-semibold text-cyan-800 hover:bg-cyan-50"
+            >
+              Edit profile
+            </button>
+            <button
+              type="button"
+              onClick={onDisconnect}
+              disabled={isSubmitting}
+              className="rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Disconnect
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isFormVisible) {
+    return (
+      <div className="rounded-xl border border-cyan-200 bg-cyan-50/50 p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="font-semibold text-slate-950">
+              Connect Google Business Profile
+            </p>
+            <p className="mt-1 text-sm leading-6 text-slate-600">
+              Add a Google Maps or Google Business Profile URL manually. OAuth
+              and live sync are coming later.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onShowForm}
+            className="rounded-lg bg-slate-950 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+          >
+            Add profile
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <form
+      onSubmit={onSubmit}
+      className="rounded-xl border border-cyan-200 bg-cyan-50/50 p-4"
+    >
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="font-semibold text-slate-950">
+            {profile
+              ? "Edit Google Business Profile"
+              : "Add Google Business Profile"}
+          </p>
+          <p className="mt-1 text-sm leading-6 text-slate-600">
+            Save manual profile details for local visibility setup. This does
+            not verify ownership or sync with Google.
+          </p>
+        </div>
+      </div>
+      <div className="mt-4 grid gap-3">
+        <InlineInput
+          label="Google Business / Maps URL"
+          value={form.profileUrl}
+          placeholder="https://maps.google.com/..."
+          onChange={(value) => onFieldChange("profileUrl", value)}
+        />
+        <InlineInput
+          label="Business name"
+          value={form.businessName}
+          placeholder="Nobel Dental Clinic"
+          onChange={(value) => onFieldChange("businessName", value)}
+        />
+        <InlineInput
+          label="Address"
+          value={form.address}
+          placeholder="Street address"
+          onChange={(value) => onFieldChange("address", value)}
+        />
+        <div className="grid gap-3 sm:grid-cols-3">
+          <InlineInput
+            label="City"
+            value={form.city}
+            placeholder="Berlin"
+            onChange={(value) => onFieldChange("city", value)}
+          />
+          <InlineInput
+            label="Country"
+            value={form.country}
+            placeholder="Germany"
+            onChange={(value) => onFieldChange("country", value)}
+          />
+          <InlineInput
+            label="Phone"
+            value={form.phone}
+            placeholder="+49..."
+            onChange={(value) => onFieldChange("phone", value)}
+          />
+        </div>
+      </div>
+      <div className="mt-4 flex flex-wrap gap-2">
+        <button
+          type="submit"
+          disabled={isSubmitting}
+          className="rounded-lg bg-slate-950 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+        >
+          {isSubmitting ? "Saving..." : "Save profile"}
+        </button>
+        <button
+          type="button"
+          onClick={onCancelEdit}
+          className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-white"
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function InlineInput({
+  label,
+  value,
+  placeholder,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  placeholder: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="block">
+      <span className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+        {label}
+      </span>
+      <input
+        value={value}
+        placeholder={placeholder}
+        onChange={(event) => onChange(event.target.value)}
+        className="mt-2 h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none transition focus:border-cyan-500 focus:ring-4 focus:ring-cyan-100"
+      />
+    </label>
   );
 }
 
@@ -1702,16 +2175,14 @@ function Pill({ children }: { children: ReactNode }) {
   );
 }
 
-async function getJson<TResponse extends object>(
-  url: string,
-): Promise<TResponse> {
+async function getJson<TResponse>(url: string): Promise<TResponse> {
   const response = await fetch(url);
   return parseJsonResponse<TResponse>(response);
 }
 
 type JsonBody = Record<string, string | boolean>;
 
-async function postJson<TResponse extends object>(
+async function postJson<TResponse>(
   url: string,
   body: JsonBody,
 ): Promise<TResponse> {
@@ -1726,7 +2197,7 @@ async function postJson<TResponse extends object>(
   return parseJsonResponse<TResponse>(response);
 }
 
-async function patchJson<TResponse extends object>(
+async function patchJson<TResponse>(
   url: string,
   body: JsonBody,
 ): Promise<TResponse> {
@@ -1741,9 +2212,7 @@ async function patchJson<TResponse extends object>(
   return parseJsonResponse<TResponse>(response);
 }
 
-async function deleteJson<TResponse extends object>(
-  url: string,
-): Promise<TResponse> {
+async function deleteJson<TResponse>(url: string): Promise<TResponse> {
   const response = await fetch(url, {
     method: "DELETE",
   });
@@ -1775,7 +2244,17 @@ async function loadLatestCrawls(
   );
 }
 
-async function parseJsonResponse<TResponse extends object>(
+async function loadGoogleBusinessProfile(
+  apiBaseUrl: string,
+  organizationId: string,
+  businessId: string,
+) {
+  return getJson<GoogleBusinessProfile | null>(
+    `${apiBaseUrl}/organizations/${organizationId}/businesses/${businessId}/google-business-profile`,
+  );
+}
+
+async function parseJsonResponse<TResponse>(
   response: Response,
 ): Promise<TResponse> {
   const payload = (await response.json()) as TResponse | ApiErrorResponse;
@@ -1849,6 +2328,46 @@ function isValidUrl(value: string) {
   }
 }
 
+function isGoogleBusinessProfileUrl(value: string) {
+  try {
+    const url = new URL(value);
+    const hostname = url.hostname.toLowerCase().replace(/^www\./, "");
+    const pathname = url.pathname.toLowerCase();
+
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      return false;
+    }
+
+    if (hostname === "maps.app.goo.gl") {
+      return pathname.length > 1;
+    }
+
+    if (hostname === "goo.gl") {
+      return pathname.startsWith("/maps/");
+    }
+
+    if (hostname === "maps.google.com") {
+      return true;
+    }
+
+    if (hostname === "business.google.com") {
+      return true;
+    }
+
+    if (hostname === "google.com") {
+      return (
+        pathname === "/maps" ||
+        pathname.startsWith("/maps/") ||
+        (pathname === "/search" && url.searchParams.has("q"))
+      );
+    }
+
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 function sortWebsites(items: Website[]) {
   return [...items].sort((left, right) => {
     if (left.isPrimary !== right.isPrimary) {
@@ -1888,8 +2407,10 @@ function getErrorMessage(error: unknown) {
   return "Something went wrong. Please try again.";
 }
 
-function readApiError(payload: ApiErrorResponse | object) {
+function readApiError(payload: unknown) {
   if (
+    payload &&
+    typeof payload === "object" &&
     "error" in payload &&
     payload.error &&
     typeof payload.error === "object" &&

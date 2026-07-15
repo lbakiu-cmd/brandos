@@ -8,11 +8,14 @@ import {
   Post,
 } from "@nestjs/common";
 import { CreateBusinessDto } from "./dto/create-business.dto";
+import { CreateGoogleBusinessProfileDto } from "./dto/create-google-business-profile.dto";
 import { CreateOrganizationDto } from "./dto/create-organization.dto";
 import { CreateWebsiteDto } from "./dto/create-website.dto";
+import { UpdateGoogleBusinessProfileDto } from "./dto/update-google-business-profile.dto";
 import { UpdateWebsiteDto } from "./dto/update-website.dto";
 import {
   type BusinessSummary,
+  type GoogleBusinessProfileSummary,
   type OrganizationDetail,
   type OrganizationSummary,
   type WebsiteCrawlSummary,
@@ -104,6 +107,54 @@ export class OrganizationsController {
       organizationId,
       businessId,
       websiteId,
+    );
+  }
+
+  @Get(":organizationId/businesses/:businessId/google-business-profile")
+  getGoogleBusinessProfile(
+    @Param("organizationId") organizationId: string,
+    @Param("businessId") businessId: string,
+  ): Promise<GoogleBusinessProfileSummary | null> {
+    return this.organizationsService.getGoogleBusinessProfile(
+      organizationId,
+      businessId,
+    );
+  }
+
+  @Post(":organizationId/businesses/:businessId/google-business-profile")
+  createGoogleBusinessProfile(
+    @Param("organizationId") organizationId: string,
+    @Param("businessId") businessId: string,
+    @Body() body: CreateGoogleBusinessProfileDto,
+  ): Promise<GoogleBusinessProfileSummary> {
+    return this.organizationsService.createGoogleBusinessProfile(
+      organizationId,
+      businessId,
+      body,
+    );
+  }
+
+  @Patch(":organizationId/businesses/:businessId/google-business-profile")
+  updateGoogleBusinessProfile(
+    @Param("organizationId") organizationId: string,
+    @Param("businessId") businessId: string,
+    @Body() body: UpdateGoogleBusinessProfileDto,
+  ): Promise<GoogleBusinessProfileSummary> {
+    return this.organizationsService.updateGoogleBusinessProfile(
+      organizationId,
+      businessId,
+      body,
+    );
+  }
+
+  @Delete(":organizationId/businesses/:businessId/google-business-profile")
+  deleteGoogleBusinessProfile(
+    @Param("organizationId") organizationId: string,
+    @Param("businessId") businessId: string,
+  ): Promise<GoogleBusinessProfileSummary> {
+    return this.organizationsService.deleteGoogleBusinessProfile(
+      organizationId,
+      businessId,
     );
   }
 

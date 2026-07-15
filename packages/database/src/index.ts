@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 
 export {
+  GoogleBusinessProfileStatus,
   MembershipRole,
   Prisma,
   PrismaClient,
@@ -8,6 +9,7 @@ export {
 } from "@prisma/client";
 export type {
   Business,
+  GoogleBusinessProfile,
   Membership,
   Organization,
   Website,

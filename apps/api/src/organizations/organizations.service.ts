@@ -5,13 +5,19 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import { MembershipRole, Prisma } from "@brandos/database";
+import {
+  GoogleBusinessProfileStatus,
+  MembershipRole,
+  Prisma,
+} from "@brandos/database";
 import { WebsiteCrawlStatus } from "@brandos/database";
 import { PrismaService } from "../database/prisma.service";
 import { CrawlQueueService } from "../queues/crawl-queue.service";
 import { CreateBusinessDto } from "./dto/create-business.dto";
+import { CreateGoogleBusinessProfileDto } from "./dto/create-google-business-profile.dto";
 import { CreateOrganizationDto } from "./dto/create-organization.dto";
 import { CreateWebsiteDto } from "./dto/create-website.dto";
+import { UpdateGoogleBusinessProfileDto } from "./dto/update-google-business-profile.dto";
 import { UpdateWebsiteDto } from "./dto/update-website.dto";
 
 const TEMPORARY_USER_ID = "temporary-local-user";
@@ -55,6 +61,22 @@ export type WebsiteCrawlSummary = {
   completedAt: Date | null;
   errorMessage: string | null;
   metadata: Prisma.JsonValue | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type GoogleBusinessProfileSummary = {
+  id: string;
+  businessId: string;
+  profileUrl: string;
+  placeId: string | null;
+  businessName: string | null;
+  address: string | null;
+  city: string | null;
+  country: string | null;
+  phone: string | null;
+  websiteUrl: string | null;
+  status: GoogleBusinessProfileStatus;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -314,6 +336,125 @@ export class OrganizationsService {
     });
   }
 
+  async getGoogleBusinessProfile(
+    organizationId: string,
+    businessId: string,
+  ): Promise<GoogleBusinessProfileSummary | null> {
+    await this.requireBusiness(organizationId, businessId);
+
+    return this.prisma.googleBusinessProfile.findUnique({
+      where: { businessId },
+      select: googleBusinessProfileSummarySelect,
+    });
+  }
+
+  async createGoogleBusinessProfile(
+    organizationId: string,
+    businessId: string,
+    input: CreateGoogleBusinessProfileDto,
+  ): Promise<GoogleBusinessProfileSummary> {
+    await this.requireBusiness(organizationId, businessId);
+    assertGoogleBusinessProfileUrl(input.profileUrl);
+
+    try {
+      return await this.prisma.googleBusinessProfile.create({
+        data: {
+          businessId,
+          profileUrl: input.profileUrl.trim(),
+          placeId: optionalTrim(input.placeId),
+          businessName: optionalTrim(input.businessName),
+          address: optionalTrim(input.address),
+          city: optionalTrim(input.city),
+          country: optionalTrim(input.country),
+          phone: optionalTrim(input.phone),
+          websiteUrl: optionalTrim(input.websiteUrl),
+          status: GoogleBusinessProfileStatus.MANUAL_CONNECTED,
+        },
+        select: googleBusinessProfileSummarySelect,
+      });
+    } catch (error) {
+      this.handleUniqueConstraint(
+        error,
+        "Google Business Profile already exists.",
+      );
+      throw error;
+    }
+  }
+
+  async updateGoogleBusinessProfile(
+    organizationId: string,
+    businessId: string,
+    input: UpdateGoogleBusinessProfileDto,
+  ): Promise<GoogleBusinessProfileSummary> {
+    await this.requireBusiness(organizationId, businessId);
+
+    const existingProfile = await this.prisma.googleBusinessProfile.findUnique({
+      where: { businessId },
+      select: { id: true },
+    });
+
+    if (!existingProfile) {
+      throw new NotFoundException("Google Business Profile not found.");
+    }
+
+    if (input.profileUrl !== undefined) {
+      assertGoogleBusinessProfileUrl(input.profileUrl);
+    }
+
+    return this.prisma.googleBusinessProfile.update({
+      where: { businessId },
+      data: {
+        ...(input.profileUrl === undefined
+          ? {}
+          : { profileUrl: input.profileUrl.trim() }),
+        ...(input.placeId === undefined
+          ? {}
+          : { placeId: optionalTrim(input.placeId) }),
+        ...(input.businessName === undefined
+          ? {}
+          : { businessName: optionalTrim(input.businessName) }),
+        ...(input.address === undefined
+          ? {}
+          : { address: optionalTrim(input.address) }),
+        ...(input.city === undefined ? {} : { city: optionalTrim(input.city) }),
+        ...(input.country === undefined
+          ? {}
+          : { country: optionalTrim(input.country) }),
+        ...(input.phone === undefined
+          ? {}
+          : { phone: optionalTrim(input.phone) }),
+        ...(input.websiteUrl === undefined
+          ? {}
+          : { websiteUrl: optionalTrim(input.websiteUrl) }),
+        status: GoogleBusinessProfileStatus.MANUAL_CONNECTED,
+      },
+      select: googleBusinessProfileSummarySelect,
+    });
+  }
+
+  async deleteGoogleBusinessProfile(
+    organizationId: string,
+    businessId: string,
+  ): Promise<GoogleBusinessProfileSummary> {
+    await this.requireBusiness(organizationId, businessId);
+
+    try {
+      return await this.prisma.googleBusinessProfile.delete({
+        where: { businessId },
+        select: googleBusinessProfileSummarySelect,
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2025"
+      ) {
+        throw new NotFoundException("Google Business Profile not found.");
+      }
+
+      throw error;
+    }
+  }
+
   async createWebsiteCrawl(
     organizationId: string,
     businessId: string,
@@ -537,6 +678,78 @@ const websiteCrawlSummarySelect = {
   createdAt: true,
   updatedAt: true,
 } satisfies Prisma.WebsiteCrawlSelect;
+
+const googleBusinessProfileSummarySelect = {
+  id: true,
+  businessId: true,
+  profileUrl: true,
+  placeId: true,
+  businessName: true,
+  address: true,
+  city: true,
+  country: true,
+  phone: true,
+  websiteUrl: true,
+  status: true,
+  createdAt: true,
+  updatedAt: true,
+} satisfies Prisma.GoogleBusinessProfileSelect;
+
+function assertGoogleBusinessProfileUrl(rawUrl: string) {
+  if (!isValidGoogleBusinessProfileUrl(rawUrl)) {
+    throw new BadRequestException(
+      "Enter a Google Maps or Google Business Profile URL.",
+    );
+  }
+}
+
+function isValidGoogleBusinessProfileUrl(rawUrl: string) {
+  let url: URL;
+
+  try {
+    url = new URL(rawUrl.trim());
+  } catch {
+    return false;
+  }
+
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    return false;
+  }
+
+  const hostname = url.hostname.toLowerCase().replace(/^www\./, "");
+  const pathname = url.pathname.toLowerCase();
+
+  if (hostname === "maps.app.goo.gl") {
+    return pathname.length > 1;
+  }
+
+  if (hostname === "goo.gl") {
+    return pathname.startsWith("/maps/");
+  }
+
+  if (hostname === "maps.google.com") {
+    return true;
+  }
+
+  if (hostname === "business.google.com") {
+    return true;
+  }
+
+  if (hostname === "google.com") {
+    return (
+      pathname === "/maps" ||
+      pathname.startsWith("/maps/") ||
+      (pathname === "/search" && url.searchParams.has("q"))
+    );
+  }
+
+  return false;
+}
+
+function optionalTrim(value: string | undefined) {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+}
 
 function normalizeWebsiteUrl(rawUrl: string) {
   const parsedUrl = new URL(rawUrl.trim());

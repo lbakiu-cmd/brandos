@@ -20,6 +20,12 @@ enum WebsiteCrawlStatus {
   FAILED
 }
 
+enum GoogleBusinessProfileStatus {
+  NOT_CONNECTED
+  MANUAL_CONNECTED
+  VERIFIED
+}
+
 model Organization {
   id          String       @id @default(cuid())
   name        String
@@ -44,18 +50,19 @@ model Membership {
 }
 
 model Business {
-  id             String       @id @default(cuid())
-  organizationId String
-  name           String
-  slug           String
-  websiteUrl     String?
-  category       String?
-  country        String?
-  city           String?
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  websites       Website[]
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  id                    String                 @id @default(cuid())
+  organizationId        String
+  name                  String
+  slug                  String
+  websiteUrl            String?
+  category              String?
+  country               String?
+  city                  String?
+  organization          Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  websites              Website[]
+  googleBusinessProfile GoogleBusinessProfile?
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
 
   @@unique([organizationId, slug])
   @@index([organizationId])
@@ -96,4 +103,23 @@ model WebsiteCrawl {
   @@index([status])
   @@index([websiteId, status])
   @@index([requestedAt])
+}
+
+model GoogleBusinessProfile {
+  id           String                      @id @default(cuid())
+  businessId   String                      @unique
+  profileUrl   String
+  placeId      String?
+  businessName String?
+  address      String?
+  city         String?
+  country      String?
+  phone        String?
+  websiteUrl   String?
+  status       GoogleBusinessProfileStatus @default(MANUAL_CONNECTED)
+  business     Business                    @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  createdAt    DateTime                    @default(now())
+  updatedAt    DateTime                    @updatedAt
+
+  @@index([status])
 }
