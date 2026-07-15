@@ -63,6 +63,26 @@ enum WebsiteAuditFindingStatus {
   IGNORED
 }
 
+enum BusinessRecommendationSourceType {
+  WEBSITE
+  GOOGLE_BUSINESS
+  SOCIAL
+  AUDIT_FINDING
+  AI_VISIBILITY
+}
+
+enum BusinessRecommendationPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum BusinessRecommendationStatus {
+  OPEN
+  DONE
+  IGNORED
+}
+
 model Organization {
   id          String       @id @default(cuid())
   name        String
@@ -100,6 +120,7 @@ model Business {
   googleBusinessProfile GoogleBusinessProfile?
   socialProfiles        SocialProfile[]
   visibilityScore       BusinessVisibilityScore?
+  recommendations       BusinessRecommendation[]
   createdAt             DateTime                 @default(now())
   updatedAt             DateTime                 @updatedAt
 
@@ -227,4 +248,27 @@ model BusinessVisibilityScore {
   @@index([businessId])
   @@index([score])
   @@index([calculatedAt])
+}
+
+model BusinessRecommendation {
+  id          String                           @id @default(cuid())
+  businessId  String
+  sourceType  BusinessRecommendationSourceType
+  priority    BusinessRecommendationPriority
+  status      BusinessRecommendationStatus     @default(OPEN)
+  code        String
+  title       String
+  description String
+  impact      String?
+  actionLabel String?
+  evidence    Json?
+  business    Business                         @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  createdAt   DateTime                         @default(now())
+  updatedAt   DateTime                         @updatedAt
+
+  @@unique([businessId, code])
+  @@index([businessId])
+  @@index([businessId, status])
+  @@index([priority])
+  @@index([sourceType])
 }

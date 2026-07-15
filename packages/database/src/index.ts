@@ -1,6 +1,9 @@
 import { PrismaClient } from "@prisma/client";
 
 export {
+  BusinessRecommendationPriority,
+  BusinessRecommendationSourceType,
+  BusinessRecommendationStatus,
   GoogleBusinessProfileStatus,
   MembershipRole,
   Prisma,
@@ -14,6 +17,7 @@ export {
 } from "@prisma/client";
 export type {
   Business,
+  BusinessRecommendation,
   BusinessVisibilityScore,
   GoogleBusinessProfile,
   Membership,

@@ -14,9 +14,11 @@ import { CreateSocialProfileDto } from "./dto/create-social-profile.dto";
 import { CreateWebsiteDto } from "./dto/create-website.dto";
 import { UpdateGoogleBusinessProfileDto } from "./dto/update-google-business-profile.dto";
 import { UpdateSocialProfileDto } from "./dto/update-social-profile.dto";
+import { UpdateBusinessRecommendationDto } from "./dto/update-business-recommendation.dto";
 import { UpdateWebsiteAuditFindingDto } from "./dto/update-website-audit-finding.dto";
 import { UpdateWebsiteDto } from "./dto/update-website.dto";
 import {
+  type BusinessRecommendationSummary,
   type BusinessSummary,
   type BusinessVisibilityScoreSummary,
   type GoogleBusinessProfileSummary,
@@ -86,6 +88,43 @@ export class OrganizationsController {
     return this.organizationsService.calculateBusinessVisibilityScore(
       organizationId,
       businessId,
+    );
+  }
+
+  @Get(":organizationId/businesses/:businessId/recommendations")
+  listBusinessRecommendations(
+    @Param("organizationId") organizationId: string,
+    @Param("businessId") businessId: string,
+  ): Promise<BusinessRecommendationSummary[]> {
+    return this.organizationsService.listBusinessRecommendations(
+      organizationId,
+      businessId,
+    );
+  }
+
+  @Post(":organizationId/businesses/:businessId/recommendations/generate")
+  generateBusinessRecommendations(
+    @Param("organizationId") organizationId: string,
+    @Param("businessId") businessId: string,
+  ): Promise<BusinessRecommendationSummary[]> {
+    return this.organizationsService.generateBusinessRecommendations(
+      organizationId,
+      businessId,
+    );
+  }
+
+  @Patch(":organizationId/businesses/:businessId/recommendations/:recommendationId")
+  updateBusinessRecommendation(
+    @Param("organizationId") organizationId: string,
+    @Param("businessId") businessId: string,
+    @Param("recommendationId") recommendationId: string,
+    @Body() body: UpdateBusinessRecommendationDto,
+  ): Promise<BusinessRecommendationSummary> {
+    return this.organizationsService.updateBusinessRecommendation(
+      organizationId,
+      businessId,
+      recommendationId,
+      body,
     );
   }
 
