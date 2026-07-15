@@ -1896,14 +1896,14 @@ function AiVisibilityScoreCard({
   isCalculating: boolean;
   onCalculate: () => void;
 }) {
-  const breakdown = score ? orderedVisibilityBreakdown(score) : [];
+  const foundationChecks = score ? orderedVisibilityBreakdown(score) : [];
   const rawScore = score ? visibilityRawScore(score) : null;
   const cappedScore = score ? visibilityCappedScore(score) : null;
   const capAdjustment =
     rawScore !== null && cappedScore !== null ? cappedScore - rawScore : null;
   const capNote =
     score?.inputs?.isMvpCapped === true
-      ? "Advanced visibility checks are not available yet, so this MVP score is capped. Higher-confidence scoring will unlock as BrandOS adds deeper visibility signals."
+      ? "Current foundation checks are complete. The final score is capped until advanced AI-answer visibility checks are implemented."
       : null;
 
   return (
@@ -1973,16 +1973,31 @@ function AiVisibilityScoreCard({
           <p className="mt-3 text-xs text-slate-500">
             Last calculated {formatDateTime(score.calculatedAt)}
           </p>
+          <div className="mt-4">
+            <p className="text-sm font-semibold text-slate-950">
+              Foundation checks
+            </p>
+            <p className="mt-1 text-xs leading-5 text-slate-600">
+              These are readiness inputs from deterministic checks, not the
+              final AI Visibility Score. The displayed score remains capped
+              until advanced AI-answer visibility checks are available.
+            </p>
+          </div>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            {breakdown.map((section) => (
+            {foundationChecks.map((section) => (
               <div
                 key={section.key}
                 className="rounded-xl border border-cyan-100 bg-white px-3 py-3"
               >
                 <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-semibold text-slate-950">
-                    {section.label}
-                  </p>
+                  <div>
+                    <p className="text-sm font-semibold text-slate-950">
+                      {section.label}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      Readiness input
+                    </p>
+                  </div>
                   <span className="rounded-full bg-cyan-50 px-2 py-1 text-xs font-semibold text-cyan-700">
                     {section.earned}/{section.possible}
                   </span>
@@ -2000,6 +2015,29 @@ function AiVisibilityScoreCard({
                 </div>
               </div>
             ))}
+            <div className="rounded-xl border border-slate-300 bg-slate-950 px-3 py-3 text-white sm:col-span-2">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="text-sm font-semibold">
+                    Advanced AI visibility checks
+                  </p>
+                  <p className="mt-1 text-xs font-medium text-cyan-200">
+                    Not available yet
+                  </p>
+                </div>
+                <span className="w-fit rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-cyan-100">
+                  MVP cap applied:{" "}
+                  {capAdjustment !== null && capAdjustment < 0
+                    ? capAdjustment
+                    : "0"}
+                </span>
+              </div>
+              <p className="mt-3 text-sm leading-6 text-slate-300">
+                Future checks include LLM answer presence, brand recognition,
+                share of voice, sentiment, citations, reviews, and competitor
+                comparison.
+              </p>
+            </div>
           </div>
         </>
       ) : null}
