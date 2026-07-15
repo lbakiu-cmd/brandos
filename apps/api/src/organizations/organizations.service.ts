@@ -30,6 +30,10 @@ import { UpdateWebsiteAuditFindingDto } from "./dto/update-website-audit-finding
 import { UpdateWebsiteDto } from "./dto/update-website.dto";
 
 const TEMPORARY_USER_ID = "temporary-local-user";
+const MVP_VISIBILITY_SCORE_CAP = 89;
+const ADVANCED_VISIBILITY_CHECKS_AVAILABLE = false;
+const MVP_SCORE_CAP_MESSAGE =
+  "Advanced visibility checks are not available yet, so this MVP score is capped.";
 
 export type OrganizationSummary = {
   id: string;
@@ -1031,18 +1035,36 @@ export class OrganizationsService {
         findingsBySeverity: countFindingsBySeverity(openFindings),
       },
     };
-    const score = clampScore(
+    const rawScore = clampScore(
       websiteFoundation.earned +
         localPresence.earned +
         socialPresence.earned +
         auditHealth.earned,
     );
+    const isMvpCapped =
+      !ADVANCED_VISIBILITY_CHECKS_AVAILABLE &&
+      rawScore > MVP_VISIBILITY_SCORE_CAP;
+    const score = isMvpCapped ? MVP_VISIBILITY_SCORE_CAP : rawScore;
     const grade = gradeVisibilityScore(score);
+    const scoreCalibration = {
+      key: "scoreCalibration",
+      label: "Score calibration",
+      earned: score,
+      possible: rawScore,
+      details: {
+        rawScore,
+        finalScore: score,
+        isMvpCapped,
+        mvpScoreCap: MVP_VISIBILITY_SCORE_CAP,
+        advancedVisibilityChecksAvailable: ADVANCED_VISIBILITY_CHECKS_AVAILABLE,
+        note: isMvpCapped ? MVP_SCORE_CAP_MESSAGE : null,
+      },
+    };
 
     return {
       score,
       grade,
-      summary: visibilityScoreSummary(score, grade),
+      summary: visibilityScoreSummary(score, grade, isMvpCapped),
       inputs: {
         businessId,
         primaryWebsiteId: primaryWebsite?.id ?? null,
@@ -1050,12 +1072,18 @@ export class OrganizationsService {
         googleBusinessProfileId: googleProfile?.id ?? null,
         socialProfileCount,
         openFindingCount: openFindings.length,
+        rawScore,
+        finalScore: score,
+        isMvpCapped,
+        mvpScoreCap: MVP_VISIBILITY_SCORE_CAP,
+        advancedVisibilityChecksAvailable: ADVANCED_VISIBILITY_CHECKS_AVAILABLE,
       } satisfies Prisma.InputJsonObject,
       breakdown: {
         websiteFoundation,
         localPresence,
         socialPresence,
         auditHealth,
+        scoreCalibration,
       } satisfies Prisma.InputJsonObject,
     };
   }
@@ -1465,8 +1493,14 @@ function gradeVisibilityScore(score: number) {
   return "Critical";
 }
 
-function visibilityScoreSummary(score: number, grade: string) {
-  return `BrandOS calculated a ${score}/100 ${grade.toLowerCase()} visibility foundation from deterministic website, local, social, and audit health signals.`;
+function visibilityScoreSummary(
+  score: number,
+  grade: string,
+  isMvpCapped: boolean,
+) {
+  const summary = `BrandOS calculated a ${score}/100 ${grade.toLowerCase()} visibility foundation from deterministic website, local, social, and audit health signals.`;
+
+  return isMvpCapped ? `${summary} ${MVP_SCORE_CAP_MESSAGE}` : summary;
 }
 
 function normalizeWebsiteUrl(rawUrl: string) {

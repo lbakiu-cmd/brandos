@@ -107,7 +107,13 @@ type BusinessVisibilityScore = {
   score: number;
   grade: string | null;
   summary: string | null;
-  inputs: unknown;
+  inputs: {
+    rawScore?: number;
+    finalScore?: number;
+    isMvpCapped?: boolean;
+    mvpScoreCap?: number;
+    advancedVisibilityChecksAvailable?: boolean;
+  } | null;
   breakdown: Record<string, VisibilityBreakdownSection>;
   calculatedAt: string;
   createdAt: string;
@@ -1751,6 +1757,10 @@ function AiVisibilityScoreCard({
   onCalculate: () => void;
 }) {
   const breakdown = score ? orderedVisibilityBreakdown(score) : [];
+  const capNote =
+    score?.inputs?.isMvpCapped === true
+      ? "Advanced visibility checks are not available yet, so this MVP score is capped. Higher-confidence scoring will unlock as BrandOS adds deeper visibility signals."
+      : null;
 
   return (
     <div className="rounded-2xl border border-cyan-200 bg-cyan-50 p-5">
@@ -1783,6 +1793,11 @@ function AiVisibilityScoreCard({
       </p>
       {score ? (
         <>
+          {capNote ? (
+            <p className="mt-3 rounded-xl border border-cyan-200 bg-white/70 px-3 py-2 text-xs leading-5 text-cyan-800">
+              {capNote}
+            </p>
+          ) : null}
           <p className="mt-3 text-xs text-slate-500">
             Last calculated {formatDateTime(score.calculatedAt)}
           </p>
