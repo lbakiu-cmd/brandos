@@ -165,6 +165,7 @@ type BusinessTask = {
 };
 
 type RecommendationStatusFilter = BusinessRecommendation["status"];
+type TaskStatusFilter = BusinessTask["status"];
 
 type CrawlMetadata = {
   finalUrl: string;
@@ -334,6 +335,7 @@ export function OnboardingFlow() {
     string | null
   >(null);
   const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null);
+  const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
   const [creatingTaskRecommendationId, setCreatingTaskRecommendationId] =
     useState<string | null>(null);
   const [queuedCrawlWebsiteId, setQueuedCrawlWebsiteId] = useState<
@@ -1108,6 +1110,29 @@ export function OnboardingFlow() {
     }
   }
 
+  async function deleteTask(taskId: string) {
+    setError(null);
+    setSuccess(null);
+
+    if (!apiBaseUrl || !organization || !business) {
+      setError("Workspace is not ready.");
+      return;
+    }
+
+    setDeletingTaskId(taskId);
+    try {
+      await deleteJson<BusinessTask>(
+        `${apiBaseUrl}/organizations/${organization.id}/businesses/${business.id}/tasks/${taskId}`,
+      );
+      setTasks((current) => current.filter((task) => task.id !== taskId));
+      setSuccess("Task deleted.");
+    } catch (requestError) {
+      setError(getErrorMessage(requestError));
+    } finally {
+      setDeletingTaskId(null);
+    }
+  }
+
   async function updateWebsite(
     websiteId: string,
     body: JsonBody,
@@ -1395,6 +1420,7 @@ export function OnboardingFlow() {
                 ignoredFindingId={ignoredFindingId}
                 updatingRecommendationId={updatingRecommendationId}
                 updatingTaskId={updatingTaskId}
+                deletingTaskId={deletingTaskId}
                 creatingTaskRecommendationId={creatingTaskRecommendationId}
                 onCreateAnotherBusiness={createAnotherBusiness}
                 onWebsiteUrlChange={(url) => setWebsiteForm({ url })}
@@ -1443,6 +1469,7 @@ export function OnboardingFlow() {
                 onUpdateRecommendationStatus={updateRecommendationStatus}
                 onCreateTaskFromRecommendation={createTaskFromRecommendation}
                 onUpdateTaskStatus={updateTaskStatus}
+                onDeleteTask={deleteTask}
                 onQueueWebsiteCrawl={queueWebsiteCrawl}
                 onIgnoreAuditFinding={ignoreAuditFinding}
                 onSwitchWorkspace={switchWorkspace}
@@ -1799,6 +1826,7 @@ function WorkspaceDashboard({
   ignoredFindingId,
   updatingRecommendationId,
   updatingTaskId,
+  deletingTaskId,
   creatingTaskRecommendationId,
   onCreateAnotherBusiness,
   onWebsiteUrlChange,
@@ -1823,6 +1851,7 @@ function WorkspaceDashboard({
   onUpdateRecommendationStatus,
   onCreateTaskFromRecommendation,
   onUpdateTaskStatus,
+  onDeleteTask,
   onQueueWebsiteCrawl,
   onIgnoreAuditFinding,
   onSwitchWorkspace,
@@ -1853,6 +1882,7 @@ function WorkspaceDashboard({
   ignoredFindingId: string | null;
   updatingRecommendationId: string | null;
   updatingTaskId: string | null;
+  deletingTaskId: string | null;
   creatingTaskRecommendationId: string | null;
   onCreateAnotherBusiness: () => void;
   onWebsiteUrlChange: (url: string) => void;
@@ -1886,6 +1916,7 @@ function WorkspaceDashboard({
   ) => void;
   onCreateTaskFromRecommendation: (recommendationId: string) => void;
   onUpdateTaskStatus: (taskId: string, status: BusinessTask["status"]) => void;
+  onDeleteTask: (taskId: string) => void;
   onQueueWebsiteCrawl: (websiteId: string) => void;
   onIgnoreAuditFinding: (websiteId: string, findingId: string) => void;
   onSwitchWorkspace: () => void;
@@ -1939,6 +1970,8 @@ function WorkspaceDashboard({
         />
       </div>
 
+      <TaskSummaryCards tasks={tasks} />
+
       <RecommendationsSection
         recommendations={recommendations}
         tasks={tasks}
@@ -1952,8 +1985,11 @@ function WorkspaceDashboard({
 
       <TasksSection
         tasks={tasks}
+        recommendations={recommendations}
         updatingTaskId={updatingTaskId}
+        deletingTaskId={deletingTaskId}
         onUpdateTaskStatus={onUpdateTaskStatus}
+        onDeleteTask={onDeleteTask}
       />
 
       <div className="grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
@@ -2380,9 +2416,7 @@ function RecommendationsSection({
                   creatingTaskRecommendationId === recommendation.id
                 }
                 hasTask={tasks.some(
-                  (task) =>
-                    task.recommendationId === recommendation.id &&
-                    (task.status === "TODO" || task.status === "IN_PROGRESS"),
+                  (task) => task.recommendationId === recommendation.id,
                 )}
                 onUpdateStatus={onUpdateStatus}
                 onCreateTask={onCreateTask}
@@ -2514,17 +2548,78 @@ function RecommendationCard({
   );
 }
 
+function TaskSummaryCards({ tasks }: { tasks: BusinessTask[] }) {
+  const summaries = [
+    {
+      label: "Open tasks",
+      value: tasks.filter((task) => task.status === "TODO").length,
+      className: "border-cyan-200 bg-cyan-50 text-cyan-800",
+    },
+    {
+      label: "In progress",
+      value: tasks.filter((task) => task.status === "IN_PROGRESS").length,
+      className: "border-blue-200 bg-blue-50 text-blue-800",
+    },
+    {
+      label: "Completed tasks",
+      value: tasks.filter((task) => task.status === "DONE").length,
+      className: "border-emerald-200 bg-emerald-50 text-emerald-800",
+    },
+    {
+      label: "High-priority tasks",
+      value: tasks.filter(
+        (task) =>
+          task.priority === "HIGH" &&
+          (task.status === "TODO" || task.status === "IN_PROGRESS"),
+      ).length,
+      className: "border-red-200 bg-red-50 text-red-800",
+    },
+  ];
+
+  return (
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      {summaries.map((summary) => (
+        <div
+          key={summary.label}
+          className={`rounded-xl border px-4 py-3 ${summary.className}`}
+        >
+          <p className="text-2xl font-semibold">{summary.value}</p>
+          <p className="mt-1 text-xs font-semibold">{summary.label}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function TasksSection({
   tasks,
+  recommendations,
   updatingTaskId,
+  deletingTaskId,
   onUpdateTaskStatus,
+  onDeleteTask,
 }: {
   tasks: BusinessTask[];
+  recommendations: BusinessRecommendation[];
   updatingTaskId: string | null;
+  deletingTaskId: string | null;
   onUpdateTaskStatus: (taskId: string, status: BusinessTask["status"]) => void;
+  onDeleteTask: (taskId: string) => void;
 }) {
-  const openTasks = tasks.filter(
-    (task) => task.status === "TODO" || task.status === "IN_PROGRESS",
+  const [statusFilter, setStatusFilter] = useState<TaskStatusFilter>("TODO");
+  const statusOptions = ["TODO", "IN_PROGRESS", "DONE", "IGNORED"] as const;
+  const counts = Object.fromEntries(
+    statusOptions.map((status) => [
+      status,
+      tasks.filter((task) => task.status === status).length,
+    ]),
+  ) as Record<TaskStatusFilter, number>;
+  const filteredTasks = tasks.filter((task) => task.status === statusFilter);
+  const recommendationById = new Map(
+    recommendations.map((recommendation) => [
+      recommendation.id,
+      recommendation,
+    ]),
   );
 
   return (
@@ -2542,18 +2637,39 @@ function TasksSection({
           </p>
         </div>
         <span className="w-fit rounded-full bg-cyan-50 px-3 py-1 text-xs font-semibold text-cyan-700">
-          {openTasks.length} open
+          {tasks.length} total
         </span>
       </div>
 
-      {openTasks.length === 0 ? (
+      <div className="mt-4 flex flex-wrap gap-2">
+        {statusOptions.map((status) => (
+          <button
+            key={status}
+            type="button"
+            onClick={() => setStatusFilter(status)}
+            className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+              statusFilter === status
+                ? "bg-cyan-600 text-white"
+                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+            }`}
+          >
+            {taskStatusLabel(status)} {counts[status]}
+          </button>
+        ))}
+      </div>
+
+      {filteredTasks.length === 0 ? (
         <p className="mt-4 rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-4 text-sm text-slate-600">
-          No open tasks. Create one from a recommended next action.
+          No {taskStatusLabel(statusFilter).toLowerCase()} tasks right now.
         </p>
       ) : (
-        <div className="mt-4 space-y-3">
-          {openTasks.map((task) => {
+        <div className="mt-4 space-y-2">
+          {filteredTasks.map((task) => {
             const isUpdating = updatingTaskId === task.id;
+            const isDeleting = deletingTaskId === task.id;
+            const linkedRecommendation = task.recommendationId
+              ? recommendationById.get(task.recommendationId)
+              : undefined;
 
             return (
               <div
@@ -2577,9 +2693,19 @@ function TasksSection({
                   <h3 className="mt-2 font-semibold text-slate-950">
                     {task.title}
                   </h3>
+                  <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+                    {task.dueDate ? (
+                      <span>Due {formatDate(task.dueDate)}</span>
+                    ) : null}
+                    {linkedRecommendation ? (
+                      <span>
+                        Next action: {linkedRecommendation.title}
+                      </span>
+                    ) : null}
+                  </div>
                 </div>
                 <div className="flex shrink-0 flex-wrap gap-2">
-                  {task.status !== "IN_PROGRESS" ? (
+                  {task.status === "TODO" ? (
                     <button
                       type="button"
                       disabled={isUpdating}
@@ -2589,13 +2715,43 @@ function TasksSection({
                       {isUpdating ? "Saving..." : "In progress"}
                     </button>
                   ) : null}
+                  {task.status === "TODO" || task.status === "IN_PROGRESS" ? (
+                    <button
+                      type="button"
+                      disabled={isUpdating}
+                      onClick={() => onUpdateTaskStatus(task.id, "DONE")}
+                      className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isUpdating ? "Saving..." : "Done"}
+                    </button>
+                  ) : null}
+                  {task.status === "DONE" || task.status === "IGNORED" ? (
+                    <button
+                      type="button"
+                      disabled={isUpdating}
+                      onClick={() => onUpdateTaskStatus(task.id, "TODO")}
+                      className="rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-2 text-xs font-semibold text-cyan-700 hover:bg-cyan-100 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isUpdating ? "Saving..." : "Reopen"}
+                    </button>
+                  ) : null}
+                  {task.status !== "IGNORED" ? (
+                    <button
+                      type="button"
+                      disabled={isUpdating}
+                      onClick={() => onUpdateTaskStatus(task.id, "IGNORED")}
+                      className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Ignore
+                    </button>
+                  ) : null}
                   <button
                     type="button"
-                    disabled={isUpdating}
-                    onClick={() => onUpdateTaskStatus(task.id, "DONE")}
-                    className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+                    disabled={isDeleting || isUpdating}
+                    onClick={() => onDeleteTask(task.id)}
+                    className="rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    {isUpdating ? "Saving..." : "Done"}
+                    {isDeleting ? "Deleting..." : "Delete"}
                   </button>
                 </div>
               </div>
@@ -4110,6 +4266,17 @@ function formatEnumLabel(value: string) {
     .join(" ");
 }
 
+function taskStatusLabel(status: BusinessTask["status"]) {
+  const labels = {
+    TODO: "Open",
+    IN_PROGRESS: "In progress",
+    DONE: "Done",
+    IGNORED: "Ignored",
+  } satisfies Record<BusinessTask["status"], string>;
+
+  return labels[status];
+}
+
 function orderedVisibilityBreakdown(score: BusinessVisibilityScore) {
   const order = [
     "websiteFoundation",
@@ -4205,6 +4372,16 @@ function formatDateTime(value: string) {
     return new Intl.DateTimeFormat(undefined, {
       dateStyle: "medium",
       timeStyle: "short",
+    }).format(new Date(value));
+  } catch {
+    return value;
+  }
+}
+
+function formatDate(value: string) {
+  try {
+    return new Intl.DateTimeFormat(undefined, {
+      dateStyle: "medium",
     }).format(new Date(value));
   } catch {
     return value;

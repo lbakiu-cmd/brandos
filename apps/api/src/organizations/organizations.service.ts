@@ -580,12 +580,8 @@ export class OrganizationsService {
     }
 
     const existingTask = await this.prisma.businessTask.findFirst({
-      where: {
-        recommendationId,
-        status: {
-          in: [BusinessTaskStatus.TODO, BusinessTaskStatus.IN_PROGRESS],
-        },
-      },
+      where: { recommendationId },
+      orderBy: { createdAt: "desc" },
       select: businessTaskSummarySelect,
     });
 
