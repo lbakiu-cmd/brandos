@@ -137,6 +137,13 @@ model Business {
   category              String?
   country               String?
   city                  String?
+  description           String?
+  phone                 String?
+  email                 String?
+  address               String?
+  postalCode            String?
+  openingHours          Json?
+  services              Json?
   organization          Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   websites              Website[]
   googleBusinessProfile GoogleBusinessProfile?

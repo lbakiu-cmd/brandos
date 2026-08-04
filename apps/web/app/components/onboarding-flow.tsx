@@ -19,6 +19,17 @@ type Business = {
   category: string | null;
   country: string | null;
   city: string | null;
+  description: string | null;
+  phone: string | null;
+  email: string | null;
+  address: string | null;
+  postalCode: string | null;
+  openingHours: Record<string, unknown> | null;
+  services: string[] | null;
+  profileCompleteness: {
+    percentage: number;
+    missingFields: string[];
+  };
 };
 
 type Website = {
@@ -204,6 +215,21 @@ type BusinessForm = {
   city: string;
 };
 
+type BusinessProfileForm = {
+  name: string;
+  category: string;
+  websiteUrl: string;
+  city: string;
+  country: string;
+  description: string;
+  phone: string;
+  email: string;
+  address: string;
+  postalCode: string;
+  openingHours: string;
+  services: string;
+};
+
 type WebsiteForm = {
   url: string;
 };
@@ -239,6 +265,21 @@ const initialBusinessForm: BusinessForm = {
   category: "",
   country: "",
   city: "",
+};
+
+const initialBusinessProfileForm: BusinessProfileForm = {
+  name: "",
+  category: "",
+  websiteUrl: "",
+  city: "",
+  country: "",
+  description: "",
+  phone: "",
+  email: "",
+  address: "",
+  postalCode: "",
+  openingHours: "",
+  services: "",
 };
 
 const initialWebsiteForm: WebsiteForm = {
@@ -279,6 +320,8 @@ export function OnboardingFlow() {
   );
   const [businessForm, setBusinessForm] =
     useState<BusinessForm>(initialBusinessForm);
+  const [businessProfileForm, setBusinessProfileForm] =
+    useState<BusinessProfileForm>(initialBusinessProfileForm);
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [availableOrganizations, setAvailableOrganizations] = useState<
     Organization[]
@@ -328,6 +371,10 @@ export function OnboardingFlow() {
   const [isSocialProfileSubmitting, setIsSocialProfileSubmitting] =
     useState(false);
   const [isVisibilityScoreCalculating, setIsVisibilityScoreCalculating] =
+    useState(false);
+  const [isBusinessProfileEditing, setIsBusinessProfileEditing] =
+    useState(false);
+  const [isBusinessProfileSubmitting, setIsBusinessProfileSubmitting] =
     useState(false);
   const [isRecommendationsGenerating, setIsRecommendationsGenerating] =
     useState(false);
@@ -1133,6 +1180,104 @@ export function OnboardingFlow() {
     }
   }
 
+  function editBusinessProfile() {
+    if (!business) return;
+
+    setBusinessProfileForm({
+      name: business.name,
+      category: business.category ?? "",
+      websiteUrl:
+        websites.find((website) => website.isPrimary)?.normalizedUrl ??
+        business.websiteUrl ??
+        "",
+      city: business.city ?? "",
+      country: business.country ?? "",
+      description: business.description ?? "",
+      phone: business.phone ?? "",
+      email: business.email ?? "",
+      address: business.address ?? "",
+      postalCode: business.postalCode ?? "",
+      openingHours: business.openingHours
+        ? JSON.stringify(business.openingHours, null, 2)
+        : "",
+      services: Array.isArray(business.services)
+        ? business.services.join(", ")
+        : "",
+    });
+    setIsBusinessProfileEditing(true);
+  }
+
+  async function updateBusinessProfile(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(null);
+    setSuccess(null);
+
+    if (!apiBaseUrl || !organization || !business) {
+      setError("Workspace is not ready.");
+      return;
+    }
+
+    let openingHours: Record<string, JsonValue> | undefined;
+    if (businessProfileForm.openingHours.trim()) {
+      try {
+        const parsed = JSON.parse(businessProfileForm.openingHours) as unknown;
+        if (!parsed || Array.isArray(parsed) || typeof parsed !== "object") {
+          setError("Opening hours must be a JSON object.");
+          return;
+        }
+        openingHours = parsed as Record<string, JsonValue>;
+      } catch {
+        setError("Opening hours must be valid JSON.");
+        return;
+      }
+    }
+
+    const services = businessProfileForm.services
+      .split(",")
+      .map((service) => service.trim())
+      .filter(Boolean);
+    const payload = {
+      ...compactPayload({
+        name: businessProfileForm.name.trim(),
+        category: businessProfileForm.category.trim(),
+        websiteUrl: businessProfileForm.websiteUrl.trim(),
+        city: businessProfileForm.city.trim(),
+        country: businessProfileForm.country.trim(),
+        description: businessProfileForm.description.trim(),
+        phone: businessProfileForm.phone.trim(),
+        email: businessProfileForm.email.trim(),
+        address: businessProfileForm.address.trim(),
+        postalCode: businessProfileForm.postalCode.trim(),
+      }),
+      ...(openingHours ? { openingHours } : {}),
+      services,
+    };
+
+    setIsBusinessProfileSubmitting(true);
+    try {
+      const updatedBusiness = await patchJson<Business>(
+        `${apiBaseUrl}/organizations/${organization.id}/businesses/${business.id}`,
+        payload,
+      );
+      const updatedWebsites = await getJson<Website[]>(
+        `${apiBaseUrl}/organizations/${organization.id}/businesses/${business.id}/websites`,
+      );
+      setBusiness(updatedBusiness);
+      setBusinesses((current) =>
+        current.map((item) =>
+          item.id === updatedBusiness.id ? updatedBusiness : item,
+        ),
+      );
+      setWebsites(updatedWebsites);
+      setIsBusinessProfileEditing(false);
+      setSuccess("Business profile updated.");
+    } catch (requestError) {
+      setError(getErrorMessage(requestError));
+    } finally {
+      setIsBusinessProfileSubmitting(false);
+    }
+  }
+
   async function updateWebsite(
     websiteId: string,
     body: JsonBody,
@@ -1391,6 +1536,7 @@ export function OnboardingFlow() {
               {success ? <Alert tone="success" message={success} /> : null}
               <WorkspaceDashboard
                 business={business}
+                businessProfileForm={businessProfileForm}
                 businessCount={businesses.length}
                 websiteForm={websiteForm}
                 websites={websites}
@@ -1411,6 +1557,8 @@ export function OnboardingFlow() {
                 }
                 isSocialProfileSubmitting={isSocialProfileSubmitting}
                 isVisibilityScoreCalculating={isVisibilityScoreCalculating}
+                isBusinessProfileEditing={isBusinessProfileEditing}
+                isBusinessProfileSubmitting={isBusinessProfileSubmitting}
                 isRecommendationsGenerating={isRecommendationsGenerating}
                 isAddWebsiteFormVisible={isAddWebsiteFormVisible}
                 isGoogleBusinessProfileFormVisible={
@@ -1465,6 +1613,17 @@ export function OnboardingFlow() {
                 onDeleteSocialProfile={deleteSocialProfile}
                 onCancelSocialProfileEdit={cancelSocialProfileEdit}
                 onCalculateVisibilityScore={calculateVisibilityScore}
+                onEditBusinessProfile={editBusinessProfile}
+                onBusinessProfileFieldChange={(field, value) =>
+                  setBusinessProfileForm((current) => ({
+                    ...current,
+                    [field]: value,
+                  }))
+                }
+                onBusinessProfileSubmit={updateBusinessProfile}
+                onCancelBusinessProfileEdit={() =>
+                  setIsBusinessProfileEditing(false)
+                }
                 onGenerateRecommendations={generateRecommendations}
                 onUpdateRecommendationStatus={updateRecommendationStatus}
                 onCreateTaskFromRecommendation={createTaskFromRecommendation}
@@ -1801,6 +1960,7 @@ function BusinessStep({
 
 function WorkspaceDashboard({
   business,
+  businessProfileForm,
   businessCount,
   websiteForm,
   websites,
@@ -1819,6 +1979,8 @@ function WorkspaceDashboard({
   isGoogleBusinessProfileSubmitting,
   isSocialProfileSubmitting,
   isVisibilityScoreCalculating,
+  isBusinessProfileEditing,
+  isBusinessProfileSubmitting,
   isRecommendationsGenerating,
   isAddWebsiteFormVisible,
   isGoogleBusinessProfileFormVisible,
@@ -1847,6 +2009,10 @@ function WorkspaceDashboard({
   onDeleteSocialProfile,
   onCancelSocialProfileEdit,
   onCalculateVisibilityScore,
+  onEditBusinessProfile,
+  onBusinessProfileFieldChange,
+  onBusinessProfileSubmit,
+  onCancelBusinessProfileEdit,
   onGenerateRecommendations,
   onUpdateRecommendationStatus,
   onCreateTaskFromRecommendation,
@@ -1857,6 +2023,7 @@ function WorkspaceDashboard({
   onSwitchWorkspace,
 }: {
   business: Business;
+  businessProfileForm: BusinessProfileForm;
   businessCount: number;
   websiteForm: WebsiteForm;
   websites: Website[];
@@ -1875,6 +2042,8 @@ function WorkspaceDashboard({
   isGoogleBusinessProfileSubmitting: boolean;
   isSocialProfileSubmitting: boolean;
   isVisibilityScoreCalculating: boolean;
+  isBusinessProfileEditing: boolean;
+  isBusinessProfileSubmitting: boolean;
   isRecommendationsGenerating: boolean;
   isAddWebsiteFormVisible: boolean;
   isGoogleBusinessProfileFormVisible: boolean;
@@ -1909,6 +2078,13 @@ function WorkspaceDashboard({
   onDeleteSocialProfile: (socialProfileId: string) => void;
   onCancelSocialProfileEdit: () => void;
   onCalculateVisibilityScore: () => void;
+  onEditBusinessProfile: () => void;
+  onBusinessProfileFieldChange: (
+    field: keyof BusinessProfileForm,
+    value: string,
+  ) => void;
+  onBusinessProfileSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onCancelBusinessProfileEdit: () => void;
   onGenerateRecommendations: () => void;
   onUpdateRecommendationStatus: (
     recommendationId: string,
@@ -1956,6 +2132,7 @@ function WorkspaceDashboard({
         />
         <BusinessProfileCard
           business={business}
+          form={businessProfileForm}
           primaryWebsite={primaryWebsite}
           googleBusinessProfile={googleBusinessProfile}
           socialProfiles={socialProfiles}
@@ -1967,6 +2144,12 @@ function WorkspaceDashboard({
               (recommendation) => recommendation.status === "OPEN",
             ).length
           }
+          isEditing={isBusinessProfileEditing}
+          isSubmitting={isBusinessProfileSubmitting}
+          onEdit={onEditBusinessProfile}
+          onFieldChange={onBusinessProfileFieldChange}
+          onSubmit={onBusinessProfileSubmit}
+          onCancel={onCancelBusinessProfileEdit}
         />
       </div>
 
@@ -2218,20 +2401,41 @@ function AiVisibilityScoreCard({
 
 function BusinessProfileCard({
   business,
+  form,
   primaryWebsite,
   googleBusinessProfile,
   socialProfiles,
   latestCrawl,
   openRecommendationsCount,
+  isEditing,
+  isSubmitting,
+  onEdit,
+  onFieldChange,
+  onSubmit,
+  onCancel,
 }: {
   business: Business;
+  form: BusinessProfileForm;
   primaryWebsite: Website | null;
   googleBusinessProfile: GoogleBusinessProfile | null;
   socialProfiles: SocialProfile[];
   latestCrawl: WebsiteCrawl | undefined;
   openRecommendationsCount: number;
+  isEditing: boolean;
+  isSubmitting: boolean;
+  onEdit: () => void;
+  onFieldChange: (field: keyof BusinessProfileForm, value: string) => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onCancel: () => void;
 }) {
   const location = [business.city, business.country].filter(Boolean).join(", ");
+  const profileCompleteness = calculateProfileCompleteness(
+    business,
+    primaryWebsite,
+    googleBusinessProfile,
+    socialProfiles,
+    latestCrawl,
+  );
 
   return (
     <div className="self-start rounded-2xl border border-slate-200 bg-white p-5">
@@ -2248,9 +2452,18 @@ function BusinessProfileCard({
               "Profile details not set"}
           </p>
         </div>
-        <span className="w-fit rounded-full bg-cyan-50 px-3 py-1 text-xs font-semibold text-cyan-700">
-          Summary
-        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="w-fit rounded-full bg-cyan-50 px-3 py-1 text-xs font-semibold text-cyan-700">
+            {profileCompleteness.percentage}% complete
+          </span>
+          <button
+            type="button"
+            onClick={onEdit}
+            className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+          >
+            Edit business profile
+          </button>
+        </div>
       </div>
       {primaryWebsite ? (
         <a
@@ -2291,6 +2504,85 @@ function BusinessProfileCard({
           isPositive={openRecommendationsCount === 0}
         />
       </div>
+      {profileCompleteness.missingFields.length > 0 ? (
+        <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-amber-800">
+            Missing profile items
+          </p>
+          <p className="mt-1 text-sm text-amber-900">
+            {profileCompleteness.missingFields.join(" • ")}
+          </p>
+        </div>
+      ) : null}
+      {isEditing ? (
+        <form
+          onSubmit={onSubmit}
+          className="mt-4 space-y-4 rounded-xl border border-slate-200 bg-slate-50 p-4"
+        >
+          <div className="grid gap-3 sm:grid-cols-2">
+            {(
+              [
+                ["name", "Business name", "Acme Studio"],
+                ["category", "Category", "Marketing agency"],
+                ["websiteUrl", "Website URL", "https://example.com"],
+                ["phone", "Phone", "+49 30 123456"],
+                ["email", "Email", "hello@example.com"],
+                ["city", "City", "Berlin"],
+                ["country", "Country", "Germany"],
+                ["address", "Address", "Main Street 1"],
+                ["postalCode", "Postal code", "10115"],
+                ["services", "Services", "Consulting, Strategy"],
+              ] as const
+            ).map(([field, label, placeholder]) => (
+              <TextField
+                key={field}
+                label={label}
+                value={form[field]}
+                placeholder={placeholder}
+                onChange={(value) => onFieldChange(field, value)}
+              />
+            ))}
+          </div>
+          <label className="block">
+            <span className="text-sm font-medium text-slate-800">
+              Description
+            </span>
+            <textarea
+              value={form.description}
+              placeholder="Describe what the business does and who it serves."
+              onChange={(event) =>
+                onFieldChange("description", event.target.value)
+              }
+              rows={3}
+              className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 outline-none focus:border-cyan-500 focus:ring-4 focus:ring-cyan-100"
+            />
+          </label>
+          <label className="block">
+            <span className="text-sm font-medium text-slate-800">
+              Opening hours
+            </span>
+            <textarea
+              value={form.openingHours}
+              placeholder={'{"monday":"09:00-17:00"}'}
+              onChange={(event) =>
+                onFieldChange("openingHours", event.target.value)
+              }
+              rows={3}
+              className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 font-mono text-sm text-slate-950 outline-none focus:border-cyan-500 focus:ring-4 focus:ring-cyan-100"
+            />
+          </label>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="submit"
+              disabled={isSubmitting || !form.name.trim()}
+              className="h-10 rounded-xl bg-slate-950 px-4 text-sm font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+            >
+              {isSubmitting ? "Saving..." : "Save profile"}
+            </button>
+            <SecondaryButton onClick={onCancel}>Cancel</SecondaryButton>
+          </div>
+        </form>
+      ) : null}
     </div>
   );
 }
@@ -3852,7 +4144,14 @@ async function getJson<TResponse>(url: string): Promise<TResponse> {
   return parseJsonResponse<TResponse>(response);
 }
 
-type JsonBody = Record<string, string | boolean>;
+type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { [key: string]: JsonValue };
+type JsonBody = Record<string, JsonValue>;
 
 async function postJson<TResponse>(
   url: string,
@@ -4275,6 +4574,37 @@ function taskStatusLabel(status: BusinessTask["status"]) {
   } satisfies Record<BusinessTask["status"], string>;
 
   return labels[status];
+}
+
+function calculateProfileCompleteness(
+  business: Business,
+  primaryWebsite: Website | null,
+  googleBusinessProfile: GoogleBusinessProfile | null,
+  socialProfiles: SocialProfile[],
+  latestCrawl: WebsiteCrawl | undefined,
+) {
+  const checks = [
+    ["Business name", Boolean(business.name.trim())],
+    ["Category", Boolean(business.category)],
+    ["City", Boolean(business.city)],
+    ["Country", Boolean(business.country)],
+    ["Description", Boolean(business.description)],
+    ["Phone", Boolean(business.phone)],
+    ["Website connected", Boolean(primaryWebsite)],
+    ["Google Business connected", Boolean(googleBusinessProfile)],
+    ["Social profile connected", socialProfiles.length > 0],
+    ["Completed website scan", latestCrawl?.status === "COMPLETED"],
+  ] as const;
+  const missingFields = checks
+    .filter(([, isComplete]) => !isComplete)
+    .map(([label]) => label);
+
+  return {
+    percentage: Math.round(
+      ((checks.length - missingFields.length) / checks.length) * 100,
+    ),
+    missingFields,
+  };
 }
 
 function orderedVisibilityBreakdown(score: BusinessVisibilityScore) {

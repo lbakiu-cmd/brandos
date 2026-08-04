@@ -33,6 +33,7 @@ import { CreateBusinessTaskDto } from "./dto/create-business-task.dto";
 import { CreateWebsiteDto } from "./dto/create-website.dto";
 import { UpdateBusinessRecommendationDto } from "./dto/update-business-recommendation.dto";
 import { UpdateBusinessTaskDto } from "./dto/update-business-task.dto";
+import { UpdateBusinessDto } from "./dto/update-business.dto";
 import { UpdateGoogleBusinessProfileDto } from "./dto/update-google-business-profile.dto";
 import { UpdateSocialProfileDto } from "./dto/update-social-profile.dto";
 import { UpdateWebsiteAuditFindingDto } from "./dto/update-website-audit-finding.dto";
@@ -61,7 +62,22 @@ export type BusinessSummary = {
   category: string | null;
   country: string | null;
   city: string | null;
+  description: string | null;
+  phone: string | null;
+  email: string | null;
+  address: string | null;
+  postalCode: string | null;
+  openingHours: Prisma.JsonValue | null;
+  services: Prisma.JsonValue | null;
+  profileCompleteness: BusinessProfileCompleteness;
 };
+
+export type BusinessProfileCompleteness = {
+  percentage: number;
+  missingFields: string[];
+};
+
+type BusinessSummaryFields = Omit<BusinessSummary, "profileCompleteness">;
 
 export type WebsiteSummary = {
   id: string;
@@ -269,7 +285,7 @@ export class OrganizationsService {
         : normalizeWebsiteUrl(input.websiteUrl);
 
     try {
-      return await this.prisma.business.create({
+      const business = await this.prisma.business.create({
         data: {
           organizationId,
           name: input.name.trim(),
@@ -290,6 +306,7 @@ export class OrganizationsService {
         },
         select: businessSummarySelect,
       });
+      return this.withProfileCompleteness(business);
     } catch (error) {
       this.handleUniqueConstraint(error, "Business already exists.");
       throw error;
@@ -299,11 +316,108 @@ export class OrganizationsService {
   async listBusinesses(organizationId: string): Promise<BusinessSummary[]> {
     await this.requireMembership(organizationId);
 
-    return this.prisma.business.findMany({
+    const businesses = await this.prisma.business.findMany({
       where: { organizationId },
       orderBy: { createdAt: "desc" },
       select: businessSummarySelect,
     });
+
+    return Promise.all(
+      businesses.map((business) => this.withProfileCompleteness(business)),
+    );
+  }
+
+  async updateBusiness(
+    organizationId: string,
+    businessId: string,
+    input: UpdateBusinessDto,
+  ): Promise<BusinessSummary> {
+    await this.requireBusiness(organizationId, businessId);
+    const normalizedWebsite = input.websiteUrl
+      ? normalizeWebsiteUrl(input.websiteUrl)
+      : undefined;
+
+    try {
+      const business = await this.prisma.$transaction(async (tx) => {
+        if (normalizedWebsite) {
+          const existingWebsite = await tx.website.findUnique({
+            where: {
+              businessId_normalizedUrl: {
+                businessId,
+                normalizedUrl: normalizedWebsite.normalizedUrl,
+              },
+            },
+            select: { id: true },
+          });
+
+          await tx.website.updateMany({
+            where: { businessId },
+            data: { isPrimary: false },
+          });
+
+          if (existingWebsite) {
+            await tx.website.update({
+              where: { id: existingWebsite.id },
+              data: { isPrimary: true },
+            });
+          } else {
+            await tx.website.create({
+              data: {
+                businessId,
+                ...normalizedWebsite,
+                isPrimary: true,
+              },
+            });
+          }
+        }
+
+        return tx.business.update({
+          where: { id: businessId },
+          data: {
+            ...(input.name === undefined ? {} : { name: input.name.trim() }),
+            ...(input.category === undefined
+              ? {}
+              : { category: optionalTrim(input.category) }),
+            ...(input.websiteUrl === undefined
+              ? {}
+              : { websiteUrl: normalizedWebsite?.normalizedUrl }),
+            ...(input.city === undefined
+              ? {}
+              : { city: optionalTrim(input.city) }),
+            ...(input.country === undefined
+              ? {}
+              : { country: optionalTrim(input.country) }),
+            ...(input.description === undefined
+              ? {}
+              : { description: optionalTrim(input.description) }),
+            ...(input.phone === undefined
+              ? {}
+              : { phone: optionalTrim(input.phone) }),
+            ...(input.email === undefined
+              ? {}
+              : { email: optionalTrim(input.email)?.toLowerCase() ?? null }),
+            ...(input.address === undefined
+              ? {}
+              : { address: optionalTrim(input.address) }),
+            ...(input.postalCode === undefined
+              ? {}
+              : { postalCode: optionalTrim(input.postalCode) }),
+            ...(input.openingHours === undefined
+              ? {}
+              : { openingHours: input.openingHours as Prisma.InputJsonValue }),
+            ...(input.services === undefined
+              ? {}
+              : { services: input.services as Prisma.InputJsonValue }),
+          },
+          select: businessSummarySelect,
+        });
+      });
+
+      return this.withProfileCompleteness(business);
+    } catch (error) {
+      this.handleUniqueConstraint(error, "Website already exists.");
+      throw error;
+    }
   }
 
   async getBusinessVisibilityScore(
@@ -1219,6 +1333,61 @@ export class OrganizationsService {
     return socialProfile;
   }
 
+  private async withProfileCompleteness(
+    business: BusinessSummaryFields,
+  ): Promise<BusinessSummary> {
+    const connections = await this.prisma.business.findUnique({
+      where: { id: business.id },
+      select: {
+        websites: {
+          take: 1,
+          select: { id: true },
+        },
+        googleBusinessProfile: {
+          select: { id: true },
+        },
+        socialProfiles: {
+          where: { status: { not: SocialProfileStatus.DISCONNECTED } },
+          take: 1,
+          select: { id: true },
+        },
+        _count: {
+          select: {
+            websites: {
+              where: {
+                crawls: { some: { status: WebsiteCrawlStatus.COMPLETED } },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const checks = [
+      ["Business name", Boolean(business.name.trim())],
+      ["Category", Boolean(business.category)],
+      ["City", Boolean(business.city)],
+      ["Country", Boolean(business.country)],
+      ["Description", Boolean(business.description)],
+      ["Phone", Boolean(business.phone)],
+      ["Website connected", Boolean(connections?.websites.length)],
+      ["Google Business connected", Boolean(connections?.googleBusinessProfile)],
+      ["Social profile connected", Boolean(connections?.socialProfiles.length)],
+      ["Completed website scan", Boolean(connections?._count.websites)],
+    ] as const;
+    const missingFields = checks
+      .filter(([, isComplete]) => !isComplete)
+      .map(([label]) => label);
+
+    return {
+      ...business,
+      profileCompleteness: {
+        percentage: Math.round(((checks.length - missingFields.length) / checks.length) * 100),
+        missingFields,
+      },
+    };
+  }
+
   private async buildRecommendationCandidates(
     businessId: string,
   ): Promise<RecommendationCandidate[]> {
@@ -1227,6 +1396,11 @@ export class OrganizationsService {
       select: {
         id: true,
         name: true,
+        category: true,
+        city: true,
+        country: true,
+        description: true,
+        phone: true,
         websites: {
           orderBy: [{ isPrimary: "desc" }, { createdAt: "desc" }],
           select: {
@@ -1297,6 +1471,47 @@ export class OrganizationsService {
     );
 
     const recommendations: RecommendationCandidate[] = [];
+    const profileChecks = [
+      ["Business name", Boolean(business.name.trim())],
+      ["Category", Boolean(business.category)],
+      ["City", Boolean(business.city)],
+      ["Country", Boolean(business.country)],
+      ["Description", Boolean(business.description)],
+      ["Phone", Boolean(business.phone)],
+      ["Website connected", business.websites.length > 0],
+      ["Google Business connected", Boolean(business.googleBusinessProfile)],
+      ["Social profile connected", business.socialProfiles.length > 0],
+      ["Completed website scan", Boolean(latestCrawl)],
+    ] as const;
+    const missingProfileFields = profileChecks
+      .filter(([, isComplete]) => !isComplete)
+      .map(([label]) => label);
+    const profileCompleteness = Math.round(
+      ((profileChecks.length - missingProfileFields.length) /
+        profileChecks.length) *
+        100,
+    );
+
+    if (profileCompleteness < 80) {
+      recommendations.push({
+        sourceType: BusinessRecommendationSourceType.AI_VISIBILITY,
+        priority:
+          missingProfileFields.length >= 5
+            ? BusinessRecommendationPriority.HIGH
+            : BusinessRecommendationPriority.MEDIUM,
+        code: "business.complete_profile",
+        title: "Complete your business profile",
+        description:
+          "Add the missing business details and connections so customers and discovery platforms have a complete, consistent picture of the business.",
+        impact:
+          "A complete profile strengthens visibility readiness and makes future recommendations more useful.",
+        actionLabel: "Edit business profile",
+        evidence: {
+          profileCompleteness,
+          missingFields: missingProfileFields,
+        },
+      });
+    }
 
     if (!latestCrawl) {
       recommendations.push({
@@ -1861,6 +2076,13 @@ const businessSummarySelect = {
   category: true,
   country: true,
   city: true,
+  description: true,
+  phone: true,
+  email: true,
+  address: true,
+  postalCode: true,
+  openingHours: true,
+  services: true,
 } satisfies Prisma.BusinessSelect;
 
 const websiteSummarySelect = {

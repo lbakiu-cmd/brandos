@@ -17,6 +17,7 @@ import { UpdateGoogleBusinessProfileDto } from "./dto/update-google-business-pro
 import { UpdateSocialProfileDto } from "./dto/update-social-profile.dto";
 import { UpdateBusinessRecommendationDto } from "./dto/update-business-recommendation.dto";
 import { UpdateBusinessTaskDto } from "./dto/update-business-task.dto";
+import { UpdateBusinessDto } from "./dto/update-business.dto";
 import { UpdateWebsiteAuditFindingDto } from "./dto/update-website-audit-finding.dto";
 import { UpdateWebsiteDto } from "./dto/update-website.dto";
 import {
@@ -70,6 +71,19 @@ export class OrganizationsController {
     @Param("organizationId") organizationId: string,
   ): Promise<BusinessSummary[]> {
     return this.organizationsService.listBusinesses(organizationId);
+  }
+
+  @Patch(":organizationId/businesses/:businessId")
+  updateBusiness(
+    @Param("organizationId") organizationId: string,
+    @Param("businessId") businessId: string,
+    @Body() body: UpdateBusinessDto,
+  ): Promise<BusinessSummary> {
+    return this.organizationsService.updateBusiness(
+      organizationId,
+      businessId,
+      body,
+    );
   }
 
   @Get(":organizationId/businesses/:businessId/visibility-score")
