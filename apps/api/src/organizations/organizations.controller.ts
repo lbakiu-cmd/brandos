@@ -8,6 +8,7 @@ import {
   Post,
 } from "@nestjs/common";
 import { CreateBusinessDto } from "./dto/create-business.dto";
+import { CreateBusinessTaskDto } from "./dto/create-business-task.dto";
 import { CreateGoogleBusinessProfileDto } from "./dto/create-google-business-profile.dto";
 import { CreateOrganizationDto } from "./dto/create-organization.dto";
 import { CreateSocialProfileDto } from "./dto/create-social-profile.dto";
@@ -15,11 +16,13 @@ import { CreateWebsiteDto } from "./dto/create-website.dto";
 import { UpdateGoogleBusinessProfileDto } from "./dto/update-google-business-profile.dto";
 import { UpdateSocialProfileDto } from "./dto/update-social-profile.dto";
 import { UpdateBusinessRecommendationDto } from "./dto/update-business-recommendation.dto";
+import { UpdateBusinessTaskDto } from "./dto/update-business-task.dto";
 import { UpdateWebsiteAuditFindingDto } from "./dto/update-website-audit-finding.dto";
 import { UpdateWebsiteDto } from "./dto/update-website.dto";
 import {
   type BusinessRecommendationSummary,
   type BusinessSummary,
+  type BusinessTaskSummary,
   type BusinessVisibilityScoreSummary,
   type GoogleBusinessProfileSummary,
   type OrganizationDetail,
@@ -125,6 +128,73 @@ export class OrganizationsController {
       businessId,
       recommendationId,
       body,
+    );
+  }
+
+  @Get(":organizationId/businesses/:businessId/tasks")
+  listBusinessTasks(
+    @Param("organizationId") organizationId: string,
+    @Param("businessId") businessId: string,
+  ): Promise<BusinessTaskSummary[]> {
+    return this.organizationsService.listBusinessTasks(
+      organizationId,
+      businessId,
+    );
+  }
+
+  @Post(":organizationId/businesses/:businessId/tasks")
+  createBusinessTask(
+    @Param("organizationId") organizationId: string,
+    @Param("businessId") businessId: string,
+    @Body() body: CreateBusinessTaskDto,
+  ): Promise<BusinessTaskSummary> {
+    return this.organizationsService.createBusinessTask(
+      organizationId,
+      businessId,
+      body,
+    );
+  }
+
+  @Patch(":organizationId/businesses/:businessId/tasks/:taskId")
+  updateBusinessTask(
+    @Param("organizationId") organizationId: string,
+    @Param("businessId") businessId: string,
+    @Param("taskId") taskId: string,
+    @Body() body: UpdateBusinessTaskDto,
+  ): Promise<BusinessTaskSummary> {
+    return this.organizationsService.updateBusinessTask(
+      organizationId,
+      businessId,
+      taskId,
+      body,
+    );
+  }
+
+  @Delete(":organizationId/businesses/:businessId/tasks/:taskId")
+  deleteBusinessTask(
+    @Param("organizationId") organizationId: string,
+    @Param("businessId") businessId: string,
+    @Param("taskId") taskId: string,
+  ): Promise<BusinessTaskSummary> {
+    return this.organizationsService.deleteBusinessTask(
+      organizationId,
+      businessId,
+      taskId,
+    );
+  }
+
+  @Post(
+    ":organizationId/businesses/:businessId/recommendations/:recommendationId/create-task",
+  )
+  createTaskFromRecommendation(
+    @Param("organizationId") organizationId: string,
+    @Param("businessId") businessId: string,
+    @Param("recommendationId") recommendationId: string,
+  ): Promise<BusinessTaskSummary> {
+    return this.organizationsService.createTaskFromRecommendation(
+      organizationId,
+      businessId,
+      recommendationId,
     );
   }
 

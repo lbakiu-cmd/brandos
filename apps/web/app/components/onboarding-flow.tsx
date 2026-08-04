@@ -143,6 +143,27 @@ type BusinessRecommendation = {
   updatedAt: string;
 };
 
+type BusinessTask = {
+  id: string;
+  businessId: string;
+  recommendationId: string | null;
+  title: string;
+  description: string | null;
+  status: "TODO" | "IN_PROGRESS" | "DONE" | "IGNORED";
+  priority: "LOW" | "MEDIUM" | "HIGH";
+  sourceType:
+    | "WEBSITE"
+    | "GOOGLE_BUSINESS"
+    | "SOCIAL"
+    | "AUDIT_FINDING"
+    | "AI_VISIBILITY"
+    | "MANUAL";
+  dueDate: string | null;
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 type RecommendationStatusFilter = BusinessRecommendation["status"];
 
 type CrawlMetadata = {
@@ -278,6 +299,7 @@ export function OnboardingFlow() {
   const [recommendations, setRecommendations] = useState<
     BusinessRecommendation[]
   >([]);
+  const [tasks, setTasks] = useState<BusinessTask[]>([]);
   const [websiteForm, setWebsiteForm] =
     useState<WebsiteForm>(initialWebsiteForm);
   const [googleBusinessProfileForm, setGoogleBusinessProfileForm] =
@@ -311,6 +333,9 @@ export function OnboardingFlow() {
   const [updatingRecommendationId, setUpdatingRecommendationId] = useState<
     string | null
   >(null);
+  const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null);
+  const [creatingTaskRecommendationId, setCreatingTaskRecommendationId] =
+    useState<string | null>(null);
   const [queuedCrawlWebsiteId, setQueuedCrawlWebsiteId] = useState<
     string | null
   >(null);
@@ -338,9 +363,10 @@ export function OnboardingFlow() {
         return;
       }
 
-      const organizations = await getJson<Organization[]>(
-        `${apiBaseUrl}/organizations`,
-      );
+      try {
+        const organizations = await getJson<Organization[]>(
+          `${apiBaseUrl}/organizations`,
+        );
       const selectedOrganizationId = window.localStorage.getItem(
         selectedOrganizationStorageKey,
       );
@@ -376,7 +402,6 @@ export function OnboardingFlow() {
         return;
       }
 
-      try {
         const restoredOrganization = await getJson<Organization>(
           `${apiBaseUrl}/organizations/${organizationToRestore.id}`,
         );
@@ -435,6 +460,13 @@ export function OnboardingFlow() {
               restoredBusiness.id,
             )
           : [];
+        const restoredTasks = restoredBusiness
+          ? await loadTasks(
+              apiBaseUrl,
+              organizationToRestore.id,
+              restoredBusiness.id,
+            )
+          : [];
 
         if (!isMounted) {
           return;
@@ -449,6 +481,7 @@ export function OnboardingFlow() {
         setSocialProfiles(restoredSocialProfiles);
         setVisibilityScore(restoredVisibilityScore);
         setRecommendations(restoredRecommendations);
+        setTasks(restoredTasks);
         setIsAddWebsiteFormVisible(false);
         setIsGoogleBusinessProfileFormVisible(false);
         setEditingSocialProfileId(null);
@@ -469,6 +502,7 @@ export function OnboardingFlow() {
         setSocialProfiles([]);
         setVisibilityScore(null);
         setRecommendations([]);
+        setTasks([]);
         setIsAddWebsiteFormVisible(false);
         setIsGoogleBusinessProfileFormVisible(false);
         setEditingSocialProfileId(null);
@@ -532,6 +566,7 @@ export function OnboardingFlow() {
       setSocialProfiles([]);
       setVisibilityScore(null);
       setRecommendations([]);
+      setTasks([]);
       setLatestCrawls({});
       setAuditFindings({});
       setStep("business");
@@ -599,6 +634,7 @@ export function OnboardingFlow() {
       setSocialProfiles([]);
       setVisibilityScore(null);
       setRecommendations([]);
+      setTasks([]);
       setIsAddWebsiteFormVisible(false);
       setIsGoogleBusinessProfileFormVisible(false);
       setEditingSocialProfileId(null);
@@ -639,6 +675,7 @@ export function OnboardingFlow() {
     setSocialProfiles([]);
     setVisibilityScore(null);
     setRecommendations([]);
+    setTasks([]);
     setIsAddWebsiteFormVisible(false);
     setIsGoogleBusinessProfileFormVisible(false);
     setEditingSocialProfileId(null);
@@ -715,7 +752,14 @@ export function OnboardingFlow() {
           )
         : null;
       const selectedRecommendations = selectedBusiness
-        ? await loadRecommendations(apiBaseUrl, organizationId, selectedBusiness.id)
+        ? await loadRecommendations(
+            apiBaseUrl,
+            organizationId,
+            selectedBusiness.id,
+          )
+        : [];
+      const selectedTasks = selectedBusiness
+        ? await loadTasks(apiBaseUrl, organizationId, selectedBusiness.id)
         : [];
 
       window.localStorage.setItem(
@@ -730,6 +774,7 @@ export function OnboardingFlow() {
       setSocialProfiles(selectedSocialProfiles);
       setVisibilityScore(selectedVisibilityScore);
       setRecommendations(selectedRecommendations);
+      setTasks(selectedTasks);
       setIsAddWebsiteFormVisible(false);
       setIsGoogleBusinessProfileFormVisible(false);
       setEditingSocialProfileId(null);
@@ -751,6 +796,7 @@ export function OnboardingFlow() {
     setSocialProfiles([]);
     setVisibilityScore(null);
     setRecommendations([]);
+    setTasks([]);
     setIsAddWebsiteFormVisible(false);
     setIsGoogleBusinessProfileFormVisible(false);
     setEditingSocialProfileId(null);
@@ -1004,6 +1050,61 @@ export function OnboardingFlow() {
       setError(getErrorMessage(requestError));
     } finally {
       setUpdatingRecommendationId(null);
+    }
+  }
+
+  async function createTaskFromRecommendation(recommendationId: string) {
+    setError(null);
+    setSuccess(null);
+
+    if (!apiBaseUrl || !organization || !business) {
+      setError("Workspace is not ready.");
+      return;
+    }
+
+    setCreatingTaskRecommendationId(recommendationId);
+    try {
+      const task = await postJson<BusinessTask>(
+        `${apiBaseUrl}/organizations/${organization.id}/businesses/${business.id}/recommendations/${recommendationId}/create-task`,
+        {},
+      );
+      setTasks((current) =>
+        sortTasks([...current.filter((item) => item.id !== task.id), task]),
+      );
+      setSuccess("Task created.");
+    } catch (requestError) {
+      setError(getErrorMessage(requestError));
+    } finally {
+      setCreatingTaskRecommendationId(null);
+    }
+  }
+
+  async function updateTaskStatus(
+    taskId: string,
+    status: BusinessTask["status"],
+  ) {
+    setError(null);
+    setSuccess(null);
+
+    if (!apiBaseUrl || !organization || !business) {
+      setError("Workspace is not ready.");
+      return;
+    }
+
+    setUpdatingTaskId(taskId);
+    try {
+      const task = await patchJson<BusinessTask>(
+        `${apiBaseUrl}/organizations/${organization.id}/businesses/${business.id}/tasks/${taskId}`,
+        { status },
+      );
+      setTasks((current) =>
+        sortTasks([...current.filter((item) => item.id !== task.id), task]),
+      );
+      setSuccess("Task updated.");
+    } catch (requestError) {
+      setError(getErrorMessage(requestError));
+    } finally {
+      setUpdatingTaskId(null);
     }
   }
 
@@ -1275,6 +1376,7 @@ export function OnboardingFlow() {
                 editingSocialProfileId={editingSocialProfileId}
                 visibilityScore={visibilityScore}
                 recommendations={recommendations}
+                tasks={tasks}
                 latestCrawls={latestCrawls}
                 auditFindings={auditFindings}
                 isWebsiteSubmitting={isWebsiteSubmitting}
@@ -1292,6 +1394,8 @@ export function OnboardingFlow() {
                 queuedCrawlWebsiteId={queuedCrawlWebsiteId}
                 ignoredFindingId={ignoredFindingId}
                 updatingRecommendationId={updatingRecommendationId}
+                updatingTaskId={updatingTaskId}
+                creatingTaskRecommendationId={creatingTaskRecommendationId}
                 onCreateAnotherBusiness={createAnotherBusiness}
                 onWebsiteUrlChange={(url) => setWebsiteForm({ url })}
                 onGoogleBusinessProfileFieldChange={(field, value) =>
@@ -1337,6 +1441,8 @@ export function OnboardingFlow() {
                 onCalculateVisibilityScore={calculateVisibilityScore}
                 onGenerateRecommendations={generateRecommendations}
                 onUpdateRecommendationStatus={updateRecommendationStatus}
+                onCreateTaskFromRecommendation={createTaskFromRecommendation}
+                onUpdateTaskStatus={updateTaskStatus}
                 onQueueWebsiteCrawl={queueWebsiteCrawl}
                 onIgnoreAuditFinding={ignoreAuditFinding}
                 onSwitchWorkspace={switchWorkspace}
@@ -1678,6 +1784,7 @@ function WorkspaceDashboard({
   editingSocialProfileId,
   visibilityScore,
   recommendations,
+  tasks,
   latestCrawls,
   auditFindings,
   isWebsiteSubmitting,
@@ -1691,6 +1798,8 @@ function WorkspaceDashboard({
   queuedCrawlWebsiteId,
   ignoredFindingId,
   updatingRecommendationId,
+  updatingTaskId,
+  creatingTaskRecommendationId,
   onCreateAnotherBusiness,
   onWebsiteUrlChange,
   onGoogleBusinessProfileFieldChange,
@@ -1712,6 +1821,8 @@ function WorkspaceDashboard({
   onCalculateVisibilityScore,
   onGenerateRecommendations,
   onUpdateRecommendationStatus,
+  onCreateTaskFromRecommendation,
+  onUpdateTaskStatus,
   onQueueWebsiteCrawl,
   onIgnoreAuditFinding,
   onSwitchWorkspace,
@@ -1727,6 +1838,7 @@ function WorkspaceDashboard({
   editingSocialProfileId: string | null;
   visibilityScore: BusinessVisibilityScore | null;
   recommendations: BusinessRecommendation[];
+  tasks: BusinessTask[];
   latestCrawls: Record<string, WebsiteCrawl>;
   auditFindings: Record<string, WebsiteAuditFinding[]>;
   isWebsiteSubmitting: boolean;
@@ -1740,6 +1852,8 @@ function WorkspaceDashboard({
   queuedCrawlWebsiteId: string | null;
   ignoredFindingId: string | null;
   updatingRecommendationId: string | null;
+  updatingTaskId: string | null;
+  creatingTaskRecommendationId: string | null;
   onCreateAnotherBusiness: () => void;
   onWebsiteUrlChange: (url: string) => void;
   onGoogleBusinessProfileFieldChange: (
@@ -1770,6 +1884,8 @@ function WorkspaceDashboard({
     recommendationId: string,
     status: BusinessRecommendation["status"],
   ) => void;
+  onCreateTaskFromRecommendation: (recommendationId: string) => void;
+  onUpdateTaskStatus: (taskId: string, status: BusinessTask["status"]) => void;
   onQueueWebsiteCrawl: (websiteId: string) => void;
   onIgnoreAuditFinding: (websiteId: string, findingId: string) => void;
   onSwitchWorkspace: () => void;
@@ -1825,10 +1941,19 @@ function WorkspaceDashboard({
 
       <RecommendationsSection
         recommendations={recommendations}
+        tasks={tasks}
         isGenerating={isRecommendationsGenerating}
         updatingRecommendationId={updatingRecommendationId}
+        creatingTaskRecommendationId={creatingTaskRecommendationId}
         onGenerate={onGenerateRecommendations}
         onUpdateStatus={onUpdateRecommendationStatus}
+        onCreateTask={onCreateTaskFromRecommendation}
+      />
+
+      <TasksSection
+        tasks={tasks}
+        updatingTaskId={updatingTaskId}
+        onUpdateTaskStatus={onUpdateTaskStatus}
       />
 
       <div className="grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
@@ -2136,19 +2261,25 @@ function BusinessProfileCard({
 
 function RecommendationsSection({
   recommendations,
+  tasks,
   isGenerating,
   updatingRecommendationId,
+  creatingTaskRecommendationId,
   onGenerate,
   onUpdateStatus,
+  onCreateTask,
 }: {
   recommendations: BusinessRecommendation[];
+  tasks: BusinessTask[];
   isGenerating: boolean;
   updatingRecommendationId: string | null;
+  creatingTaskRecommendationId: string | null;
   onGenerate: () => void;
   onUpdateStatus: (
     recommendationId: string,
     status: BusinessRecommendation["status"],
   ) => void;
+  onCreateTask: (recommendationId: string) => void;
 }) {
   const [statusFilter, setStatusFilter] =
     useState<RecommendationStatusFilter>("OPEN");
@@ -2245,7 +2376,16 @@ function RecommendationsSection({
                 key={recommendation.id}
                 recommendation={recommendation}
                 isUpdating={updatingRecommendationId === recommendation.id}
+                isCreatingTask={
+                  creatingTaskRecommendationId === recommendation.id
+                }
+                hasTask={tasks.some(
+                  (task) =>
+                    task.recommendationId === recommendation.id &&
+                    (task.status === "TODO" || task.status === "IN_PROGRESS"),
+                )}
                 onUpdateStatus={onUpdateStatus}
+                onCreateTask={onCreateTask}
               />
             ))
           )}
@@ -2258,14 +2398,20 @@ function RecommendationsSection({
 function RecommendationCard({
   recommendation,
   isUpdating,
+  isCreatingTask,
+  hasTask,
   onUpdateStatus,
+  onCreateTask,
 }: {
   recommendation: BusinessRecommendation;
   isUpdating: boolean;
+  isCreatingTask: boolean;
+  hasTask: boolean;
   onUpdateStatus: (
     recommendationId: string,
     status: BusinessRecommendation["status"],
   ) => void;
+  onCreateTask: (recommendationId: string) => void;
 }) {
   const description = truncateText(recommendation.description, 180);
 
@@ -2300,6 +2446,18 @@ function RecommendationCard({
             </h3>
           </div>
           <div className="flex shrink-0 flex-wrap gap-2 lg:justify-end">
+            <button
+              type="button"
+              disabled={isCreatingTask || hasTask}
+              onClick={() => onCreateTask(recommendation.id)}
+              className="rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-2 text-xs font-semibold text-cyan-700 hover:bg-cyan-100 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {hasTask
+                ? "Task created"
+                : isCreatingTask
+                  ? "Creating..."
+                  : "Create task"}
+            </button>
             {recommendation.status !== "DONE" ? (
               <button
                 type="button"
@@ -2353,6 +2511,99 @@ function RecommendationCard({
         </div>
       </div>
     </div>
+  );
+}
+
+function TasksSection({
+  tasks,
+  updatingTaskId,
+  onUpdateTaskStatus,
+}: {
+  tasks: BusinessTask[];
+  updatingTaskId: string | null;
+  onUpdateTaskStatus: (taskId: string, status: BusinessTask["status"]) => void;
+}) {
+  const openTasks = tasks.filter(
+    (task) => task.status === "TODO" || task.status === "IN_PROGRESS",
+  );
+
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-sm font-medium uppercase tracking-[0.14em] text-slate-500">
+            Tasks
+          </p>
+          <h2 className="mt-2 text-xl font-semibold text-slate-950">
+            Action plan
+          </h2>
+          <p className="mt-1 text-sm leading-6 text-slate-600">
+            Track the next improvements for this business.
+          </p>
+        </div>
+        <span className="w-fit rounded-full bg-cyan-50 px-3 py-1 text-xs font-semibold text-cyan-700">
+          {openTasks.length} open
+        </span>
+      </div>
+
+      {openTasks.length === 0 ? (
+        <p className="mt-4 rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-4 text-sm text-slate-600">
+          No open tasks. Create one from a recommended next action.
+        </p>
+      ) : (
+        <div className="mt-4 space-y-3">
+          {openTasks.map((task) => {
+            const isUpdating = updatingTaskId === task.id;
+
+            return (
+              <div
+                key={task.id}
+                className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 lg:flex-row lg:items-center lg:justify-between"
+              >
+                <div className="min-w-0">
+                  <div className="flex flex-wrap gap-2">
+                    <span
+                      className={`rounded-full px-2 py-1 text-xs font-semibold ${taskPriorityClass(task.priority)}`}
+                    >
+                      {formatEnumLabel(task.priority)}
+                    </span>
+                    <span className="rounded-full bg-white px-2 py-1 text-xs font-semibold text-slate-600">
+                      {formatEnumLabel(task.sourceType)}
+                    </span>
+                    <span className="rounded-full bg-white px-2 py-1 text-xs font-semibold text-slate-600">
+                      {formatEnumLabel(task.status)}
+                    </span>
+                  </div>
+                  <h3 className="mt-2 font-semibold text-slate-950">
+                    {task.title}
+                  </h3>
+                </div>
+                <div className="flex shrink-0 flex-wrap gap-2">
+                  {task.status !== "IN_PROGRESS" ? (
+                    <button
+                      type="button"
+                      disabled={isUpdating}
+                      onClick={() => onUpdateTaskStatus(task.id, "IN_PROGRESS")}
+                      className="rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-2 text-xs font-semibold text-cyan-700 hover:bg-cyan-100 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isUpdating ? "Saving..." : "In progress"}
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    disabled={isUpdating}
+                    onClick={() => onUpdateTaskStatus(task.id, "DONE")}
+                    className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {isUpdating ? "Saving..." : "Done"}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -3570,6 +3821,18 @@ async function loadRecommendations(
   return sortRecommendations(recommendations);
 }
 
+async function loadTasks(
+  apiBaseUrl: string,
+  organizationId: string,
+  businessId: string,
+) {
+  const tasks = await getJson<BusinessTask[]>(
+    `${apiBaseUrl}/organizations/${organizationId}/businesses/${businessId}/tasks`,
+  );
+
+  return sortTasks(tasks);
+}
+
 async function parseJsonResponse<TResponse>(
   response: Response,
 ): Promise<TResponse> {
@@ -3801,6 +4064,30 @@ function sortRecommendations(items: BusinessRecommendation[]) {
   });
 }
 
+function sortTasks(items: BusinessTask[]) {
+  const priorityRank = { HIGH: 0, MEDIUM: 1, LOW: 2 } satisfies Record<
+    BusinessTask["priority"],
+    number
+  >;
+  const statusRank = {
+    TODO: 0,
+    IN_PROGRESS: 1,
+    DONE: 2,
+    IGNORED: 3,
+  } satisfies Record<BusinessTask["status"], number>;
+
+  return [...items].sort((left, right) => {
+    const statusDifference = statusRank[left.status] - statusRank[right.status];
+    if (statusDifference !== 0) return statusDifference;
+
+    const priorityDifference =
+      priorityRank[left.priority] - priorityRank[right.priority];
+    if (priorityDifference !== 0) return priorityDifference;
+
+    return right.createdAt.localeCompare(left.createdAt);
+  });
+}
+
 function formatSocialPlatform(platform: SocialProfilePlatform) {
   const labels = {
     INSTAGRAM: "Instagram",
@@ -3883,6 +4170,10 @@ function recommendationPriorityClass(
   } satisfies Record<BusinessRecommendation["priority"], string>;
 
   return classes[priority];
+}
+
+function taskPriorityClass(priority: BusinessTask["priority"]) {
+  return recommendationPriorityClass(priority);
 }
 
 function socialProfilePlaceholder(platform: SocialProfilePlatform) {

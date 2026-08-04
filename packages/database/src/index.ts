@@ -4,6 +4,9 @@ export {
   BusinessRecommendationPriority,
   BusinessRecommendationSourceType,
   BusinessRecommendationStatus,
+  BusinessTaskPriority,
+  BusinessTaskSourceType,
+  BusinessTaskStatus,
   GoogleBusinessProfileStatus,
   MembershipRole,
   Prisma,
@@ -18,6 +21,7 @@ export {
 export type {
   Business,
   BusinessRecommendation,
+  BusinessTask,
   BusinessVisibilityScore,
   GoogleBusinessProfile,
   Membership,

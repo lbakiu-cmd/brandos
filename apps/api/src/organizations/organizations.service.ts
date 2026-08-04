@@ -9,6 +9,9 @@ import {
   BusinessRecommendationPriority,
   BusinessRecommendationSourceType,
   BusinessRecommendationStatus,
+  BusinessTaskPriority,
+  BusinessTaskSourceType,
+  BusinessTaskStatus,
   GoogleBusinessProfileStatus,
   MembershipRole,
   Prisma,
@@ -26,8 +29,10 @@ import { CreateBusinessDto } from "./dto/create-business.dto";
 import { CreateGoogleBusinessProfileDto } from "./dto/create-google-business-profile.dto";
 import { CreateOrganizationDto } from "./dto/create-organization.dto";
 import { CreateSocialProfileDto } from "./dto/create-social-profile.dto";
+import { CreateBusinessTaskDto } from "./dto/create-business-task.dto";
 import { CreateWebsiteDto } from "./dto/create-website.dto";
 import { UpdateBusinessRecommendationDto } from "./dto/update-business-recommendation.dto";
+import { UpdateBusinessTaskDto } from "./dto/update-business-task.dto";
 import { UpdateGoogleBusinessProfileDto } from "./dto/update-google-business-profile.dto";
 import { UpdateSocialProfileDto } from "./dto/update-social-profile.dto";
 import { UpdateWebsiteAuditFindingDto } from "./dto/update-website-audit-finding.dto";
@@ -152,6 +157,21 @@ export type BusinessRecommendationSummary = {
   impact: string | null;
   actionLabel: string | null;
   evidence: Prisma.JsonValue | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type BusinessTaskSummary = {
+  id: string;
+  businessId: string;
+  recommendationId: string | null;
+  title: string;
+  description: string | null;
+  status: BusinessTaskStatus;
+  priority: BusinessTaskPriority;
+  sourceType: BusinessTaskSourceType;
+  dueDate: Date | null;
+  completedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -426,6 +446,188 @@ export class OrganizationsService {
       data: { status: input.status },
       select: businessRecommendationSummarySelect,
     });
+  }
+
+  async listBusinessTasks(
+    organizationId: string,
+    businessId: string,
+  ): Promise<BusinessTaskSummary[]> {
+    await this.requireBusiness(organizationId, businessId);
+
+    const tasks = await this.prisma.businessTask.findMany({
+      where: { businessId },
+      select: businessTaskSummarySelect,
+    });
+
+    return sortBusinessTasks(tasks);
+  }
+
+  async createBusinessTask(
+    organizationId: string,
+    businessId: string,
+    input: CreateBusinessTaskDto,
+  ): Promise<BusinessTaskSummary> {
+    await this.requireBusiness(organizationId, businessId);
+
+    return this.prisma.businessTask.create({
+      data: {
+        businessId,
+        title: input.title.trim(),
+        description: optionalTrim(input.description),
+        priority: input.priority ?? BusinessTaskPriority.MEDIUM,
+        sourceType: input.sourceType ?? BusinessTaskSourceType.MANUAL,
+        dueDate: parseOptionalDate(input.dueDate),
+      },
+      select: businessTaskSummarySelect,
+    });
+  }
+
+  async updateBusinessTask(
+    organizationId: string,
+    businessId: string,
+    taskId: string,
+    input: UpdateBusinessTaskDto,
+  ): Promise<BusinessTaskSummary> {
+    await this.requireBusiness(organizationId, businessId);
+
+    const task = await this.prisma.businessTask.findFirst({
+      where: {
+        id: taskId,
+        businessId,
+      },
+      select: { id: true, recommendationId: true },
+    });
+
+    if (!task) {
+      throw new NotFoundException("Business task not found.");
+    }
+
+    const completedAt =
+      input.status === undefined
+        ? undefined
+        : input.status === BusinessTaskStatus.DONE
+          ? new Date()
+          : null;
+
+    try {
+      return await this.prisma.businessTask.update({
+        where: { id: taskId },
+        data: {
+          ...(input.title === undefined ? {} : { title: input.title.trim() }),
+          ...(input.description === undefined
+            ? {}
+            : { description: optionalTrim(input.description) }),
+          ...(input.status === undefined ? {} : { status: input.status }),
+          ...(input.priority === undefined ? {} : { priority: input.priority }),
+          ...(input.dueDate === undefined
+            ? {}
+            : { dueDate: parseOptionalDate(input.dueDate) }),
+          ...(completedAt === undefined ? {} : { completedAt }),
+        },
+        select: businessTaskSummarySelect,
+      });
+    } catch (error) {
+      this.handleUniqueConstraint(
+        error,
+        "An open task already exists for this recommendation.",
+      );
+      throw error;
+    }
+  }
+
+  async deleteBusinessTask(
+    organizationId: string,
+    businessId: string,
+    taskId: string,
+  ): Promise<BusinessTaskSummary> {
+    await this.requireBusiness(organizationId, businessId);
+
+    const task = await this.prisma.businessTask.findFirst({
+      where: {
+        id: taskId,
+        businessId,
+      },
+      select: { id: true },
+    });
+
+    if (!task) {
+      throw new NotFoundException("Business task not found.");
+    }
+
+    return this.prisma.businessTask.delete({
+      where: { id: taskId },
+      select: businessTaskSummarySelect,
+    });
+  }
+
+  async createTaskFromRecommendation(
+    organizationId: string,
+    businessId: string,
+    recommendationId: string,
+  ): Promise<BusinessTaskSummary> {
+    await this.requireBusiness(organizationId, businessId);
+
+    const recommendation = await this.prisma.businessRecommendation.findFirst({
+      where: {
+        id: recommendationId,
+        businessId,
+      },
+      select: businessRecommendationSummarySelect,
+    });
+
+    if (!recommendation) {
+      throw new NotFoundException("Business recommendation not found.");
+    }
+
+    const existingTask = await this.prisma.businessTask.findFirst({
+      where: {
+        recommendationId,
+        status: {
+          in: [BusinessTaskStatus.TODO, BusinessTaskStatus.IN_PROGRESS],
+        },
+      },
+      select: businessTaskSummarySelect,
+    });
+
+    if (existingTask) {
+      return existingTask;
+    }
+
+    try {
+      return await this.prisma.businessTask.create({
+        data: {
+          businessId,
+          recommendationId,
+          title: recommendation.title,
+          description: recommendation.description,
+          priority: mapRecommendationPriorityToTask(recommendation.priority),
+          sourceType: mapRecommendationSourceToTask(recommendation.sourceType),
+        },
+        select: businessTaskSummarySelect,
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002"
+      ) {
+        const concurrentlyCreatedTask =
+          await this.prisma.businessTask.findFirst({
+            where: {
+              recommendationId,
+              status: {
+                in: [BusinessTaskStatus.TODO, BusinessTaskStatus.IN_PROGRESS],
+              },
+            },
+            select: businessTaskSummarySelect,
+          });
+
+        if (concurrentlyCreatedTask) {
+          return concurrentlyCreatedTask;
+        }
+      }
+
+      throw error;
+    }
   }
 
   async createWebsite(
@@ -1763,6 +1965,21 @@ const businessRecommendationSummarySelect = {
   updatedAt: true,
 } satisfies Prisma.BusinessRecommendationSelect;
 
+const businessTaskSummarySelect = {
+  id: true,
+  businessId: true,
+  recommendationId: true,
+  title: true,
+  description: true,
+  status: true,
+  priority: true,
+  sourceType: true,
+  dueDate: true,
+  completedAt: true,
+  createdAt: true,
+  updatedAt: true,
+} satisfies Prisma.BusinessTaskSelect;
+
 function assertGoogleBusinessProfileUrl(rawUrl: string) {
   if (!isValidGoogleBusinessProfileUrl(rawUrl)) {
     throw new BadRequestException(
@@ -1817,6 +2034,10 @@ function isValidGoogleBusinessProfileUrl(rawUrl: string) {
 function optionalTrim(value: string | undefined) {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;
+}
+
+function parseOptionalDate(value: string | undefined) {
+  return value === undefined ? undefined : new Date(value);
 }
 
 function assertSocialProfileUrl(
@@ -2037,6 +2258,75 @@ function sortBusinessRecommendations<
 
     return right.createdAt.getTime() - left.createdAt.getTime();
   });
+}
+
+function sortBusinessTasks<
+  TTask extends {
+    priority: BusinessTaskPriority;
+    status: BusinessTaskStatus;
+    createdAt: Date;
+    dueDate: Date | null;
+  },
+>(tasks: TTask[]) {
+  const priorityRank = {
+    HIGH: 0,
+    MEDIUM: 1,
+    LOW: 2,
+  } satisfies Record<BusinessTaskPriority, number>;
+  const statusRank = {
+    TODO: 0,
+    IN_PROGRESS: 1,
+    DONE: 2,
+    IGNORED: 3,
+  } satisfies Record<BusinessTaskStatus, number>;
+
+  return [...tasks].sort((left, right) => {
+    const statusDifference = statusRank[left.status] - statusRank[right.status];
+    if (statusDifference !== 0) {
+      return statusDifference;
+    }
+
+    const dueDateDifference =
+      (left.dueDate?.getTime() ?? Number.POSITIVE_INFINITY) -
+      (right.dueDate?.getTime() ?? Number.POSITIVE_INFINITY);
+    if (dueDateDifference !== 0) {
+      return dueDateDifference;
+    }
+
+    const priorityDifference =
+      priorityRank[left.priority] - priorityRank[right.priority];
+    if (priorityDifference !== 0) {
+      return priorityDifference;
+    }
+
+    return right.createdAt.getTime() - left.createdAt.getTime();
+  });
+}
+
+function mapRecommendationPriorityToTask(
+  priority: BusinessRecommendationPriority,
+) {
+  const priorities = {
+    HIGH: BusinessTaskPriority.HIGH,
+    MEDIUM: BusinessTaskPriority.MEDIUM,
+    LOW: BusinessTaskPriority.LOW,
+  } satisfies Record<BusinessRecommendationPriority, BusinessTaskPriority>;
+
+  return priorities[priority];
+}
+
+function mapRecommendationSourceToTask(
+  sourceType: BusinessRecommendationSourceType,
+) {
+  const sourceTypes = {
+    WEBSITE: BusinessTaskSourceType.WEBSITE,
+    GOOGLE_BUSINESS: BusinessTaskSourceType.GOOGLE_BUSINESS,
+    SOCIAL: BusinessTaskSourceType.SOCIAL,
+    AUDIT_FINDING: BusinessTaskSourceType.AUDIT_FINDING,
+    AI_VISIBILITY: BusinessTaskSourceType.AI_VISIBILITY,
+  } satisfies Record<BusinessRecommendationSourceType, BusinessTaskSourceType>;
+
+  return sourceTypes[sourceType];
 }
 
 function clampScore(score: number) {

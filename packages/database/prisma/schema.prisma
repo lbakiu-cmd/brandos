@@ -83,6 +83,28 @@ enum BusinessRecommendationStatus {
   IGNORED
 }
 
+enum BusinessTaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+  IGNORED
+}
+
+enum BusinessTaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum BusinessTaskSourceType {
+  WEBSITE
+  GOOGLE_BUSINESS
+  SOCIAL
+  AUDIT_FINDING
+  AI_VISIBILITY
+  MANUAL
+}
+
 model Organization {
   id          String       @id @default(cuid())
   name        String
@@ -121,6 +143,7 @@ model Business {
   socialProfiles        SocialProfile[]
   visibilityScore       BusinessVisibilityScore?
   recommendations       BusinessRecommendation[]
+  tasks                 BusinessTask[]
   createdAt             DateTime                 @default(now())
   updatedAt             DateTime                 @updatedAt
 
@@ -263,6 +286,7 @@ model BusinessRecommendation {
   actionLabel String?
   evidence    Json?
   business    Business                         @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  tasks       BusinessTask[]
   createdAt   DateTime                         @default(now())
   updatedAt   DateTime                         @updatedAt
 
@@ -271,4 +295,28 @@ model BusinessRecommendation {
   @@index([businessId, status])
   @@index([priority])
   @@index([sourceType])
+}
+
+model BusinessTask {
+  id               String                  @id @default(cuid())
+  businessId       String
+  recommendationId String?
+  title            String
+  description      String?
+  status           BusinessTaskStatus      @default(TODO)
+  priority         BusinessTaskPriority
+  sourceType       BusinessTaskSourceType
+  dueDate          DateTime?
+  completedAt      DateTime?
+  business         Business                @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  recommendation   BusinessRecommendation? @relation(fields: [recommendationId], references: [id], onDelete: SetNull)
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+
+  @@index([businessId])
+  @@index([businessId, status])
+  @@index([businessId, priority])
+  @@index([recommendationId])
+  @@index([sourceType])
+  @@index([dueDate])
 }
