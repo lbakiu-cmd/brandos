@@ -3,6 +3,15 @@
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
 
 type Step = "organization" | "selector" | "business" | "workspace";
+type WorkspaceModule =
+  | "Dashboard"
+  | "Business Profile"
+  | "Website"
+  | "Google Business"
+  | "Social Profiles"
+  | "Audits"
+  | "Tasks"
+  | "Settings";
 
 type Organization = {
   id: string;
@@ -315,6 +324,8 @@ const socialPlatforms: SocialProfilePlatform[] = [
 export function OnboardingFlow() {
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL;
   const [step, setStep] = useState<Step>("organization");
+  const [activeModule, setActiveModule] =
+    useState<WorkspaceModule>("Dashboard");
   const [organizationForm, setOrganizationForm] = useState<OrganizationForm>(
     initialOrganizationForm,
   );
@@ -1529,12 +1540,18 @@ export function OnboardingFlow() {
     return (
       <main className="min-h-screen bg-slate-100 text-slate-950">
         <div className="flex min-h-screen flex-col lg:flex-row">
-          <WorkspaceSidebar organization={organization} business={business} />
+          <WorkspaceSidebar
+            organization={organization}
+            business={business}
+            activeModule={activeModule}
+            onModuleChange={setActiveModule}
+          />
           <section className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
             <div className="mx-auto w-full max-w-7xl space-y-5">
               {error ? <Alert tone="error" message={error} /> : null}
               {success ? <Alert tone="success" message={success} /> : null}
               <WorkspaceDashboard
+                activeModule={activeModule}
                 business={business}
                 businessProfileForm={businessProfileForm}
                 businessCount={businesses.length}
@@ -1726,17 +1743,22 @@ export function OnboardingFlow() {
 function WorkspaceSidebar({
   organization,
   business,
+  activeModule,
+  onModuleChange,
 }: {
   organization: Organization;
   business: Business;
+  activeModule: WorkspaceModule;
+  onModuleChange: (module: WorkspaceModule) => void;
 }) {
-  const items = [
+  const items: WorkspaceModule[] = [
     "Dashboard",
     "Business Profile",
     "Website",
     "Google Business",
     "Social Profiles",
     "Audits",
+    "Tasks",
     "Settings",
   ];
 
@@ -1758,12 +1780,14 @@ function WorkspaceSidebar({
       </div>
       <nav className="mt-5 flex gap-2 overflow-x-auto pb-1 lg:flex-col lg:overflow-visible lg:pb-0">
         {items.map((item) => {
-          const isActive = item === "Dashboard";
+          const isActive = item === activeModule;
 
           return (
             <button
               key={item}
               type="button"
+              onClick={() => onModuleChange(item)}
+              aria-current={isActive ? "page" : undefined}
               className={`whitespace-nowrap rounded-xl px-3 py-2 text-left text-sm font-semibold transition lg:w-full ${
                 isActive
                   ? "bg-cyan-300 text-slate-950"
@@ -1959,6 +1983,7 @@ function BusinessStep({
 }
 
 function WorkspaceDashboard({
+  activeModule,
   business,
   businessProfileForm,
   businessCount,
@@ -2022,6 +2047,7 @@ function WorkspaceDashboard({
   onIgnoreAuditFinding,
   onSwitchWorkspace,
 }: {
+  activeModule: WorkspaceModule;
   business: Business;
   businessProfileForm: BusinessProfileForm;
   businessCount: number;
@@ -2104,14 +2130,13 @@ function WorkspaceDashboard({
       <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.18em] text-cyan-700">
-            Dashboard
+            {activeModule}
           </p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">
             {business.name}
           </h1>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-            Monitor the foundations BrandOS will use for AI visibility: website
-            health, local presence, social profiles, and audit readiness.
+            {moduleDescription(activeModule)}
           </p>
         </div>
         <div className="flex flex-wrap gap-2 text-sm text-slate-600">
@@ -2124,12 +2149,28 @@ function WorkspaceDashboard({
         </div>
       </div>
 
-      <div className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
-        <AiVisibilityScoreCard
+      {activeModule === "Dashboard" ? (
+        <DashboardOverview
+          business={business}
           score={visibilityScore}
-          isCalculating={isVisibilityScoreCalculating}
-          onCalculate={onCalculateVisibilityScore}
+          primaryWebsite={primaryWebsite}
+          latestCrawl={
+            primaryWebsite ? latestCrawls[primaryWebsite.id] : undefined
+          }
+          googleBusinessProfile={googleBusinessProfile}
+          socialProfiles={socialProfiles}
+          recommendations={recommendations}
+          tasks={tasks}
+          isGenerating={isRecommendationsGenerating}
+          updatingRecommendationId={updatingRecommendationId}
+          creatingTaskRecommendationId={creatingTaskRecommendationId}
+          onGenerateRecommendations={onGenerateRecommendations}
+          onUpdateRecommendationStatus={onUpdateRecommendationStatus}
+          onCreateTask={onCreateTaskFromRecommendation}
         />
+      ) : null}
+
+      {activeModule === "Business Profile" ? (
         <BusinessProfileCard
           business={business}
           form={businessProfileForm}
@@ -2151,31 +2192,9 @@ function WorkspaceDashboard({
           onSubmit={onBusinessProfileSubmit}
           onCancel={onCancelBusinessProfileEdit}
         />
-      </div>
+      ) : null}
 
-      <TaskSummaryCards tasks={tasks} />
-
-      <RecommendationsSection
-        recommendations={recommendations}
-        tasks={tasks}
-        isGenerating={isRecommendationsGenerating}
-        updatingRecommendationId={updatingRecommendationId}
-        creatingTaskRecommendationId={creatingTaskRecommendationId}
-        onGenerate={onGenerateRecommendations}
-        onUpdateStatus={onUpdateRecommendationStatus}
-        onCreateTask={onCreateTaskFromRecommendation}
-      />
-
-      <TasksSection
-        tasks={tasks}
-        recommendations={recommendations}
-        updatingTaskId={updatingTaskId}
-        deletingTaskId={deletingTaskId}
-        onUpdateTaskStatus={onUpdateTaskStatus}
-        onDeleteTask={onDeleteTask}
-      />
-
-      <div className="grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
+      {activeModule === "Website" ? (
         <WebsiteSection
           form={websiteForm}
           websites={websites}
@@ -2195,52 +2214,386 @@ function WorkspaceDashboard({
           onQueueCrawl={onQueueWebsiteCrawl}
           onIgnoreFinding={onIgnoreAuditFinding}
         />
+      ) : null}
 
-        <NextVisibilitySteps
-          hasPrimaryWebsite={Boolean(primaryWebsite)}
-          googleBusinessProfile={googleBusinessProfile}
-          form={googleBusinessProfileForm}
-          isFormVisible={isGoogleBusinessProfileFormVisible}
-          isSubmitting={isGoogleBusinessProfileSubmitting}
-          onFieldChange={onGoogleBusinessProfileFieldChange}
-          onSubmit={onGoogleBusinessProfileSubmit}
-          onShowForm={onShowGoogleBusinessProfileForm}
-          onCancelEdit={onCancelGoogleBusinessProfileEdit}
-          onEdit={onEditGoogleBusinessProfile}
-          onDisconnect={onDisconnectGoogleBusinessProfile}
-          socialProfiles={socialProfiles}
-          socialProfileForm={socialProfileForm}
-          editingSocialProfileId={editingSocialProfileId}
-          isSocialProfileSubmitting={isSocialProfileSubmitting}
-          onSocialProfileFieldChange={onSocialProfileFieldChange}
-          onSocialProfileSubmit={onSocialProfileSubmit}
-          onEditSocialProfile={onEditSocialProfile}
-          onDeleteSocialProfile={onDeleteSocialProfile}
-          onCancelSocialProfileEdit={onCancelSocialProfileEdit}
+      {activeModule === "Google Business" ? (
+        <ModuleCard
+          eyebrow="Google Business"
+          title="Local profile"
+          description="Manage the business details used for local discovery readiness."
+        >
+          <GoogleBusinessProfileSection
+            profile={googleBusinessProfile}
+            form={googleBusinessProfileForm}
+            isFormVisible={isGoogleBusinessProfileFormVisible}
+            isSubmitting={isGoogleBusinessProfileSubmitting}
+            onFieldChange={onGoogleBusinessProfileFieldChange}
+            onSubmit={onGoogleBusinessProfileSubmit}
+            onShowForm={onShowGoogleBusinessProfileForm}
+            onCancelEdit={onCancelGoogleBusinessProfileEdit}
+            onEdit={onEditGoogleBusinessProfile}
+            onDisconnect={onDisconnectGoogleBusinessProfile}
+          />
+        </ModuleCard>
+      ) : null}
+
+      {activeModule === "Social Profiles" ? (
+        <ModuleCard
+          eyebrow="Social Profiles"
+          title="Connected social presence"
+          description="Keep public social profiles organized and consistent."
+        >
+          <SocialProfilesSection
+            profiles={socialProfiles}
+            form={socialProfileForm}
+            editingSocialProfileId={editingSocialProfileId}
+            isSubmitting={isSocialProfileSubmitting}
+            onFieldChange={onSocialProfileFieldChange}
+            onSubmit={onSocialProfileSubmit}
+            onEdit={onEditSocialProfile}
+            onDelete={onDeleteSocialProfile}
+            onCancelEdit={onCancelSocialProfileEdit}
+          />
+        </ModuleCard>
+      ) : null}
+
+      {activeModule === "Audits" ? (
+        <AuditsModule
+          primaryWebsite={primaryWebsite}
+          latestCrawl={
+            primaryWebsite ? latestCrawls[primaryWebsite.id] : undefined
+          }
+          findings={primaryWebsite ? auditFindings[primaryWebsite.id] ?? [] : []}
+          visibilityScore={visibilityScore}
+          isCalculating={isVisibilityScoreCalculating}
+          ignoredFindingId={ignoredFindingId}
+          onCalculate={onCalculateVisibilityScore}
+          onIgnoreFinding={onIgnoreAuditFinding}
         />
+      ) : null}
+
+      {activeModule === "Tasks" ? (
+        <>
+          <TaskSummaryCards tasks={tasks} />
+          <TasksSection
+            tasks={tasks}
+            recommendations={recommendations}
+            updatingTaskId={updatingTaskId}
+            deletingTaskId={deletingTaskId}
+            onUpdateTaskStatus={onUpdateTaskStatus}
+            onDeleteTask={onDeleteTask}
+          />
+        </>
+      ) : null}
+
+      {activeModule === "Settings" ? (
+        <ModuleCard
+          eyebrow="Settings"
+          title="Workspace actions"
+          description="Manage this business and your local workspace selection."
+        >
+          <div className="grid gap-3 sm:grid-cols-3">
+            <SecondaryButton onClick={onCreateAnotherBusiness}>
+              Create another business
+            </SecondaryButton>
+            <SecondaryButton onClick={onSwitchWorkspace}>
+              Switch workspace
+            </SecondaryButton>
+            <SecondaryButton onClick={onSwitchWorkspace}>
+              Clear local workspace selection
+            </SecondaryButton>
+          </div>
+          <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+            {websites.length} connected {websites.length === 1 ? "website" : "websites"}. Website management is available in the Website module.
+          </div>
+        </ModuleCard>
+      ) : null}
+    </div>
+  );
+}
+
+function DashboardOverview({
+  business,
+  score,
+  primaryWebsite,
+  latestCrawl,
+  googleBusinessProfile,
+  socialProfiles,
+  recommendations,
+  tasks,
+  isGenerating,
+  updatingRecommendationId,
+  creatingTaskRecommendationId,
+  onGenerateRecommendations,
+  onUpdateRecommendationStatus,
+  onCreateTask,
+}: {
+  business: Business;
+  score: BusinessVisibilityScore | null;
+  primaryWebsite: Website | null;
+  latestCrawl: WebsiteCrawl | undefined;
+  googleBusinessProfile: GoogleBusinessProfile | null;
+  socialProfiles: SocialProfile[];
+  recommendations: BusinessRecommendation[];
+  tasks: BusinessTask[];
+  isGenerating: boolean;
+  updatingRecommendationId: string | null;
+  creatingTaskRecommendationId: string | null;
+  onGenerateRecommendations: () => void;
+  onUpdateRecommendationStatus: (
+    recommendationId: string,
+    status: BusinessRecommendation["status"],
+  ) => void;
+  onCreateTask: (recommendationId: string) => void;
+}) {
+  const completeness = calculateProfileCompleteness(
+    business,
+    primaryWebsite,
+    googleBusinessProfile,
+    socialProfiles,
+    latestCrawl,
+  );
+  const openRecommendations = sortRecommendations(
+    recommendations.filter((recommendation) => recommendation.status === "OPEN"),
+  );
+  const activeTasks = tasks.filter(
+    (task) => task.status === "TODO" || task.status === "IN_PROGRESS",
+  );
+  const overview = [
+    ["Profile completeness", `${completeness.percentage}%`],
+    ["Website scan", latestCrawl ? formatCrawlStatus(latestCrawl.status) : "Not run"],
+    ["Google Business", googleBusinessProfile ? "Connected" : "Not connected"],
+    ["Social profiles", String(socialProfiles.length)],
+    ["Open recommendations", String(openRecommendations.length)],
+    ["Open tasks", String(activeTasks.length)],
+    [
+      "High-priority tasks",
+      String(activeTasks.filter((task) => task.priority === "HIGH").length),
+    ],
+  ] as const;
+
+  return (
+    <div className="space-y-5">
+      <div className="grid gap-4 lg:grid-cols-[0.8fr_1.2fr]">
+        <div className="rounded-2xl border border-cyan-200 bg-cyan-50 p-5">
+          <p className="text-sm font-semibold text-cyan-700">
+            AI Visibility Score
+          </p>
+          <div className="mt-3 flex items-end gap-2">
+            <span className="text-5xl font-semibold text-slate-950">
+              {score?.score ?? "--"}
+            </span>
+            <span className="pb-1 text-sm text-slate-500">
+              {score ? `/100 ${score.grade ?? ""}` : "Not calculated"}
+            </span>
+          </div>
+          <p className="mt-3 text-sm leading-6 text-slate-600">
+            {score?.summary ?? "Calculate the score from your connected visibility foundations."}
+          </p>
+        </div>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+          {overview.map(([label, value]) => (
+            <div
+              key={label}
+              className="rounded-xl border border-slate-200 bg-white px-4 py-3"
+            >
+              <p className="text-xl font-semibold text-slate-950">{value}</p>
+              <p className="mt-1 text-xs font-medium text-slate-500">{label}</p>
+            </div>
+          ))}
+        </div>
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-5">
-        <p className="text-sm font-semibold text-slate-950">
-          Workspace actions
-        </p>
-        <p className="mt-1 text-sm leading-6 text-slate-600">
-          Settings-style actions for managing multiple businesses or changing
-          the active workspace.
-        </p>
-        <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-          <SecondaryButton onClick={onCreateAnotherBusiness}>
-            Create another business
-          </SecondaryButton>
-          <SecondaryButton onClick={onSwitchWorkspace}>
-            Switch workspace
-          </SecondaryButton>
+      <section className="rounded-2xl border border-slate-200 bg-white p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="text-sm font-medium uppercase tracking-[0.14em] text-slate-500">
+              Recommended next actions
+            </p>
+            <h2 className="mt-2 text-xl font-semibold text-slate-950">
+              Top priorities
+            </h2>
+          </div>
+          <button
+            type="button"
+            disabled={isGenerating}
+            onClick={onGenerateRecommendations}
+            className="h-10 rounded-xl bg-slate-950 px-4 text-sm font-semibold text-white hover:bg-slate-800 disabled:bg-slate-300"
+          >
+            {isGenerating ? "Refreshing..." : "Refresh next actions"}
+          </button>
         </div>
+        {openRecommendations.length === 0 ? (
+          <p className="mt-4 rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-4 text-sm text-slate-600">
+            No open recommendations. Refresh next actions to review priorities.
+          </p>
+        ) : (
+          <div className="mt-4 grid gap-3">
+            {openRecommendations.slice(0, 3).map((recommendation) => {
+              const hasTask = tasks.some(
+                (task) => task.recommendationId === recommendation.id,
+              );
+              const isUpdating = updatingRecommendationId === recommendation.id;
+
+              return (
+                <div
+                  key={recommendation.id}
+                  className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 lg:flex-row lg:items-center lg:justify-between"
+                >
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap gap-2">
+                      <span className={`rounded-full px-2 py-1 text-xs font-semibold ${recommendationPriorityClass(recommendation.priority)}`}>
+                        {formatEnumLabel(recommendation.priority)}
+                      </span>
+                      <span className="rounded-full bg-white px-2 py-1 text-xs font-semibold text-slate-600">
+                        {formatEnumLabel(recommendation.sourceType)}
+                      </span>
+                    </div>
+                    <p className="mt-2 font-semibold text-slate-950">
+                      {recommendation.title}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 flex-wrap gap-2">
+                    <button
+                      type="button"
+                      disabled={hasTask || creatingTaskRecommendationId === recommendation.id}
+                      onClick={() => onCreateTask(recommendation.id)}
+                      className="rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-2 text-xs font-semibold text-cyan-700 disabled:opacity-60"
+                    >
+                      {hasTask ? "Task created" : "Create task"}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isUpdating}
+                      onClick={() => onUpdateRecommendationStatus(recommendation.id, "DONE")}
+                      className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 disabled:opacity-60"
+                    >
+                      Done
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function ModuleCard({
+  eyebrow,
+  title,
+  description,
+  children,
+}: {
+  eyebrow: string;
+  title: string;
+  description: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-5">
+      <p className="text-sm font-medium uppercase tracking-[0.14em] text-slate-500">
+        {eyebrow}
+      </p>
+      <h2 className="mt-2 text-xl font-semibold text-slate-950">{title}</h2>
+      <p className="mt-1 text-sm leading-6 text-slate-600">{description}</p>
+      <div className="mt-4">{children}</div>
+    </section>
+  );
+}
+
+function AuditsModule({
+  primaryWebsite,
+  latestCrawl,
+  findings,
+  visibilityScore,
+  isCalculating,
+  ignoredFindingId,
+  onCalculate,
+  onIgnoreFinding,
+}: {
+  primaryWebsite: Website | null;
+  latestCrawl: WebsiteCrawl | undefined;
+  findings: WebsiteAuditFinding[];
+  visibilityScore: BusinessVisibilityScore | null;
+  isCalculating: boolean;
+  ignoredFindingId: string | null;
+  onCalculate: () => void;
+  onIgnoreFinding: (websiteId: string, findingId: string) => void;
+}) {
+  const breakdown = visibilityScore
+    ? orderedVisibilityBreakdown(visibilityScore)
+    : [];
+
+  return (
+    <div className="space-y-5">
+      <ModuleCard
+        eyebrow="Latest crawl"
+        title={primaryWebsite?.domain ?? "No primary website"}
+        description={
+          latestCrawl
+            ? `${formatCrawlStatus(latestCrawl.status)} • ${formatDateTime(latestCrawl.updatedAt)}`
+            : "Connect and scan a website to create an audit summary."
+        }
+      >
+        <CrawlDetails crawl={latestCrawl} />
+      </ModuleCard>
+
+      {primaryWebsite ? (
+        <AuditFindingsSection
+          websiteId={primaryWebsite.id}
+          findings={findings}
+          ignoredFindingId={ignoredFindingId}
+          onIgnoreFinding={onIgnoreFinding}
+        />
+      ) : null}
+
+      <ModuleCard
+        eyebrow="Visibility score"
+        title="Foundation breakdown"
+        description="See how website, local, social, and audit readiness contribute to the current score."
+      >
+        <div className="flex justify-end">
+          <button
+            type="button"
+            disabled={isCalculating}
+            onClick={onCalculate}
+            className="rounded-lg bg-slate-950 px-4 py-2 text-sm font-semibold text-white disabled:bg-slate-300"
+          >
+            {isCalculating ? "Calculating..." : "Calculate score"}
+          </button>
+        </div>
+        {breakdown.length > 0 ? (
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            {breakdown.map((section) => (
+              <div key={section.key} className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-semibold text-slate-950">{section.label}</p>
+                  <span className="text-sm font-semibold text-cyan-700">{section.earned}/{section.possible}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-4 text-sm text-slate-600">No score breakdown yet.</p>
+        )}
+      </ModuleCard>
+
+      <div className="rounded-2xl border border-slate-700 bg-slate-950 p-5 text-white">
+        <p className="text-sm font-semibold text-cyan-200">Future module</p>
+        <h2 className="mt-2 text-xl font-semibold">AI Answer Visibility checks</h2>
+        <p className="mt-2 text-sm leading-6 text-slate-300">
+          Brand mentions, citations, answer presence, sentiment, and competitor comparisons will appear here later.
+        </p>
       </div>
     </div>
   );
 }
 
+// Retained as the detailed score card for a future expanded dashboard mode.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function AiVisibilityScoreCard({
   score,
   isCalculating,
@@ -2587,6 +2940,8 @@ function BusinessProfileCard({
   );
 }
 
+// Retained for the future full recommendations module.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function RecommendationsSection({
   recommendations,
   tasks,
@@ -3294,6 +3649,8 @@ function WebsiteSection({
   );
 }
 
+// Retained as the combined onboarding checklist outside the module dashboard.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function NextVisibilitySteps({
   hasPrimaryWebsite,
   googleBusinessProfile,
@@ -4563,6 +4920,21 @@ function formatEnumLabel(value: string) {
     .split("_")
     .map((part) => part.replace(/^\w/, (letter) => letter.toUpperCase()))
     .join(" ");
+}
+
+function moduleDescription(module: WorkspaceModule) {
+  const descriptions = {
+    Dashboard: "A compact view of visibility progress and the next priorities.",
+    "Business Profile": "Review profile completeness and edit core business details.",
+    Website: "Manage connected websites, scans, homepage signals, and findings.",
+    "Google Business": "Maintain the local profile used for discovery readiness.",
+    "Social Profiles": "Manage the public profiles that reinforce brand consistency.",
+    Audits: "Review crawl evidence, findings, and visibility score inputs.",
+    Tasks: "Move visibility work from open to in progress and done.",
+    Settings: "Manage workspace-level actions and local selection.",
+  } satisfies Record<WorkspaceModule, string>;
+
+  return descriptions[module];
 }
 
 function taskStatusLabel(status: BusinessTask["status"]) {
