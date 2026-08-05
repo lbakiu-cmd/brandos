@@ -7,8 +7,8 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Better Auth compatibility spike models. These are intentionally not yet
-// connected to BrandOS Membership; Sprint 8A will define that migration.
+// Better Auth owns the definitive user and authentication records. Membership
+// remains intentionally unlinked until legacy temporary user IDs are migrated.
 model User {
   id            String    @id
   name          String
