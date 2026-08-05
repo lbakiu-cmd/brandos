@@ -210,6 +210,16 @@ type ApiErrorResponse = {
   };
 };
 
+type AuthUser = {
+  id: string;
+  name: string;
+  email: string;
+};
+
+type AuthSessionResponse = {
+  user: AuthUser;
+};
+
 type OrganizationForm = {
   name: string;
   slug: string;
@@ -323,6 +333,11 @@ const socialPlatforms: SocialProfilePlatform[] = [
 
 export function OnboardingFlow() {
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL;
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
+  const [isSessionLoading, setIsSessionLoading] = useState(true);
+  const [isAuthSubmitting, setIsAuthSubmitting] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
   const [step, setStep] = useState<Step>("organization");
   const [activeModule, setActiveModule] =
     useState<WorkspaceModule>("Dashboard");
@@ -414,7 +429,41 @@ export function OnboardingFlow() {
   useEffect(() => {
     let isMounted = true;
 
+    async function loadSession() {
+      if (!apiBaseUrl) {
+        if (isMounted) {
+          setAuthError("NEXT_PUBLIC_API_URL is not configured.");
+          setIsSessionLoading(false);
+        }
+        return;
+      }
+
+      try {
+        const session = await getJson<AuthSessionResponse | null>(
+          `${apiBaseUrl}/auth/get-session`,
+        );
+        if (isMounted) setAuthUser(session?.user ?? null);
+      } catch (requestError) {
+        if (isMounted) setAuthError(getErrorMessage(requestError));
+      } finally {
+        if (isMounted) setIsSessionLoading(false);
+      }
+    }
+
+    void loadSession();
+    return () => {
+      isMounted = false;
+    };
+  }, [apiBaseUrl]);
+
+  useEffect(() => {
+    let isMounted = true;
+
     async function restoreWorkspace() {
+      if (!authUser) {
+        if (isMounted) setIsRestoring(false);
+        return;
+      }
       if (!apiBaseUrl) {
         if (isMounted) {
           setError("NEXT_PUBLIC_API_URL is not configured.");
@@ -586,7 +635,7 @@ export function OnboardingFlow() {
     return () => {
       isMounted = false;
     };
-  }, [apiBaseUrl]);
+  }, [apiBaseUrl, authUser]);
 
   async function handleOrganizationSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -1526,13 +1575,89 @@ export function OnboardingFlow() {
     }
   }
 
-  if (isRestoring) {
+  function clearSignedInWorkspace() {
+    window.localStorage.removeItem(selectedOrganizationStorageKey);
+    setAuthUser(null);
+    setOrganization(null);
+    setAvailableOrganizations([]);
+    setBusiness(null);
+    setBusinesses([]);
+    setWebsites([]);
+    setGoogleBusinessProfile(null);
+    setSocialProfiles([]);
+    setVisibilityScore(null);
+    setRecommendations([]);
+    setTasks([]);
+    setLatestCrawls({});
+    setAuditFindings({});
+    setActiveModule("Dashboard");
+    setStep("organization");
+    setError(null);
+    setSuccess(null);
+  }
+
+  async function authenticate(
+    mode: "sign-in" | "sign-up",
+    name: string,
+    email: string,
+    password: string,
+  ) {
+    if (!apiBaseUrl) {
+      setAuthError("NEXT_PUBLIC_API_URL is not configured.");
+      return;
+    }
+
+    setIsAuthSubmitting(true);
+    setAuthError(null);
+    try {
+      const result = await postJson<{ user: AuthUser }>(
+        `${apiBaseUrl}/auth/${mode}/email`,
+        mode === "sign-up" ? { name, email, password } : { email, password },
+      );
+      setAuthUser(result.user);
+      setIsRestoring(true);
+    } catch (requestError) {
+      setAuthError(getErrorMessage(requestError));
+    } finally {
+      setIsAuthSubmitting(false);
+    }
+  }
+
+  async function signOut() {
+    if (!apiBaseUrl) {
+      setError("NEXT_PUBLIC_API_URL is not configured.");
+      return;
+    }
+
+    setIsSigningOut(true);
+    setError(null);
+    try {
+      await postJson<{ success: boolean }>(`${apiBaseUrl}/auth/sign-out`, {});
+      clearSignedInWorkspace();
+    } catch (requestError) {
+      setError(`Could not sign out. ${getErrorMessage(requestError)}`);
+    } finally {
+      setIsSigningOut(false);
+    }
+  }
+
+  if (isSessionLoading || (authUser && isRestoring)) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-slate-950 px-6 text-white">
         <div className="rounded-3xl border border-white/10 bg-white/10 px-6 py-5 text-sm text-slate-200">
           Loading your BrandOS workspace...
         </div>
       </main>
+    );
+  }
+
+  if (!authUser) {
+    return (
+      <AuthScreen
+        isSubmitting={isAuthSubmitting}
+        error={authError}
+        onAuthenticate={authenticate}
+      />
     );
   }
 
@@ -1545,6 +1670,9 @@ export function OnboardingFlow() {
             business={business}
             activeModule={activeModule}
             onModuleChange={setActiveModule}
+            user={authUser}
+            isSigningOut={isSigningOut}
+            onSignOut={signOut}
           />
           <section className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
             <div className="mx-auto w-full max-w-7xl space-y-5">
@@ -1649,6 +1777,9 @@ export function OnboardingFlow() {
                 onQueueWebsiteCrawl={queueWebsiteCrawl}
                 onIgnoreAuditFinding={ignoreAuditFinding}
                 onSwitchWorkspace={switchWorkspace}
+                user={authUser}
+                isSigningOut={isSigningOut}
+                onSignOut={signOut}
               />
             </div>
           </section>
@@ -1740,16 +1871,113 @@ export function OnboardingFlow() {
   );
 }
 
+function AuthScreen({
+  isSubmitting,
+  error,
+  onAuthenticate,
+}: {
+  isSubmitting: boolean;
+  error: string | null;
+  onAuthenticate: (
+    mode: "sign-in" | "sign-up",
+    name: string,
+    email: string,
+    password: string,
+  ) => void;
+}) {
+  const [mode, setMode] = useState<"sign-in" | "sign-up">("sign-in");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-slate-950 px-6 py-10 text-white">
+      <div className="w-full max-w-md rounded-3xl bg-white p-7 text-slate-950 shadow-2xl">
+        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-700">
+          BrandOS
+        </p>
+        <h1 className="mt-4 text-3xl font-semibold">
+          {mode === "sign-in" ? "Sign in" : "Create your account"}
+        </h1>
+        <p className="mt-2 text-sm text-slate-600">
+          Continue to your AI Visibility workspace.
+        </p>
+        {error ? <div className="mt-5"><Alert tone="error" message={error} /></div> : null}
+        <form
+          className="mt-6 space-y-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            onAuthenticate(mode, name.trim(), email.trim(), password);
+          }}
+        >
+          {mode === "sign-up" ? (
+            <TextField
+              label="Name"
+              value={name}
+              placeholder="Your name"
+              onChange={setName}
+            />
+          ) : null}
+          <TextField
+            label="Email"
+            value={email}
+            placeholder="you@example.com"
+            onChange={setEmail}
+          />
+          <TextField
+            label="Password"
+            value={password}
+            placeholder="At least 8 characters"
+            type="password"
+            onChange={setPassword}
+          />
+          <SubmitButton
+            disabled={
+              isSubmitting ||
+              !email.trim() ||
+              password.length < 8 ||
+              (mode === "sign-up" && !name.trim())
+            }
+            loading={isSubmitting}
+          >
+            {mode === "sign-in" ? "Sign in" : "Sign up"}
+          </SubmitButton>
+        </form>
+        <button
+          type="button"
+          disabled={isSubmitting}
+          onClick={() => {
+            setMode((current) =>
+              current === "sign-in" ? "sign-up" : "sign-in",
+            );
+          }}
+          className="mt-5 w-full text-sm font-semibold text-cyan-700 hover:text-cyan-900 disabled:opacity-50"
+        >
+          {mode === "sign-in"
+            ? "New to BrandOS? Sign up"
+            : "Already have an account? Sign in"}
+        </button>
+      </div>
+    </main>
+  );
+}
+
 function WorkspaceSidebar({
   organization,
   business,
   activeModule,
   onModuleChange,
+  user,
+  isSigningOut,
+  onSignOut,
 }: {
   organization: Organization;
   business: Business;
   activeModule: WorkspaceModule;
   onModuleChange: (module: WorkspaceModule) => void;
+  user: AuthUser;
+  isSigningOut: boolean;
+  onSignOut: () => void;
 }) {
   const items: WorkspaceModule[] = [
     "Dashboard",
@@ -1763,7 +1991,8 @@ function WorkspaceSidebar({
   ];
 
   return (
-    <aside className="bg-slate-950 px-4 py-5 text-white lg:sticky lg:top-0 lg:h-screen lg:w-72 lg:px-5">
+    <aside className="flex bg-slate-950 px-4 py-5 text-white lg:sticky lg:top-0 lg:h-screen lg:w-72 lg:flex-col lg:px-5">
+      <div className="min-w-0 flex-1">
       <div className="flex items-start justify-between gap-4 lg:block">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-300">
@@ -1799,6 +2028,18 @@ function WorkspaceSidebar({
           );
         })}
       </nav>
+      </div>
+      <div className="ml-4 hidden border-t border-white/10 pt-4 lg:ml-0 lg:block">
+        <p className="truncate text-xs text-slate-400">{user.email}</p>
+        <button
+          type="button"
+          onClick={onSignOut}
+          disabled={isSigningOut}
+          className="mt-3 w-full rounded-xl border border-white/15 px-3 py-2 text-left text-sm font-semibold text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {isSigningOut ? "Signing out..." : "Sign out"}
+        </button>
+      </div>
     </aside>
   );
 }
@@ -2046,6 +2287,9 @@ function WorkspaceDashboard({
   onQueueWebsiteCrawl,
   onIgnoreAuditFinding,
   onSwitchWorkspace,
+  user,
+  isSigningOut,
+  onSignOut,
 }: {
   activeModule: WorkspaceModule;
   business: Business;
@@ -2122,6 +2366,9 @@ function WorkspaceDashboard({
   onQueueWebsiteCrawl: (websiteId: string) => void;
   onIgnoreAuditFinding: (websiteId: string, findingId: string) => void;
   onSwitchWorkspace: () => void;
+  user: AuthUser;
+  isSigningOut: boolean;
+  onSignOut: () => void;
 }) {
   const primaryWebsite = websites.find((website) => website.isPrimary) ?? null;
 
@@ -2305,6 +2552,20 @@ function WorkspaceDashboard({
           </div>
           <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
             {websites.length} connected {websites.length === 1 ? "website" : "websites"}. Website management is available in the Website module.
+          </div>
+          <div className="mt-4 flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-slate-950">Signed in as</p>
+              <p className="truncate text-sm text-slate-600">{user.email}</p>
+            </div>
+            <button
+              type="button"
+              onClick={onSignOut}
+              disabled={isSigningOut}
+              className="h-10 rounded-xl border border-red-200 px-4 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isSigningOut ? "Signing out..." : "Sign out"}
+            </button>
           </div>
         </ModuleCard>
       ) : null}
@@ -4378,18 +4639,21 @@ function TextField({
   value,
   placeholder,
   help,
+  type = "text",
   onChange,
 }: {
   label: string;
   value: string;
   placeholder: string;
   help?: string;
+  type?: "text" | "email" | "password" | "url" | "tel";
   onChange: (value: string) => void;
 }) {
   return (
     <label className="block">
       <span className="text-sm font-medium text-slate-800">{label}</span>
       <input
+        type={type}
         value={value}
         placeholder={placeholder}
         onChange={(event) => onChange(event.target.value)}
