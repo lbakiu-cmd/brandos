@@ -1,7 +1,6 @@
 import {
   BadRequestException,
   ConflictException,
-  ForbiddenException,
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
@@ -39,7 +38,7 @@ import { UpdateSocialProfileDto } from "./dto/update-social-profile.dto";
 import { UpdateWebsiteAuditFindingDto } from "./dto/update-website-audit-finding.dto";
 import { UpdateWebsiteDto } from "./dto/update-website.dto";
 
-const TEMPORARY_USER_ID = "temporary-local-user";
+const LEGACY_TEMPORARY_USER_ID = "temporary-local-user";
 const MVP_VISIBILITY_SCORE_CAP = 89;
 const ADVANCED_VISIBILITY_CHECKS_AVAILABLE = false;
 const MVP_SCORE_CAP_MESSAGE =
@@ -211,6 +210,7 @@ export class OrganizationsService {
   ) {}
 
   async createOrganization(
+    userId: string,
     input: CreateOrganizationDto,
   ): Promise<OrganizationSummary> {
     try {
@@ -220,7 +220,7 @@ export class OrganizationsService {
           slug: input.slug,
           memberships: {
             create: {
-              userId: this.getTemporaryUserId(),
+              userId,
               role: MembershipRole.OWNER,
             },
           },
@@ -237,12 +237,14 @@ export class OrganizationsService {
     }
   }
 
-  async listOrganizations(): Promise<OrganizationSummary[]> {
+  async listOrganizations(userId: string): Promise<OrganizationSummary[]> {
+    await this.claimLegacyOrganizationsInDevelopment(userId);
+
     return this.prisma.organization.findMany({
       where: {
         memberships: {
           some: {
-            userId: this.getTemporaryUserId(),
+            userId,
           },
         },
       },
@@ -256,7 +258,7 @@ export class OrganizationsService {
   }
 
   async getOrganization(organizationId: string): Promise<OrganizationDetail> {
-    await this.requireMembership(organizationId);
+    await this.requireOrganization(organizationId);
 
     const organization = await this.prisma.organization.findUnique({
       where: { id: organizationId },
@@ -278,7 +280,7 @@ export class OrganizationsService {
     organizationId: string,
     input: CreateBusinessDto,
   ): Promise<BusinessSummary> {
-    await this.requireMembership(organizationId);
+    await this.requireOrganization(organizationId);
     const normalizedWebsite =
       input.websiteUrl === undefined
         ? undefined
@@ -314,7 +316,7 @@ export class OrganizationsService {
   }
 
   async listBusinesses(organizationId: string): Promise<BusinessSummary[]> {
-    await this.requireMembership(organizationId);
+    await this.requireOrganization(organizationId);
 
     const businesses = await this.prisma.business.findMany({
       where: { organizationId },
@@ -1241,7 +1243,7 @@ export class OrganizationsService {
     });
   }
 
-  private async requireMembership(organizationId: string) {
+  private async requireOrganization(organizationId: string) {
     const organization = await this.prisma.organization.findUnique({
       where: { id: organizationId },
       select: { id: true },
@@ -1251,24 +1253,11 @@ export class OrganizationsService {
       throw new NotFoundException("Organization not found.");
     }
 
-    const membership = await this.prisma.membership.findUnique({
-      where: {
-        userId_organizationId: {
-          organizationId,
-          userId: this.getTemporaryUserId(),
-        },
-      },
-    });
-
-    if (!membership) {
-      throw new ForbiddenException("Organization access denied.");
-    }
-
-    return membership;
+    return organization;
   }
 
   private async requireBusiness(organizationId: string, businessId: string) {
-    await this.requireMembership(organizationId);
+    await this.requireOrganization(organizationId);
 
     const business = await this.prisma.business.findFirst({
       where: {
@@ -2051,10 +2040,26 @@ export class OrganizationsService {
     }
   }
 
-  private getTemporaryUserId() {
-    // Temporary until authentication lands. All Sprint 2A writes are scoped to
-    // this local user id so tenant checks are still exercised by the API.
-    return TEMPORARY_USER_ID;
+  private async claimLegacyOrganizationsInDevelopment(userId: string) {
+    if (
+      process.env.NODE_ENV === "production" ||
+      process.env.BRANDOS_DEV_CLAIM_LEGACY_ORGANIZATIONS !== "true"
+    ) {
+      return;
+    }
+
+    await this.prisma.$transaction(async (transaction) => {
+      const establishedOwnership = await transaction.membership.count({
+        where: { userId: { not: LEGACY_TEMPORARY_USER_ID } },
+      });
+
+      if (establishedOwnership > 0) return;
+
+      await transaction.membership.updateMany({
+        where: { userId: LEGACY_TEMPORARY_USER_ID },
+        data: { userId },
+      });
+    });
   }
 
   private handleUniqueConstraint(error: unknown, message: string) {

@@ -6,7 +6,11 @@ import {
   Param,
   Patch,
   Post,
+  UseGuards,
 } from "@nestjs/common";
+import { AuthSessionGuard } from "../auth/auth-session.guard";
+import { CurrentUser } from "../auth/current-user.decorator";
+import { AuthenticatedUser } from "../auth/auth-session.service";
 import { CreateBusinessDto } from "./dto/create-business.dto";
 import { CreateBusinessTaskDto } from "./dto/create-business-task.dto";
 import { CreateGoogleBusinessProfileDto } from "./dto/create-google-business-profile.dto";
@@ -36,19 +40,23 @@ import {
 } from "./organizations.service";
 
 @Controller("organizations")
+@UseGuards(AuthSessionGuard)
 export class OrganizationsController {
   constructor(private readonly organizationsService: OrganizationsService) {}
 
   @Post()
   createOrganization(
+    @CurrentUser() user: AuthenticatedUser,
     @Body() body: CreateOrganizationDto,
   ): Promise<OrganizationSummary> {
-    return this.organizationsService.createOrganization(body);
+    return this.organizationsService.createOrganization(user.id, body);
   }
 
   @Get()
-  listOrganizations(): Promise<OrganizationSummary[]> {
-    return this.organizationsService.listOrganizations();
+  listOrganizations(
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<OrganizationSummary[]> {
+    return this.organizationsService.listOrganizations(user.id);
   }
 
   @Get(":organizationId")
