@@ -16,6 +16,7 @@
     "@nestjs/common": "^11.1.6",
     "@nestjs/core": "^11.1.6",
     "@nestjs/platform-fastify": "^11.1.6",
+    "better-auth": "1.6.26",
     "bullmq": "^5.64.1",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.2",

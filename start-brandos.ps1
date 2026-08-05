@@ -76,5 +76,5 @@ $startedProcesses | ConvertTo-Json | Set-Content `
 Write-Host ""
 Write-Host "BrandOS services are starting." -ForegroundColor Green
 Write-Host "Web:    http://localhost:3000"
-Write-Host "API:    http://127.0.0.1:4000/health"
+Write-Host "API:    http://localhost:4000/health"
 Write-Host "Worker: separate PowerShell window"

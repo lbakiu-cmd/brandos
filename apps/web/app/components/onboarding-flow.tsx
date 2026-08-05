@@ -4497,7 +4497,9 @@ function Pill({ children }: { children: ReactNode }) {
 }
 
 async function getJson<TResponse>(url: string): Promise<TResponse> {
-  const response = await fetch(url);
+  const response = await fetch(url, {
+    credentials: "include",
+  });
   return parseJsonResponse<TResponse>(response);
 }
 
@@ -4516,6 +4518,7 @@ async function postJson<TResponse>(
 ): Promise<TResponse> {
   const response = await fetch(url, {
     method: "POST",
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
     },
@@ -4531,6 +4534,7 @@ async function patchJson<TResponse>(
 ): Promise<TResponse> {
   const response = await fetch(url, {
     method: "PATCH",
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
     },
@@ -4543,6 +4547,7 @@ async function patchJson<TResponse>(
 async function deleteJson<TResponse>(url: string): Promise<TResponse> {
   const response = await fetch(url, {
     method: "DELETE",
+    credentials: "include",
   });
 
   return parseJsonResponse<TResponse>(response);
