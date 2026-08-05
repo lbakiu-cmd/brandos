@@ -3,8 +3,8 @@ import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { PrismaService } from "../database/prisma.service";
 
-const developmentSecret =
-  "brandos-better-auth-spike-development-only-secret";
+const localDevelopmentSecret =
+  "brandos-local-development-secret-change-before-production";
 
 function createAuth(prisma: PrismaService) {
   const configuredSecret = process.env.BETTER_AUTH_SECRET;
@@ -14,16 +14,15 @@ function createAuth(prisma: PrismaService) {
   }
 
   return betterAuth({
-    appName: "BrandOS Auth Spike",
+    appName: "BrandOS",
     baseURL: process.env.BETTER_AUTH_URL ?? "http://localhost:4000",
-    basePath: "/api/auth",
-    secret: configuredSecret ?? developmentSecret,
+    basePath: "/auth",
+    secret: configuredSecret ?? localDevelopmentSecret,
     database: prismaAdapter(prisma, { provider: "postgresql" }),
     emailAndPassword: { enabled: true },
     trustedOrigins: [
       process.env.WEB_ORIGIN ?? "http://localhost:3000",
       "http://localhost:3000",
-      "http://127.0.0.1:3000",
     ],
     advanced: {
       useSecureCookies: process.env.NODE_ENV === "production",
@@ -32,7 +31,7 @@ function createAuth(prisma: PrismaService) {
 }
 
 @Injectable()
-export class AuthSpikeService {
+export class AuthService {
   readonly auth: ReturnType<typeof createAuth>;
 
   constructor(prisma: PrismaService) {

@@ -1,11 +1,11 @@
 import { All, Controller, Req, Res } from "@nestjs/common";
 import { FastifyReply, FastifyRequest } from "fastify";
 import { fromNodeHeaders } from "better-auth/node";
-import { AuthSpikeService } from "./auth-spike.service";
+import { AuthService } from "./auth.service";
 
-@Controller("api/auth")
-export class AuthSpikeController {
-  constructor(private readonly authSpike: AuthSpikeService) {}
+@Controller("auth")
+export class AuthController {
+  constructor(private readonly auth: AuthService) {}
 
   @All("*")
   async handle(
@@ -15,12 +15,17 @@ export class AuthSpikeController {
     const baseURL = process.env.BETTER_AUTH_URL ?? "http://localhost:4000";
     const method = request.method.toUpperCase();
     const body = method === "GET" || method === "HEAD" ? undefined : request.body;
-    const authRequest = new Request(new URL(request.url, baseURL), {
+    const forwardedRequest = new Request(new URL(request.url, baseURL), {
       method,
       headers: fromNodeHeaders(request.headers),
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body:
+        body === undefined
+          ? undefined
+          : typeof body === "string"
+            ? body
+            : JSON.stringify(body),
     });
-    const response = await this.authSpike.auth.handler(authRequest);
+    const response = await this.auth.auth.handler(forwardedRequest);
     const setCookies = response.headers.getSetCookie();
 
     response.headers.forEach((value, key) => {
