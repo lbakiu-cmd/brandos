@@ -220,6 +220,16 @@ type AuthSessionResponse = {
   user: AuthUser;
 };
 
+class ApiRequestError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+    this.name = "ApiRequestError";
+  }
+}
+
 type OrganizationForm = {
   name: string;
   slug: string;
@@ -344,6 +354,8 @@ export function OnboardingFlow() {
   const [organizationForm, setOrganizationForm] = useState<OrganizationForm>(
     initialOrganizationForm,
   );
+  const [isOrganizationSlugManuallyEdited, setIsOrganizationSlugManuallyEdited] =
+    useState(false);
   const [businessForm, setBusinessForm] =
     useState<BusinessForm>(initialBusinessForm);
   const [businessProfileForm, setBusinessProfileForm] =
@@ -443,8 +455,12 @@ export function OnboardingFlow() {
           `${apiBaseUrl}/auth/get-session`,
         );
         if (isMounted) setAuthUser(session?.user ?? null);
-      } catch (requestError) {
-        if (isMounted) setAuthError(getErrorMessage(requestError));
+      } catch {
+        if (isMounted) {
+          setAuthError(
+            "We couldn't verify your session. Check that BrandOS is running and try again.",
+          );
+        }
       } finally {
         if (isMounted) setIsSessionLoading(false);
       }
@@ -600,6 +616,26 @@ export function OnboardingFlow() {
       } catch (requestError) {
         if (!isMounted) {
           return;
+        }
+
+        if (requestError instanceof ApiRequestError) {
+          if (requestError.status === 401) {
+            clearSignedInWorkspace();
+            setAuthError("Your session has expired. Sign in to continue.");
+            return;
+          }
+
+          if (requestError.status === 403) {
+            window.localStorage.removeItem(selectedOrganizationStorageKey);
+            setOrganization(null);
+            setBusiness(null);
+            setBusinesses([]);
+            setStep("organization");
+            setError(
+              "You don't have access to that workspace. Choose another workspace or create a new organization.",
+            );
+            return;
+          }
         }
 
         window.localStorage.removeItem(selectedOrganizationStorageKey);
@@ -760,9 +796,15 @@ export function OnboardingFlow() {
   }
 
   function updateOrganizationName(name: string) {
+    if (!name.trim()) {
+      setIsOrganizationSlugManuallyEdited(false);
+      setOrganizationForm({ name, slug: "" });
+      return;
+    }
+
     setOrganizationForm((current) => ({
       name,
-      slug: current.slug || slugify(name),
+      slug: isOrganizationSlugManuallyEdited ? current.slug : toSlug(name),
     }));
   }
 
@@ -770,7 +812,7 @@ export function OnboardingFlow() {
     setBusinessForm((current) => ({
       ...current,
       name,
-      slug: current.slug || slugify(name),
+      slug: current.slug || toSlug(name),
     }));
   }
 
@@ -792,6 +834,7 @@ export function OnboardingFlow() {
     setAuditFindings({});
     setWebsiteForm(initialWebsiteForm);
     setOrganizationForm(initialOrganizationForm);
+    setIsOrganizationSlugManuallyEdited(false);
     setBusinessForm(initialBusinessForm);
     setStep(availableOrganizations.length > 1 ? "selector" : "organization");
     setError(null);
@@ -1617,7 +1660,7 @@ export function OnboardingFlow() {
       setAuthUser(result.user);
       setIsRestoring(true);
     } catch (requestError) {
-      setAuthError(getErrorMessage(requestError));
+      setAuthError(getFriendlyAuthError(requestError, mode));
     } finally {
       setIsAuthSubmitting(false);
     }
@@ -1644,8 +1687,12 @@ export function OnboardingFlow() {
   if (isSessionLoading || (authUser && isRestoring)) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-slate-950 px-6 text-white">
-        <div className="rounded-3xl border border-white/10 bg-white/10 px-6 py-5 text-sm text-slate-200">
-          Loading your BrandOS workspace...
+        <div className="w-full max-w-sm rounded-3xl border border-white/10 bg-white/5 px-7 py-6 text-center shadow-2xl shadow-cyan-950/30">
+          <div className="mx-auto h-8 w-8 animate-pulse rounded-full border-4 border-cyan-300/25 border-t-cyan-300" />
+          <p className="mt-4 font-semibold text-white">
+            {isSessionLoading ? "Checking your session" : "Loading your workspace"}
+          </p>
+          <p className="mt-1 text-sm text-slate-400">This will only take a moment.</p>
         </div>
       </main>
     );
@@ -1834,9 +1881,10 @@ export function OnboardingFlow() {
               isSubmitting={isSubmitting}
               validationError={organizationValidation}
               onNameChange={updateOrganizationName}
-              onSlugChange={(slug) =>
-                setOrganizationForm((current) => ({ ...current, slug }))
-              }
+              onSlugChange={(slug) => {
+                setIsOrganizationSlugManuallyEdited(true);
+                setOrganizationForm((current) => ({ ...current, slug }));
+              }}
               onSubmit={handleOrganizationSubmit}
             />
           ) : null}
@@ -1889,55 +1937,103 @@ function AuthScreen({
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [validationError, setValidationError] = useState<string | null>(null);
+
+  function submitAuth(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const normalizedEmail = email.trim();
+
+    if (mode === "sign-up" && !name.trim()) {
+      setValidationError("Enter your name to create your account.");
+      return;
+    }
+    if (!isValidEmail(normalizedEmail)) {
+      setValidationError("Enter a valid email address, such as you@example.com.");
+      return;
+    }
+    if (password.length < 8) {
+      setValidationError("Password must be at least 8 characters.");
+      return;
+    }
+
+    setValidationError(null);
+    onAuthenticate(mode, name.trim(), normalizedEmail, password);
+  }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-950 px-6 py-10 text-white">
-      <div className="w-full max-w-md rounded-3xl bg-white p-7 text-slate-950 shadow-2xl">
-        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-700">
-          BrandOS
-        </p>
-        <h1 className="mt-4 text-3xl font-semibold">
-          {mode === "sign-in" ? "Sign in" : "Create your account"}
-        </h1>
-        <p className="mt-2 text-sm text-slate-600">
-          Continue to your AI Visibility workspace.
-        </p>
-        {error ? <div className="mt-5"><Alert tone="error" message={error} /></div> : null}
-        <form
-          className="mt-6 space-y-4"
-          onSubmit={(event) => {
-            event.preventDefault();
-            onAuthenticate(mode, name.trim(), email.trim(), password);
-          }}
-        >
+    <main className="min-h-screen bg-slate-950 px-6 py-10 text-white">
+      <section className="mx-auto grid min-h-[calc(100vh-5rem)] w-full max-w-6xl gap-10 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-[0.24em] text-cyan-300">
+            BrandOS
+          </p>
+          <h1 className="mt-5 max-w-xl text-4xl font-semibold tracking-tight sm:text-5xl">
+            Turn visibility insights into business progress.
+          </h1>
+          <p className="mt-5 max-w-lg text-base leading-7 text-slate-300">
+            Manage your online presence, prioritize the next actions that matter,
+            and track improvement from one focused workspace.
+          </p>
+          <div className="mt-8 grid max-w-lg gap-3 text-sm text-slate-300 sm:grid-cols-3 lg:grid-cols-1">
+            {["Understand your visibility", "Act on clear recommendations", "Track work to completion"].map((item) => (
+              <div key={item} className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                {item}
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="w-full rounded-3xl bg-white p-7 text-slate-950 shadow-2xl shadow-cyan-950/30 sm:p-9">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-700">
+            {mode === "sign-in" ? "Welcome back" : "Get started"}
+          </p>
+          <h2 className="mt-3 text-3xl font-semibold tracking-tight">
+            {mode === "sign-in" ? "Sign in to BrandOS" : "Create your BrandOS account"}
+          </h2>
+          <p className="mt-2 text-sm leading-6 text-slate-600">
+            {mode === "sign-in"
+              ? "Continue to your business visibility workspace."
+              : "Create an account, then set up your first organization and business."}
+          </p>
+          {validationError || error ? (
+            <div className="mt-5">
+              <Alert tone="error" message={validationError ?? error ?? ""} />
+            </div>
+          ) : null}
+          <form className="mt-6 space-y-4" onSubmit={submitAuth}>
           {mode === "sign-up" ? (
             <TextField
               label="Name"
               value={name}
               placeholder="Your name"
-              onChange={setName}
+              onChange={(value) => {
+                setName(value);
+                setValidationError(null);
+              }}
             />
           ) : null}
           <TextField
             label="Email"
             value={email}
             placeholder="you@example.com"
-            onChange={setEmail}
+            type="email"
+            onChange={(value) => {
+              setEmail(value);
+              setValidationError(null);
+            }}
           />
           <TextField
             label="Password"
             value={password}
             placeholder="At least 8 characters"
             type="password"
-            onChange={setPassword}
+            help="Use at least 8 characters."
+            onChange={(value) => {
+              setPassword(value);
+              setValidationError(null);
+            }}
           />
           <SubmitButton
-            disabled={
-              isSubmitting ||
-              !email.trim() ||
-              password.length < 8 ||
-              (mode === "sign-up" && !name.trim())
-            }
+            disabled={isSubmitting}
             loading={isSubmitting}
           >
             {mode === "sign-in" ? "Sign in" : "Sign up"}
@@ -1947,6 +2043,7 @@ function AuthScreen({
           type="button"
           disabled={isSubmitting}
           onClick={() => {
+            setValidationError(null);
             setMode((current) =>
               current === "sign-in" ? "sign-up" : "sign-in",
             );
@@ -1954,10 +2051,11 @@ function AuthScreen({
           className="mt-5 w-full text-sm font-semibold text-cyan-700 hover:text-cyan-900 disabled:opacity-50"
         >
           {mode === "sign-in"
-            ? "New to BrandOS? Sign up"
+            ? "New to BrandOS? Create an account"
             : "Already have an account? Sign in"}
         </button>
-      </div>
+        </div>
+      </section>
     </main>
   );
 }
@@ -1993,44 +2091,45 @@ function WorkspaceSidebar({
   return (
     <aside className="flex bg-slate-950 px-4 py-5 text-white lg:sticky lg:top-0 lg:h-screen lg:w-72 lg:flex-col lg:px-5">
       <div className="min-w-0 flex-1">
-      <div className="flex items-start justify-between gap-4 lg:block">
-        <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-300">
-            BrandOS
-          </p>
-          <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 p-4">
-            <p className="text-xs font-medium uppercase tracking-[0.16em] text-slate-400">
-              Workspace
+        <div className="flex items-start justify-between gap-4 lg:block">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-300">
+              BrandOS
             </p>
-            <p className="mt-2 font-semibold text-white">{organization.name}</p>
-            <p className="mt-1 text-sm text-slate-400">{business.name}</p>
+            <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 p-4">
+              <p className="text-xs font-medium uppercase tracking-[0.16em] text-slate-400">
+                Workspace
+              </p>
+              <p className="mt-2 font-semibold text-white">{organization.name}</p>
+              <p className="mt-1 text-sm text-slate-400">{business.name}</p>
+            </div>
           </div>
         </div>
-      </div>
-      <nav className="mt-5 flex gap-2 overflow-x-auto pb-1 lg:flex-col lg:overflow-visible lg:pb-0">
-        {items.map((item) => {
-          const isActive = item === activeModule;
+        <nav className="mt-5 flex gap-2 overflow-x-auto pb-1 lg:flex-col lg:overflow-visible lg:pb-0">
+          {items.map((item) => {
+            const isActive = item === activeModule;
 
-          return (
-            <button
-              key={item}
-              type="button"
-              onClick={() => onModuleChange(item)}
-              aria-current={isActive ? "page" : undefined}
-              className={`whitespace-nowrap rounded-xl px-3 py-2 text-left text-sm font-semibold transition lg:w-full ${
-                isActive
-                  ? "bg-cyan-300 text-slate-950"
-                  : "text-slate-300 hover:bg-white/10 hover:text-white"
-              }`}
-            >
-              {item}
-            </button>
-          );
-        })}
-      </nav>
+            return (
+              <button
+                key={item}
+                type="button"
+                onClick={() => onModuleChange(item)}
+                aria-current={isActive ? "page" : undefined}
+                className={`whitespace-nowrap rounded-xl px-3 py-2 text-left text-sm font-semibold transition lg:w-full ${
+                  isActive
+                    ? "bg-cyan-300 text-slate-950"
+                    : "text-slate-300 hover:bg-white/10 hover:text-white"
+                }`}
+              >
+                {item}
+              </button>
+            );
+          })}
+        </nav>
       </div>
       <div className="ml-4 hidden border-t border-white/10 pt-4 lg:ml-0 lg:block">
-        <p className="truncate text-xs text-slate-400">{user.email}</p>
+        <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">Signed in</p>
+        <p className="mt-1 truncate text-sm text-slate-300" title={user.email}>{user.email}</p>
         <button
           type="button"
           onClick={onSignOut}
@@ -2077,7 +2176,7 @@ function OrganizationStep({
         value={form.slug}
         placeholder="acme-growth-studio"
         help="Lowercase letters, numbers, and hyphens."
-        onChange={(value) => onSlugChange(slugify(value))}
+        onChange={(value) => onSlugChange(toSlug(value))}
       />
       <SubmitButton
         disabled={Boolean(validationError) || isSubmitting}
@@ -2181,7 +2280,7 @@ function BusinessStep({
         value={form.slug}
         placeholder="acme-cafe"
         help="Unique inside this organization."
-        onChange={(value) => onFieldChange("slug", slugify(value))}
+        onChange={(value) => onFieldChange("slug", toSlug(value))}
       />
       <TextField
         label="Website URL"
@@ -2534,40 +2633,54 @@ function WorkspaceDashboard({
       ) : null}
 
       {activeModule === "Settings" ? (
-        <ModuleCard
-          eyebrow="Settings"
-          title="Workspace actions"
-          description="Manage this business and your local workspace selection."
-        >
-          <div className="grid gap-3 sm:grid-cols-3">
-            <SecondaryButton onClick={onCreateAnotherBusiness}>
-              Create another business
-            </SecondaryButton>
-            <SecondaryButton onClick={onSwitchWorkspace}>
-              Switch workspace
-            </SecondaryButton>
-            <SecondaryButton onClick={onSwitchWorkspace}>
-              Clear local workspace selection
-            </SecondaryButton>
-          </div>
-          <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-            {websites.length} connected {websites.length === 1 ? "website" : "websites"}. Website management is available in the Website module.
-          </div>
-          <div className="mt-4 flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-slate-950">Signed in as</p>
-              <p className="truncate text-sm text-slate-600">{user.email}</p>
+        <>
+          <ModuleCard
+            eyebrow="Settings"
+            title="Workspace actions"
+            description="Manage this business and your local workspace selection."
+          >
+            <div className="grid gap-3 sm:grid-cols-3">
+              <SecondaryButton onClick={onCreateAnotherBusiness}>
+                Create another business
+              </SecondaryButton>
+              <SecondaryButton onClick={onSwitchWorkspace}>
+                Switch workspace
+              </SecondaryButton>
+              <SecondaryButton onClick={onSwitchWorkspace}>
+                Clear local workspace selection
+              </SecondaryButton>
             </div>
-            <button
-              type="button"
-              onClick={onSignOut}
-              disabled={isSigningOut}
-              className="h-10 rounded-xl border border-red-200 px-4 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isSigningOut ? "Signing out..." : "Sign out"}
-            </button>
-          </div>
-        </ModuleCard>
+            <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+              {websites.length} connected {websites.length === 1 ? "website" : "websites"}. Website management is available in the Website module.
+            </div>
+          </ModuleCard>
+          <ModuleCard
+            eyebrow="Account"
+            title="Your account"
+            description="Your signed-in BrandOS identity. Account editing will be available later."
+          >
+            <div className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <dl className="grid min-w-0 gap-3 text-sm sm:grid-cols-2 sm:gap-8">
+                <div>
+                  <dt className="font-medium text-slate-500">Name</dt>
+                  <dd className="mt-1 font-semibold text-slate-950">{user.name || "Not provided"}</dd>
+                </div>
+                <div className="min-w-0">
+                  <dt className="font-medium text-slate-500">Email</dt>
+                  <dd className="mt-1 truncate font-semibold text-slate-950">{user.email}</dd>
+                </div>
+              </dl>
+              <button
+                type="button"
+                onClick={onSignOut}
+                disabled={isSigningOut}
+                className="h-10 shrink-0 rounded-xl border border-red-200 bg-white px-4 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isSigningOut ? "Signing out..." : "Sign out"}
+              </button>
+            </div>
+          </ModuleCard>
+        </>
       ) : null}
     </div>
   );
@@ -4920,7 +5033,7 @@ async function parseJsonResponse<TResponse>(
   const payload = (await response.json()) as TResponse | ApiErrorResponse;
 
   if (!response.ok) {
-    throw new Error(readApiError(payload));
+    throw new ApiRequestError(readApiError(payload), response.status);
   }
 
   return payload as TResponse;
@@ -4938,6 +5051,10 @@ function validateOrganization(form: OrganizationForm) {
   }
 
   return validateSlug(form.slug, "Organization slug");
+}
+
+function isValidEmail(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
 function validateBusiness(form: BusinessForm) {
@@ -4971,7 +5088,7 @@ function validateSlug(value: string, label: string) {
   return null;
 }
 
-function slugify(value: string) {
+function toSlug(value: string) {
   return value
     .toLowerCase()
     .trim()
@@ -5375,6 +5492,39 @@ function getErrorMessage(error: unknown) {
   return "Something went wrong. Please try again.";
 }
 
+function getFriendlyAuthError(
+  error: unknown,
+  mode: "sign-in" | "sign-up",
+) {
+  const message = getErrorMessage(error).toLowerCase();
+
+  if (
+    message.includes("invalid email or password") ||
+    message.includes("invalid credentials") ||
+    message.includes("incorrect password") ||
+    message.includes("user not found")
+  ) {
+    return "Email or password is incorrect. Check your details and try again.";
+  }
+
+  if (
+    mode === "sign-up" &&
+    (message.includes("already exists") || message.includes("already registered"))
+  ) {
+    return "An account already exists for this email. Sign in instead.";
+  }
+
+  if (message.includes("password") && message.includes("8")) {
+    return "Password must be at least 8 characters.";
+  }
+
+  if (message.includes("email")) {
+    return "Enter a valid email address and try again.";
+  }
+
+  return "We couldn't complete that request. Check your details and try again.";
+}
+
 function readApiError(payload: unknown) {
   if (
     payload &&
@@ -5386,6 +5536,15 @@ function readApiError(payload: unknown) {
     typeof payload.error.message === "string"
   ) {
     return payload.error.message;
+  }
+
+  if (
+    payload &&
+    typeof payload === "object" &&
+    "message" in payload &&
+    typeof payload.message === "string"
+  ) {
+    return payload.message;
   }
 
   return "The API could not complete the request.";
