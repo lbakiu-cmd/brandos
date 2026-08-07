@@ -10,6 +10,8 @@ type WorkspaceModule =
   | "Google Business"
   | "Social Profiles"
   | "Audits"
+  | "AI Answer Simulator"
+  | "Scan History"
   | "Tasks"
   | "Settings";
 
@@ -48,6 +50,9 @@ type Website = {
   normalizedUrl: string;
   domain: string;
   isPrimary: boolean;
+  scanFrequency: "DAILY" | "WEEKLY" | "MONTHLY" | "MANUAL_ONLY";
+  nextRunAt: string | null;
+  lastRunAt: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -118,7 +123,21 @@ type VisibilityBreakdownSection = {
   label: string;
   earned: number;
   possible: number;
+  score?: number;
+  maxScore?: number;
+  explanation?: string;
+  recommendations?: string[];
+  checks?: VisibilityCheck[];
   details: Record<string, unknown>;
+};
+
+type VisibilityCheck = {
+  key: string;
+  label: string;
+  points: number;
+  passed: boolean;
+  explanation: string;
+  recommendation: string;
 };
 
 type BusinessVisibilityScore = {
@@ -158,7 +177,10 @@ type BusinessRecommendation = {
   description: string;
   impact: string | null;
   actionLabel: string | null;
-  evidence: unknown;
+  evidence: {
+    improvesCategory?: string;
+    [key: string]: unknown;
+  } | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -182,6 +204,44 @@ type BusinessTask = {
   completedAt: string | null;
   createdAt: string;
   updatedAt: string;
+};
+
+type BusinessScanHistory = {
+  id: string;
+  businessId: string;
+  websiteId: string | null;
+  crawlId: string | null;
+  scannedAt: string;
+  overallScore: number;
+  websiteFoundation: number;
+  aiReadiness: number;
+  structuredData: number;
+  localAuthority: number;
+  brandAuthority: number;
+  recommendationCount: number;
+  changeEvents: MonitoringChangeEvent[];
+  createdAt: string;
+};
+
+type MonitoringChangeEvent = {
+  code: string;
+  title: string;
+  description: string;
+  value: number | string;
+  alertType: BusinessAlert["type"];
+};
+
+type BusinessAlert = {
+  id: string;
+  businessId: string;
+  scanHistoryId: string | null;
+  type: "CRITICAL" | "WARNING" | "IMPROVEMENT";
+  title: string;
+  description: string;
+  eventCode: string;
+  metadata: Record<string, unknown> | null;
+  readAt: string | null;
+  createdAt: string;
 };
 
 type RecommendationStatusFilter = BusinessRecommendation["status"];
@@ -382,6 +442,8 @@ export function OnboardingFlow() {
     BusinessRecommendation[]
   >([]);
   const [tasks, setTasks] = useState<BusinessTask[]>([]);
+  const [scanHistory, setScanHistory] = useState<BusinessScanHistory[]>([]);
+  const [alerts, setAlerts] = useState<BusinessAlert[]>([]);
   const [websiteForm, setWebsiteForm] =
     useState<WebsiteForm>(initialWebsiteForm);
   const [googleBusinessProfileForm, setGoogleBusinessProfileForm] =
@@ -424,6 +486,10 @@ export function OnboardingFlow() {
   const [creatingTaskRecommendationId, setCreatingTaskRecommendationId] =
     useState<string | null>(null);
   const [queuedCrawlWebsiteId, setQueuedCrawlWebsiteId] = useState<
+    string | null
+  >(null);
+  const [isMonitoringScanRunning, setIsMonitoringScanRunning] = useState(false);
+  const [updatingWebsiteScheduleId, setUpdatingWebsiteScheduleId] = useState<
     string | null
   >(null);
   const [error, setError] = useState<string | null>(null);
@@ -592,6 +658,20 @@ export function OnboardingFlow() {
               restoredBusiness.id,
             )
           : [];
+        const restoredScanHistory = restoredBusiness
+          ? await loadScanHistory(
+              apiBaseUrl,
+              organizationToRestore.id,
+              restoredBusiness.id,
+            )
+          : [];
+        const restoredAlerts = restoredBusiness
+          ? await loadAlerts(
+              apiBaseUrl,
+              organizationToRestore.id,
+              restoredBusiness.id,
+            )
+          : [];
 
         if (!isMounted) {
           return;
@@ -607,6 +687,8 @@ export function OnboardingFlow() {
         setVisibilityScore(restoredVisibilityScore);
         setRecommendations(restoredRecommendations);
         setTasks(restoredTasks);
+        setScanHistory(restoredScanHistory);
+        setAlerts(restoredAlerts);
         setIsAddWebsiteFormVisible(false);
         setIsGoogleBusinessProfileFormVisible(false);
         setEditingSocialProfileId(null);
@@ -648,6 +730,8 @@ export function OnboardingFlow() {
         setVisibilityScore(null);
         setRecommendations([]);
         setTasks([]);
+        setScanHistory([]);
+        setAlerts([]);
         setIsAddWebsiteFormVisible(false);
         setIsGoogleBusinessProfileFormVisible(false);
         setEditingSocialProfileId(null);
@@ -712,6 +796,8 @@ export function OnboardingFlow() {
       setVisibilityScore(null);
       setRecommendations([]);
       setTasks([]);
+      setScanHistory([]);
+      setAlerts([]);
       setLatestCrawls({});
       setAuditFindings({});
       setStep("business");
@@ -780,6 +866,8 @@ export function OnboardingFlow() {
       setVisibilityScore(null);
       setRecommendations([]);
       setTasks([]);
+      setScanHistory([]);
+      setAlerts([]);
       setIsAddWebsiteFormVisible(false);
       setIsGoogleBusinessProfileFormVisible(false);
       setEditingSocialProfileId(null);
@@ -827,6 +915,8 @@ export function OnboardingFlow() {
     setVisibilityScore(null);
     setRecommendations([]);
     setTasks([]);
+    setScanHistory([]);
+    setAlerts([]);
     setIsAddWebsiteFormVisible(false);
     setIsGoogleBusinessProfileFormVisible(false);
     setEditingSocialProfileId(null);
@@ -913,6 +1003,12 @@ export function OnboardingFlow() {
       const selectedTasks = selectedBusiness
         ? await loadTasks(apiBaseUrl, organizationId, selectedBusiness.id)
         : [];
+      const selectedScanHistory = selectedBusiness
+        ? await loadScanHistory(apiBaseUrl, organizationId, selectedBusiness.id)
+        : [];
+      const selectedAlerts = selectedBusiness
+        ? await loadAlerts(apiBaseUrl, organizationId, selectedBusiness.id)
+        : [];
 
       window.localStorage.setItem(
         selectedOrganizationStorageKey,
@@ -927,6 +1023,8 @@ export function OnboardingFlow() {
       setVisibilityScore(selectedVisibilityScore);
       setRecommendations(selectedRecommendations);
       setTasks(selectedTasks);
+      setScanHistory(selectedScanHistory);
+      setAlerts(selectedAlerts);
       setIsAddWebsiteFormVisible(false);
       setIsGoogleBusinessProfileFormVisible(false);
       setEditingSocialProfileId(null);
@@ -949,6 +1047,8 @@ export function OnboardingFlow() {
     setVisibilityScore(null);
     setRecommendations([]);
     setTasks([]);
+    setScanHistory([]);
+    setAlerts([]);
     setIsAddWebsiteFormVisible(false);
     setIsGoogleBusinessProfileFormVisible(false);
     setEditingSocialProfileId(null);
@@ -1085,6 +1185,74 @@ export function OnboardingFlow() {
       setError(getErrorMessage(requestError));
     } finally {
       setQueuedCrawlWebsiteId(null);
+    }
+  }
+
+  async function runMonitoringScan() {
+    setError(null);
+    setSuccess(null);
+
+    if (!apiBaseUrl || !organization || !business) {
+      setError("Workspace is not ready.");
+      return;
+    }
+
+    setIsMonitoringScanRunning(true);
+    try {
+      const history = await postJson<BusinessScanHistory>(
+        `${apiBaseUrl}/organizations/${organization.id}/businesses/${business.id}/scan`,
+        {},
+      );
+      const [updatedScore, updatedHistory, updatedAlerts, updatedWebsites] =
+        await Promise.all([
+          loadVisibilityScore(apiBaseUrl, organization.id, business.id),
+          loadScanHistory(apiBaseUrl, organization.id, business.id),
+          loadAlerts(apiBaseUrl, organization.id, business.id),
+          getJson<Website[]>(
+            `${apiBaseUrl}/organizations/${organization.id}/businesses/${business.id}/websites`,
+          ),
+        ]);
+
+      setVisibilityScore(updatedScore);
+      setScanHistory(updatedHistory);
+      setAlerts(updatedAlerts);
+      setWebsites(updatedWebsites);
+      setSuccess(`Monitoring scan saved at ${formatDateTime(history.scannedAt)}.`);
+    } catch (requestError) {
+      setError(getErrorMessage(requestError));
+    } finally {
+      setIsMonitoringScanRunning(false);
+    }
+  }
+
+  async function updateWebsiteSchedule(
+    websiteId: string,
+    scanFrequency: Website["scanFrequency"],
+  ) {
+    setError(null);
+    setSuccess(null);
+
+    if (!apiBaseUrl || !organization || !business) {
+      setError("Workspace is not ready.");
+      return;
+    }
+
+    setUpdatingWebsiteScheduleId(websiteId);
+    try {
+      const updatedWebsite = await patchJson<Website>(
+        `${apiBaseUrl}/organizations/${organization.id}/businesses/${business.id}/websites/${websiteId}`,
+        { scanFrequency },
+      );
+      setWebsites((current) =>
+        current.map((website) =>
+          website.id === updatedWebsite.id ? updatedWebsite : website,
+        ),
+      );
+      setSuccess("Scan schedule updated.");
+    } catch (requestError) {
+      setError(getErrorMessage(requestError));
+    } finally {
+      setUpdatingWebsiteScheduleId(null);
     }
   }
 
@@ -1631,6 +1799,8 @@ export function OnboardingFlow() {
     setVisibilityScore(null);
     setRecommendations([]);
     setTasks([]);
+    setScanHistory([]);
+    setAlerts([]);
     setLatestCrawls({});
     setAuditFindings({});
     setActiveModule("Dashboard");
@@ -1740,6 +1910,8 @@ export function OnboardingFlow() {
                 visibilityScore={visibilityScore}
                 recommendations={recommendations}
                 tasks={tasks}
+                scanHistory={scanHistory}
+                alerts={alerts}
                 latestCrawls={latestCrawls}
                 auditFindings={auditFindings}
                 isWebsiteSubmitting={isWebsiteSubmitting}
@@ -1762,6 +1934,8 @@ export function OnboardingFlow() {
                 updatingTaskId={updatingTaskId}
                 deletingTaskId={deletingTaskId}
                 creatingTaskRecommendationId={creatingTaskRecommendationId}
+                isMonitoringScanRunning={isMonitoringScanRunning}
+                updatingWebsiteScheduleId={updatingWebsiteScheduleId}
                 onCreateAnotherBusiness={createAnotherBusiness}
                 onWebsiteUrlChange={(url) => setWebsiteForm({ url })}
                 onGoogleBusinessProfileFieldChange={(field, value) =>
@@ -1822,6 +1996,8 @@ export function OnboardingFlow() {
                 onUpdateTaskStatus={updateTaskStatus}
                 onDeleteTask={deleteTask}
                 onQueueWebsiteCrawl={queueWebsiteCrawl}
+                onRunMonitoringScan={runMonitoringScan}
+                onUpdateWebsiteSchedule={updateWebsiteSchedule}
                 onIgnoreAuditFinding={ignoreAuditFinding}
                 onSwitchWorkspace={switchWorkspace}
                 user={authUser}
@@ -2084,6 +2260,8 @@ function WorkspaceSidebar({
     "Google Business",
     "Social Profiles",
     "Audits",
+    "AI Answer Simulator",
+    "Scan History",
     "Tasks",
     "Settings",
   ];
@@ -2337,6 +2515,8 @@ function WorkspaceDashboard({
   visibilityScore,
   recommendations,
   tasks,
+  scanHistory,
+  alerts,
   latestCrawls,
   auditFindings,
   isWebsiteSubmitting,
@@ -2355,6 +2535,8 @@ function WorkspaceDashboard({
   updatingTaskId,
   deletingTaskId,
   creatingTaskRecommendationId,
+  isMonitoringScanRunning,
+  updatingWebsiteScheduleId,
   onCreateAnotherBusiness,
   onWebsiteUrlChange,
   onGoogleBusinessProfileFieldChange,
@@ -2384,6 +2566,8 @@ function WorkspaceDashboard({
   onUpdateTaskStatus,
   onDeleteTask,
   onQueueWebsiteCrawl,
+  onRunMonitoringScan,
+  onUpdateWebsiteSchedule,
   onIgnoreAuditFinding,
   onSwitchWorkspace,
   user,
@@ -2404,6 +2588,8 @@ function WorkspaceDashboard({
   visibilityScore: BusinessVisibilityScore | null;
   recommendations: BusinessRecommendation[];
   tasks: BusinessTask[];
+  scanHistory: BusinessScanHistory[];
+  alerts: BusinessAlert[];
   latestCrawls: Record<string, WebsiteCrawl>;
   auditFindings: Record<string, WebsiteAuditFinding[]>;
   isWebsiteSubmitting: boolean;
@@ -2422,6 +2608,8 @@ function WorkspaceDashboard({
   updatingTaskId: string | null;
   deletingTaskId: string | null;
   creatingTaskRecommendationId: string | null;
+  isMonitoringScanRunning: boolean;
+  updatingWebsiteScheduleId: string | null;
   onCreateAnotherBusiness: () => void;
   onWebsiteUrlChange: (url: string) => void;
   onGoogleBusinessProfileFieldChange: (
@@ -2463,6 +2651,11 @@ function WorkspaceDashboard({
   onUpdateTaskStatus: (taskId: string, status: BusinessTask["status"]) => void;
   onDeleteTask: (taskId: string) => void;
   onQueueWebsiteCrawl: (websiteId: string) => void;
+  onRunMonitoringScan: () => void;
+  onUpdateWebsiteSchedule: (
+    websiteId: string,
+    scanFrequency: Website["scanFrequency"],
+  ) => void;
   onIgnoreAuditFinding: (websiteId: string, findingId: string) => void;
   onSwitchWorkspace: () => void;
   user: AuthUser;
@@ -2507,12 +2700,15 @@ function WorkspaceDashboard({
           socialProfiles={socialProfiles}
           recommendations={recommendations}
           tasks={tasks}
+          scanHistory={scanHistory}
+          alerts={alerts}
           isGenerating={isRecommendationsGenerating}
           updatingRecommendationId={updatingRecommendationId}
           creatingTaskRecommendationId={creatingTaskRecommendationId}
           onGenerateRecommendations={onGenerateRecommendations}
           onUpdateRecommendationStatus={onUpdateRecommendationStatus}
           onCreateTask={onCreateTaskFromRecommendation}
+          onRunMonitoringScan={onRunMonitoringScan}
         />
       ) : null}
 
@@ -2550,6 +2746,7 @@ function WorkspaceDashboard({
           isLoading={isWebsiteLoading}
           isAddWebsiteFormVisible={isAddWebsiteFormVisible}
           queuedCrawlWebsiteId={queuedCrawlWebsiteId}
+          updatingWebsiteScheduleId={updatingWebsiteScheduleId}
           ignoredFindingId={ignoredFindingId}
           onUrlChange={onWebsiteUrlChange}
           onSubmit={onWebsiteSubmit}
@@ -2558,6 +2755,7 @@ function WorkspaceDashboard({
           onMakePrimary={onMakePrimaryWebsite}
           onDelete={onDeleteWebsite}
           onQueueCrawl={onQueueWebsiteCrawl}
+          onUpdateSchedule={onUpdateWebsiteSchedule}
           onIgnoreFinding={onIgnoreAuditFinding}
         />
       ) : null}
@@ -2615,6 +2813,29 @@ function WorkspaceDashboard({
           ignoredFindingId={ignoredFindingId}
           onCalculate={onCalculateVisibilityScore}
           onIgnoreFinding={onIgnoreAuditFinding}
+        />
+      ) : null}
+
+      {activeModule === "AI Answer Simulator" ? (
+        <AiAnswerSimulatorModule
+          business={business}
+          primaryWebsite={primaryWebsite}
+          latestCrawl={
+            primaryWebsite ? latestCrawls[primaryWebsite.id] : undefined
+          }
+          googleBusinessProfile={googleBusinessProfile}
+          socialProfiles={socialProfiles}
+          visibilityScore={visibilityScore}
+        />
+      ) : null}
+
+      {activeModule === "Scan History" ? (
+        <ScanHistoryModule
+          websites={websites}
+          scanHistory={scanHistory}
+          alerts={alerts}
+          isScanning={isMonitoringScanRunning}
+          onRunScan={onRunMonitoringScan}
         />
       ) : null}
 
@@ -2695,12 +2916,15 @@ function DashboardOverview({
   socialProfiles,
   recommendations,
   tasks,
+  scanHistory,
+  alerts,
   isGenerating,
   updatingRecommendationId,
   creatingTaskRecommendationId,
   onGenerateRecommendations,
   onUpdateRecommendationStatus,
   onCreateTask,
+  onRunMonitoringScan,
 }: {
   business: Business;
   score: BusinessVisibilityScore | null;
@@ -2710,6 +2934,8 @@ function DashboardOverview({
   socialProfiles: SocialProfile[];
   recommendations: BusinessRecommendation[];
   tasks: BusinessTask[];
+  scanHistory: BusinessScanHistory[];
+  alerts: BusinessAlert[];
   isGenerating: boolean;
   updatingRecommendationId: string | null;
   creatingTaskRecommendationId: string | null;
@@ -2719,7 +2945,9 @@ function DashboardOverview({
     status: BusinessRecommendation["status"],
   ) => void;
   onCreateTask: (recommendationId: string) => void;
+  onRunMonitoringScan: () => void;
 }) {
+  const visibilityCategories = score ? orderedVisibilityBreakdown(score) : [];
   const completeness = calculateProfileCompleteness(
     business,
     primaryWebsite,
@@ -2733,6 +2961,7 @@ function DashboardOverview({
   const activeTasks = tasks.filter(
     (task) => task.status === "TODO" || task.status === "IN_PROGRESS",
   );
+  const latestScan = scanHistory[0] ?? null;
   const overview = [
     ["Profile completeness", `${completeness.percentage}%`],
     ["Website scan", latestCrawl ? formatCrawlStatus(latestCrawl.status) : "Not run"],
@@ -2744,6 +2973,11 @@ function DashboardOverview({
       "High-priority tasks",
       String(activeTasks.filter((task) => task.priority === "HIGH").length),
     ],
+    ["Latest scan", latestScan ? formatDateTime(latestScan.scannedAt) : "Not run"],
+    [
+      "Next scheduled scan",
+      primaryWebsite?.nextRunAt ? formatDateTime(primaryWebsite.nextRunAt) : "Manual only",
+    ],
   ] as const;
 
   return (
@@ -2751,8 +2985,26 @@ function DashboardOverview({
       <div className="grid gap-4 lg:grid-cols-[0.8fr_1.2fr]">
         <div className="rounded-2xl border border-cyan-200 bg-cyan-50 p-5">
           <p className="text-sm font-semibold text-cyan-700">
-            AI Visibility Score
+            Overall AI Visibility
           </p>
+          {visibilityCategories.length > 0 ? (
+            <div className="mt-4 grid gap-2">
+              {visibilityCategories.map((category) => (
+                <div
+                  key={category.key}
+                  className="flex items-center justify-between gap-3 rounded-lg border border-cyan-100 bg-white/80 px-3 py-2 text-sm"
+                >
+                  <span className="font-semibold text-slate-700">
+                    {category.label}
+                  </span>
+                  <span className="font-semibold text-cyan-700">
+                    {visibilityCategoryScore(category)}/
+                    {visibilityCategoryMaxScore(category)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : null}
           <div className="mt-3 flex items-end gap-2">
             <span className="text-5xl font-semibold text-slate-950">
               {score?.score ?? "--"}
@@ -2777,6 +3029,67 @@ function DashboardOverview({
           ))}
         </div>
       </div>
+
+      <section className="grid gap-4 lg:grid-cols-[1.3fr_0.7fr]">
+        <div className="rounded-2xl border border-slate-200 bg-white p-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="text-sm font-medium uppercase tracking-[0.14em] text-slate-500">
+                Visibility trend
+              </p>
+              <h2 className="mt-2 text-xl font-semibold text-slate-950">
+                Continuous monitoring
+              </h2>
+            </div>
+            <button
+              type="button"
+              onClick={onRunMonitoringScan}
+              className="h-10 rounded-xl border border-cyan-200 px-4 text-sm font-semibold text-cyan-800 hover:bg-cyan-50"
+            >
+              Run scan
+            </button>
+          </div>
+          <TrendLineChart
+            points={scanHistory
+              .slice()
+              .reverse()
+              .map((scan) => ({
+                label: formatShortDate(scan.scannedAt),
+                value: scan.overallScore,
+              }))}
+            emptyLabel="Run a monitoring scan to start the visibility trend."
+          />
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-5">
+          <p className="text-sm font-medium uppercase tracking-[0.14em] text-slate-500">
+            Recent alerts
+          </p>
+          <div className="mt-4 grid gap-2">
+            {alerts.slice(0, 3).map((alert) => (
+              <div
+                key={alert.id}
+                className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2"
+              >
+                <span
+                  className={`rounded-full px-2 py-1 text-xs font-semibold ${alertTypeClass(
+                    alert.type,
+                  )}`}
+                >
+                  {formatEnumLabel(alert.type)}
+                </span>
+                <p className="mt-2 text-sm font-semibold text-slate-950">
+                  {alert.title}
+                </p>
+              </div>
+            ))}
+            {alerts.length === 0 ? (
+              <p className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-3 py-3 text-sm text-slate-600">
+                No alerts yet.
+              </p>
+            ) : null}
+          </div>
+        </div>
+      </section>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -2822,6 +3135,12 @@ function DashboardOverview({
                       <span className="rounded-full bg-white px-2 py-1 text-xs font-semibold text-slate-600">
                         {formatEnumLabel(recommendation.sourceType)}
                       </span>
+                      {recommendationImprovesCategory(recommendation) ? (
+                        <span className="rounded-full bg-cyan-100 px-2 py-1 text-xs font-semibold text-cyan-700">
+                          Improves{" "}
+                          {recommendationImprovesCategory(recommendation)}
+                        </span>
+                      ) : null}
                     </div>
                     <p className="mt-2 font-semibold text-slate-950">
                       {recommendation.title}
@@ -2878,6 +3197,415 @@ function ModuleCard({
   );
 }
 
+function SummaryTile({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+      <p className="text-sm font-medium text-slate-500">{label}</p>
+      <p className="mt-1 text-lg font-semibold text-slate-950">{value}</p>
+    </div>
+  );
+}
+
+function ChartCard({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-5">
+      <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-500">
+        {title}
+      </h3>
+      <div className="mt-4">{children}</div>
+    </section>
+  );
+}
+
+function TrendLineChart({
+  points,
+  maxValue = 100,
+  emptyLabel,
+}: {
+  points: { label: string; value: number }[];
+  maxValue?: number;
+  emptyLabel: string;
+}) {
+  if (points.length === 0) {
+    return (
+      <p className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center text-sm text-slate-600">
+        {emptyLabel}
+      </p>
+    );
+  }
+
+  const chartWidth = 320;
+  const chartHeight = 140;
+  const plottedPoints = points.map((point, index) => {
+    const x =
+      points.length === 1
+        ? chartWidth / 2
+        : (index / (points.length - 1)) * chartWidth;
+    const y = chartHeight - (Math.min(point.value, maxValue) / maxValue) * chartHeight;
+
+    return { ...point, x, y };
+  });
+  const path = plottedPoints
+    .map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`)
+    .join(" ");
+
+  return (
+    <div>
+      <svg
+        viewBox={`0 0 ${chartWidth} ${chartHeight}`}
+        role="img"
+        aria-label="Trend chart"
+        className="h-44 w-full overflow-visible"
+      >
+        <line x1="0" y1={chartHeight} x2={chartWidth} y2={chartHeight} stroke="#e2e8f0" />
+        <path d={path} fill="none" stroke="#0891b2" strokeWidth="4" strokeLinecap="round" />
+        {plottedPoints.map((point) => (
+          <circle key={`${point.label}-${point.value}`} cx={point.x} cy={point.y} r="5" fill="#0f172a" />
+        ))}
+      </svg>
+      <div className="mt-2 flex justify-between text-xs font-medium text-slate-500">
+        <span>{points[0]?.label}</span>
+        <span>{points[points.length - 1]?.label}</span>
+      </div>
+    </div>
+  );
+}
+
+function CategoryTrendBars({ history }: { history: BusinessScanHistory[] }) {
+  const latest = history[history.length - 1];
+
+  if (!latest) {
+    return (
+      <p className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center text-sm text-slate-600">
+        No category trend yet.
+      </p>
+    );
+  }
+
+  const categories = [
+    ["Website", latest.websiteFoundation],
+    ["AI", latest.aiReadiness],
+    ["Schema", latest.structuredData],
+    ["Local", latest.localAuthority],
+    ["Brand", latest.brandAuthority],
+  ] as const;
+
+  return (
+    <div className="grid gap-3">
+      {categories.map(([label, value]) => (
+        <div key={label}>
+          <div className="flex items-center justify-between text-sm">
+            <span className="font-medium text-slate-700">{label}</span>
+            <span className="font-semibold text-slate-950">{value}/20</span>
+          </div>
+          <div className="mt-1 h-2 rounded-full bg-slate-100">
+            <div
+              className="h-2 rounded-full bg-cyan-500"
+              style={{ width: `${Math.min(100, (value / 20) * 100)}%` }}
+            />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ScanHistoryModule({
+  websites,
+  scanHistory,
+  alerts,
+  isScanning,
+  onRunScan,
+}: {
+  websites: Website[];
+  scanHistory: BusinessScanHistory[];
+  alerts: BusinessAlert[];
+  isScanning: boolean;
+  onRunScan: () => void;
+}) {
+  const orderedHistory = [...scanHistory].reverse();
+  const latestScan = scanHistory[0] ?? null;
+  const nextRunAt = websites
+    .map((website) => website.nextRunAt)
+    .filter((date): date is string => Boolean(date))
+    .sort()[0];
+
+  return (
+    <div className="space-y-5">
+      <ModuleCard
+        eyebrow="Scheduled monitoring"
+        title="Scan History"
+        description="Track AI Visibility movement over time and review alerts generated from scan-to-scan changes."
+      >
+        <div className="grid gap-3 md:grid-cols-3">
+          <SummaryTile
+            label="Latest scan"
+            value={latestScan ? formatDateTime(latestScan.scannedAt) : "Not run"}
+          />
+          <SummaryTile
+            label="Next scheduled scan"
+            value={nextRunAt ? formatDateTime(nextRunAt) : "Manual only"}
+          />
+          <button
+            type="button"
+            onClick={onRunScan}
+            disabled={isScanning}
+            className="rounded-xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+          >
+            {isScanning ? "Running scan..." : "Run scan"}
+          </button>
+        </div>
+      </ModuleCard>
+
+      <div className="grid gap-4 xl:grid-cols-3">
+        <ChartCard title="Overall score over time">
+          <TrendLineChart
+            points={orderedHistory.map((scan) => ({
+              label: formatShortDate(scan.scannedAt),
+              value: scan.overallScore,
+            }))}
+            emptyLabel="No scan history yet."
+          />
+        </ChartCard>
+        <ChartCard title="Category trends">
+          <CategoryTrendBars history={orderedHistory} />
+        </ChartCard>
+        <ChartCard title="Recommendation count trend">
+          <TrendLineChart
+            points={orderedHistory.map((scan) => ({
+              label: formatShortDate(scan.scannedAt),
+              value: scan.recommendationCount,
+            }))}
+            maxValue={Math.max(
+              1,
+              ...orderedHistory.map((scan) => scan.recommendationCount),
+            )}
+            emptyLabel="No recommendation trend yet."
+          />
+        </ChartCard>
+      </div>
+
+      <div className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
+        <ModuleCard
+          eyebrow="Scan snapshots"
+          title="History"
+          description="Every scan stores the overall score, category scores, and recommendation count."
+        >
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[760px] text-left text-sm">
+              <thead className="text-xs uppercase tracking-[0.12em] text-slate-500">
+                <tr>
+                  <th className="px-3 py-2">Timestamp</th>
+                  <th className="px-3 py-2">Overall</th>
+                  <th className="px-3 py-2">Website</th>
+                  <th className="px-3 py-2">AI</th>
+                  <th className="px-3 py-2">Schema</th>
+                  <th className="px-3 py-2">Local</th>
+                  <th className="px-3 py-2">Brand</th>
+                  <th className="px-3 py-2">Recommendations</th>
+                </tr>
+              </thead>
+              <tbody>
+                {scanHistory.map((scan) => (
+                  <tr key={scan.id} className="border-t border-slate-100">
+                    <td className="px-3 py-3 font-medium text-slate-700">
+                      {formatDateTime(scan.scannedAt)}
+                    </td>
+                    <td className="px-3 py-3 font-semibold text-slate-950">
+                      {scan.overallScore}
+                    </td>
+                    <td className="px-3 py-3">{scan.websiteFoundation}</td>
+                    <td className="px-3 py-3">{scan.aiReadiness}</td>
+                    <td className="px-3 py-3">{scan.structuredData}</td>
+                    <td className="px-3 py-3">{scan.localAuthority}</td>
+                    <td className="px-3 py-3">{scan.brandAuthority}</td>
+                    <td className="px-3 py-3">{scan.recommendationCount}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {scanHistory.length === 0 ? (
+              <p className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-4 text-sm text-slate-600">
+                Run a scan to create the first history record.
+              </p>
+            ) : null}
+          </div>
+        </ModuleCard>
+
+        <ModuleCard
+          eyebrow="Alerts"
+          title="Recent alerts"
+          description="Critical, warning, and improvement events from monitoring scans."
+        >
+          <div className="grid gap-3">
+            {alerts.map((alert) => (
+              <div
+                key={alert.id}
+                className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3"
+              >
+                <span
+                  className={`rounded-full px-2 py-1 text-xs font-semibold ${alertTypeClass(
+                    alert.type,
+                  )}`}
+                >
+                  {formatEnumLabel(alert.type)}
+                </span>
+                <p className="mt-2 font-semibold text-slate-950">
+                  {alert.title}
+                </p>
+                <p className="mt-1 text-sm leading-5 text-slate-600">
+                  {alert.description}
+                </p>
+              </div>
+            ))}
+            {alerts.length === 0 ? (
+              <p className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-4 text-sm text-slate-600">
+                No alerts yet.
+              </p>
+            ) : null}
+          </div>
+        </ModuleCard>
+      </div>
+    </div>
+  );
+}
+
+function AiAnswerSimulatorModule({
+  business,
+  primaryWebsite,
+  latestCrawl,
+  googleBusinessProfile,
+  socialProfiles,
+  visibilityScore,
+}: {
+  business: Business;
+  primaryWebsite: Website | null;
+  latestCrawl: WebsiteCrawl | undefined;
+  googleBusinessProfile: GoogleBusinessProfile | null;
+  socialProfiles: SocialProfile[];
+  visibilityScore: BusinessVisibilityScore | null;
+}) {
+  const prompts = [
+    "Best dentist in Tirana",
+    "Dental implants in Albania",
+    "Invisalign dentist near me",
+    "Emergency dentist Tirana",
+  ];
+  const signals = buildAiAnswerSignals({
+    business,
+    primaryWebsite,
+    latestCrawl,
+    googleBusinessProfile,
+    socialProfiles,
+    visibilityScore,
+  });
+  const scenarios = buildAiAnswerScenarios(business, signals);
+  const improvements = buildAiAnswerImprovements(signals);
+
+  return (
+    <div className="space-y-5">
+      <ModuleCard
+        eyebrow="AI Answer Simulator"
+        title="Estimate how AI assistants may describe this business"
+        description="Use BrandOS visibility signals to understand likely answer strength across common discovery prompts."
+      >
+        <div className="rounded-xl border border-cyan-100 bg-cyan-50 px-4 py-3 text-sm leading-6 text-cyan-900">
+          This is an estimate based on your site&apos;s AI visibility signals and is not an actual response from any AI provider.
+        </div>
+
+        <div className="mt-4">
+          <p className="text-sm font-semibold text-slate-950">
+            Suggested prompts
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {prompts.map((prompt) => (
+              <span
+                key={prompt}
+                className="rounded-full border border-slate-200 bg-white px-3 py-1 text-sm font-medium text-slate-700"
+              >
+                {prompt}
+              </span>
+            ))}
+          </div>
+        </div>
+      </ModuleCard>
+
+      <div className="grid gap-4 xl:grid-cols-3">
+        {scenarios.map((scenario) => (
+          <section
+            key={scenario.title}
+            className="rounded-2xl border border-slate-200 bg-white p-5"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-500">
+                  {scenario.title}
+                </p>
+                <h2 className="mt-2 text-lg font-semibold text-slate-950">
+                  Estimated answer
+                </h2>
+              </div>
+              <span
+                className={`rounded-full px-3 py-1 text-xs font-semibold ${confidenceClass(
+                  scenario.confidence,
+                )}`}
+              >
+                {scenario.confidence}
+              </span>
+            </div>
+            <p className="mt-4 rounded-xl border border-slate-100 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-700">
+              {scenario.answer}
+            </p>
+            <p className="mt-4 text-sm leading-6 text-slate-600">
+              {scenario.explanation}
+            </p>
+            <div className="mt-4 grid gap-2">
+              {scenario.reasons.map((reason) => (
+                <div
+                  key={reason.label}
+                  className="flex items-start gap-2 text-sm leading-5"
+                >
+                  <span
+                    className={
+                      reason.positive ? "text-emerald-600" : "text-red-500"
+                    }
+                  >
+                    {reason.positive ? "✓" : "✗"}
+                  </span>
+                  <span className="text-slate-700">{reason.label}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+        ))}
+      </div>
+
+      <ModuleCard
+        eyebrow="Improvement plan"
+        title="What would increase confidence?"
+        description="These opportunities improve the signals that make simulated AI answers more complete and confident."
+      >
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+          {improvements.map((item) => (
+            <div
+              key={item}
+              className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-700"
+            >
+              {item}
+            </div>
+          ))}
+        </div>
+      </ModuleCard>
+    </div>
+  );
+}
+
 function AuditsModule({
   primaryWebsite,
   latestCrawl,
@@ -2926,8 +3654,8 @@ function AuditsModule({
 
       <ModuleCard
         eyebrow="Visibility score"
-        title="Foundation breakdown"
-        description="See how website, local, social, and audit readiness contribute to the current score."
+        title="AI Visibility Engine"
+        description="See how each weighted category contributes to the current score."
       >
         <div className="flex justify-end">
           <button
@@ -2940,13 +3668,66 @@ function AuditsModule({
           </button>
         </div>
         {breakdown.length > 0 ? (
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <div className="mt-4 grid gap-3">
             {breakdown.map((section) => (
-              <div key={section.key} className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-semibold text-slate-950">{section.label}</p>
-                  <span className="text-sm font-semibold text-cyan-700">{section.earned}/{section.possible}</span>
+              <div
+                key={section.key}
+                className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3"
+              >
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-950">
+                      {section.label}
+                    </p>
+                    {section.explanation ? (
+                      <p className="mt-1 text-sm leading-5 text-slate-600">
+                        {section.explanation}
+                      </p>
+                    ) : null}
+                  </div>
+                  <span className="shrink-0 text-sm font-semibold text-cyan-700">
+                    {visibilityCategoryScore(section)}/
+                    {visibilityCategoryMaxScore(section)}
+                  </span>
                 </div>
+                {section.checks && section.checks.length > 0 ? (
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                    {section.checks.map((check) => (
+                      <div
+                        key={check.key}
+                        className="rounded-lg border border-slate-200 bg-white px-3 py-2"
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="text-xs font-semibold text-slate-700">
+                            {check.label}
+                          </p>
+                          <span
+                            className={`rounded-full px-2 py-1 text-xs font-semibold ${
+                              check.passed
+                                ? "bg-emerald-50 text-emerald-700"
+                                : "bg-amber-50 text-amber-700"
+                            }`}
+                          >
+                            {check.passed ? `+${check.points}` : "Open"}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+                {section.recommendations &&
+                section.recommendations.length > 0 ? (
+                  <div className="mt-3 rounded-lg border border-cyan-100 bg-white px-3 py-2">
+                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+                      Recommendations
+                    </p>
+                    <ul className="mt-2 grid gap-1 text-sm leading-5 text-slate-600">
+                      {section.recommendations.slice(0, 3).map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
               </div>
             ))}
           </div>
@@ -3495,6 +4276,11 @@ function RecommendationCard({
               <span className="rounded-full bg-white px-2 py-1 text-xs font-semibold text-slate-600">
                 {formatEnumLabel(recommendation.status)}
               </span>
+              {recommendationImprovesCategory(recommendation) ? (
+                <span className="rounded-full bg-cyan-100 px-2 py-1 text-xs font-semibold text-cyan-700">
+                  Improves {recommendationImprovesCategory(recommendation)}
+                </span>
+              ) : null}
             </div>
             <h3 className="mt-2 font-semibold text-slate-950">
               {recommendation.title}
@@ -3819,6 +4605,7 @@ function WebsiteSection({
   isLoading,
   isAddWebsiteFormVisible,
   queuedCrawlWebsiteId,
+  updatingWebsiteScheduleId,
   ignoredFindingId,
   onUrlChange,
   onSubmit,
@@ -3827,6 +4614,7 @@ function WebsiteSection({
   onMakePrimary,
   onDelete,
   onQueueCrawl,
+  onUpdateSchedule,
   onIgnoreFinding,
 }: {
   form: WebsiteForm;
@@ -3837,6 +4625,7 @@ function WebsiteSection({
   isLoading: boolean;
   isAddWebsiteFormVisible: boolean;
   queuedCrawlWebsiteId: string | null;
+  updatingWebsiteScheduleId: string | null;
   ignoredFindingId: string | null;
   onUrlChange: (url: string) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
@@ -3845,6 +4634,10 @@ function WebsiteSection({
   onMakePrimary: (websiteId: string) => void;
   onDelete: (websiteId: string) => void;
   onQueueCrawl: (websiteId: string) => void;
+  onUpdateSchedule: (
+    websiteId: string,
+    scanFrequency: Website["scanFrequency"],
+  ) => void;
   onIgnoreFinding: (websiteId: string, findingId: string) => void;
 }) {
   const hasPrimaryWebsite = websites.some((website) => website.isPrimary);
@@ -3922,6 +4715,47 @@ function WebsiteSection({
                               : "Not queued yet"}
                           </span>
                         </p>
+                        <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                          <label className="text-xs font-medium text-slate-500">
+                            Scan cadence
+                            <select
+                              value={website.scanFrequency}
+                              disabled={updatingWebsiteScheduleId === website.id}
+                              onChange={(event) =>
+                                onUpdateSchedule(
+                                  website.id,
+                                  event.target.value as Website["scanFrequency"],
+                                )
+                              }
+                              className="mt-1 h-9 w-full rounded-lg border border-slate-300 bg-white px-2 text-xs font-semibold text-slate-700"
+                            >
+                              <option value="DAILY">Daily</option>
+                              <option value="WEEKLY">Weekly</option>
+                              <option value="MONTHLY">Monthly</option>
+                              <option value="MANUAL_ONLY">Manual only</option>
+                            </select>
+                          </label>
+                          <div className="rounded-lg border border-slate-200 bg-white px-3 py-2">
+                            <p className="text-xs font-medium text-slate-500">
+                              Last scan
+                            </p>
+                            <p className="mt-1 text-xs font-semibold text-slate-700">
+                              {website.lastRunAt
+                                ? formatDateTime(website.lastRunAt)
+                                : "Not run"}
+                            </p>
+                          </div>
+                          <div className="rounded-lg border border-slate-200 bg-white px-3 py-2">
+                            <p className="text-xs font-medium text-slate-500">
+                              Next scan
+                            </p>
+                            <p className="mt-1 text-xs font-semibold text-slate-700">
+                              {website.nextRunAt
+                                ? formatDateTime(website.nextRunAt)
+                                : "Manual only"}
+                            </p>
+                          </div>
+                        </div>
                       </div>
                       <div className="flex flex-wrap gap-2">
                         <button
@@ -5316,11 +6150,291 @@ function moduleDescription(module: WorkspaceModule) {
     "Google Business": "Maintain the local profile used for discovery readiness.",
     "Social Profiles": "Manage the public profiles that reinforce brand consistency.",
     Audits: "Review crawl evidence, findings, and visibility score inputs.",
+    "AI Answer Simulator": "Estimate how AI assistants may answer common customer questions.",
     Tasks: "Move visibility work from open to in progress and done.",
     Settings: "Manage workspace-level actions and local selection.",
   } satisfies Record<WorkspaceModule, string>;
 
   return descriptions[module];
+}
+
+type AiAnswerConfidence = "Very High" | "High" | "Medium" | "Low";
+
+type AiAnswerSignal = {
+  label: string;
+  positive: boolean;
+};
+
+type AiAnswerScenario = {
+  title: string;
+  confidence: AiAnswerConfidence;
+  answer: string;
+  explanation: string;
+  reasons: AiAnswerSignal[];
+};
+
+type AiAnswerSignals = {
+  confidence: AiAnswerConfidence;
+  confidenceScore: number;
+  reasons: AiAnswerSignal[];
+  improvements: string[];
+  hasGoogleBusinessComplete: boolean;
+  hasFaqContent: boolean;
+  hasStrongServicePages: boolean;
+  hasGoodStructuredData: boolean;
+  hasWeakAuthorAuthority: boolean;
+  hasLimitedExternalCitations: boolean;
+  hasLocalAuthority: boolean;
+  hasWebsiteFoundation: boolean;
+};
+
+function buildAiAnswerSignals({
+  business,
+  primaryWebsite,
+  latestCrawl,
+  googleBusinessProfile,
+  socialProfiles,
+  visibilityScore,
+}: {
+  business: Business;
+  primaryWebsite: Website | null;
+  latestCrawl: WebsiteCrawl | undefined;
+  googleBusinessProfile: GoogleBusinessProfile | null;
+  socialProfiles: SocialProfile[];
+  visibilityScore: BusinessVisibilityScore | null;
+}): AiAnswerSignals {
+  const schemaTypes =
+    latestCrawl?.metadata?.schemaTypes.map((schemaType) =>
+      schemaType.toLowerCase(),
+    ) ?? [];
+  const structuredDataScore = visibilityCategoryValue(
+    visibilityScore,
+    "structuredData",
+  );
+  const aiReadinessScore = visibilityCategoryValue(
+    visibilityScore,
+    "aiReadiness",
+  );
+  const localAuthorityScore = visibilityCategoryValue(
+    visibilityScore,
+    "localAuthority",
+  );
+  const websiteFoundationScore = visibilityCategoryValue(
+    visibilityScore,
+    "websiteFoundation",
+  );
+  const brandAuthorityScore = visibilityCategoryValue(
+    visibilityScore,
+    "brandAuthority",
+  );
+  const hasGoogleBusinessComplete = Boolean(
+    googleBusinessProfile?.businessName &&
+      googleBusinessProfile.address &&
+      googleBusinessProfile.city &&
+      googleBusinessProfile.country,
+  );
+  const hasFaqContent =
+    schemaTypes.includes("faqpage") || aiReadinessScore >= 14;
+  const services = Array.isArray(business.services) ? business.services : [];
+  const hasStrongServicePages =
+    services.length > 0 ||
+    schemaTypes.includes("service") ||
+    structuredDataScore >= 14;
+  const hasGoodStructuredData = structuredDataScore >= 14;
+  const hasWeakAuthorAuthority = !business.description || !business.email;
+  const hasLimitedExternalCitations =
+    socialProfiles.length < 2 && !googleBusinessProfile;
+  const hasLocalAuthority =
+    hasGoogleBusinessComplete || localAuthorityScore >= 14;
+  const hasWebsiteFoundation =
+    Boolean(primaryWebsite && latestCrawl?.status === "COMPLETED") ||
+    websiteFoundationScore >= 14;
+  const confidenceScore = [
+    hasGoogleBusinessComplete,
+    hasFaqContent,
+    hasStrongServicePages,
+    hasGoodStructuredData,
+    !hasWeakAuthorAuthority,
+    !hasLimitedExternalCitations,
+    hasLocalAuthority,
+    hasWebsiteFoundation,
+    brandAuthorityScore >= 14,
+  ].filter(Boolean).length;
+
+  return {
+    confidence: aiAnswerConfidence(confidenceScore),
+    confidenceScore,
+    reasons: [
+      { label: "Google Business complete", positive: hasGoogleBusinessComplete },
+      { label: "FAQ content detected", positive: hasFaqContent },
+      { label: "Strong service pages", positive: hasStrongServicePages },
+      { label: "Good structured data", positive: hasGoodStructuredData },
+      { label: "Weak author authority", positive: !hasWeakAuthorAuthority },
+      {
+        label: "Limited external citations",
+        positive: !hasLimitedExternalCitations,
+      },
+    ],
+    improvements: buildAiAnswerImprovementsFromFlags({
+      hasFaqContent,
+      hasStrongServicePages,
+      hasGoodStructuredData,
+      hasWeakAuthorAuthority,
+      hasLimitedExternalCitations,
+      hasGoogleBusinessComplete,
+    }),
+    hasGoogleBusinessComplete,
+    hasFaqContent,
+    hasStrongServicePages,
+    hasGoodStructuredData,
+    hasWeakAuthorAuthority,
+    hasLimitedExternalCitations,
+    hasLocalAuthority,
+    hasWebsiteFoundation,
+  };
+}
+
+function buildAiAnswerScenarios(
+  business: Business,
+  signals: AiAnswerSignals,
+): AiAnswerScenario[] {
+  const location = business.city ?? business.country ?? "your area";
+  const category = business.category ?? "business";
+  const servicePhrase = business.services?.[0] ?? category;
+  const confidence = signals.confidence;
+
+  return [
+    {
+      title: "General AI Assistant",
+      confidence,
+      answer: `${business.name} would likely be described as a ${category.toLowerCase()} in ${location}. The answer may mention its services, website, and local profile when those signals are complete.`,
+      explanation:
+        "General assistants tend to rely on clear entity facts, service descriptions, FAQs, and consistent profile information.",
+      reasons: signals.reasons,
+    },
+    {
+      title: "Search-based AI",
+      confidence: adjustConfidence(confidence, signals.hasLocalAuthority ? 1 : -1),
+      answer: `${business.name} may appear as a relevant option for local queries in ${location}, especially when the website, Google Business details, and structured data all reinforce the same business identity.`,
+      explanation:
+        "Search-based answers benefit most from crawlable pages, local authority, complete profile facts, and schema that confirms what the business offers.",
+      reasons: [
+        { label: "Google Business complete", positive: signals.hasGoogleBusinessComplete },
+        { label: "Good structured data", positive: signals.hasGoodStructuredData },
+        { label: "Strong service pages", positive: signals.hasStrongServicePages },
+        { label: "Limited external citations", positive: !signals.hasLimitedExternalCitations },
+      ],
+    },
+    {
+      title: "Research Assistant",
+      confidence: adjustConfidence(
+        confidence,
+        signals.hasWeakAuthorAuthority ? -1 : 0,
+      ),
+      answer: `A research-style answer would likely summarize ${business.name}'s available evidence, such as ${servicePhrase.toLowerCase()} information, local details, and visible trust signals. It may be cautious if author, citation, or pricing evidence is thin.`,
+      explanation:
+        "Research-style assistants reward detailed service content, author or team credibility, external citations, and transparent information customers can verify.",
+      reasons: [
+        { label: "FAQ content detected", positive: signals.hasFaqContent },
+        { label: "Strong service pages", positive: signals.hasStrongServicePages },
+        { label: "Weak author authority", positive: !signals.hasWeakAuthorAuthority },
+        { label: "Limited external citations", positive: !signals.hasLimitedExternalCitations },
+      ],
+    },
+  ];
+}
+
+function buildAiAnswerImprovements(signals: AiAnswerSignals) {
+  return signals.improvements.length > 0
+    ? signals.improvements
+    : [
+        "Publish pricing or consultation details",
+        "Earn more trusted citations",
+        "Keep service pages fresh with customer-focused answers",
+      ];
+}
+
+function buildAiAnswerImprovementsFromFlags({
+  hasFaqContent,
+  hasStrongServicePages,
+  hasGoodStructuredData,
+  hasWeakAuthorAuthority,
+  hasLimitedExternalCitations,
+  hasGoogleBusinessComplete,
+}: {
+  hasFaqContent: boolean;
+  hasStrongServicePages: boolean;
+  hasGoodStructuredData: boolean;
+  hasWeakAuthorAuthority: boolean;
+  hasLimitedExternalCitations: boolean;
+  hasGoogleBusinessComplete: boolean;
+}) {
+  const improvements: string[] = [];
+
+  if (!hasFaqContent || !hasGoodStructuredData) {
+    improvements.push("Add FAQ schema");
+  }
+
+  improvements.push("Publish pricing");
+
+  if (hasWeakAuthorAuthority) {
+    improvements.push("Improve About page", "Add doctor biographies");
+  }
+
+  if (!hasStrongServicePages) {
+    improvements.push("Strengthen service pages");
+  }
+
+  if (!hasGoogleBusinessComplete) {
+    improvements.push("Complete Google Business details");
+  }
+
+  if (hasLimitedExternalCitations) {
+    improvements.push("Earn more trusted citations");
+  }
+
+  return [...new Set(improvements)].slice(0, 6);
+}
+
+function aiAnswerConfidence(score: number): AiAnswerConfidence {
+  if (score >= 8) return "Very High";
+  if (score >= 6) return "High";
+  if (score >= 4) return "Medium";
+  return "Low";
+}
+
+function adjustConfidence(
+  confidence: AiAnswerConfidence,
+  adjustment: -1 | 0 | 1,
+): AiAnswerConfidence {
+  const order: AiAnswerConfidence[] = ["Low", "Medium", "High", "Very High"];
+  const currentIndex = order.indexOf(confidence);
+  const nextIndex = Math.min(
+    order.length - 1,
+    Math.max(0, currentIndex + adjustment),
+  );
+
+  return order[nextIndex];
+}
+
+function confidenceClass(confidence: AiAnswerConfidence) {
+  const classes = {
+    "Very High": "bg-emerald-100 text-emerald-800",
+    High: "bg-cyan-100 text-cyan-800",
+    Medium: "bg-amber-100 text-amber-800",
+    Low: "bg-red-100 text-red-800",
+  } satisfies Record<AiAnswerConfidence, string>;
+
+  return classes[confidence];
+}
+
+function visibilityCategoryValue(
+  score: BusinessVisibilityScore | null,
+  categoryKey: string,
+) {
+  const section = score?.breakdown[categoryKey];
+
+  return section ? visibilityCategoryScore(section) : 0;
 }
 
 function taskStatusLabel(status: BusinessTask["status"]) {
@@ -5368,9 +6482,10 @@ function calculateProfileCompleteness(
 function orderedVisibilityBreakdown(score: BusinessVisibilityScore) {
   const order = [
     "websiteFoundation",
-    "localPresence",
-    "socialPresence",
-    "auditHealth",
+    "aiReadiness",
+    "structuredData",
+    "localAuthority",
+    "brandAuthority",
   ];
 
   return order
@@ -5379,6 +6494,14 @@ function orderedVisibilityBreakdown(score: BusinessVisibilityScore) {
       (section): section is VisibilityBreakdownSection =>
         section !== undefined,
     );
+}
+
+function visibilityCategoryScore(section: VisibilityBreakdownSection) {
+  return section.score ?? section.earned;
+}
+
+function visibilityCategoryMaxScore(section: VisibilityBreakdownSection) {
+  return section.maxScore ?? section.possible;
 }
 
 function visibilityRawScore(score: BusinessVisibilityScore) {
@@ -5402,6 +6525,13 @@ function visibilityCappedScore(score: BusinessVisibilityScore) {
   }
 
   return score.score;
+}
+
+function recommendationImprovesCategory(
+  recommendation: BusinessRecommendation,
+) {
+  const category = recommendation.evidence?.improvesCategory;
+  return typeof category === "string" ? category : null;
 }
 
 function severityClass(severity: WebsiteAuditFinding["severity"]) {

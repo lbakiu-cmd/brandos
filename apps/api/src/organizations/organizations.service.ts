@@ -11,6 +11,7 @@ import {
   BusinessTaskPriority,
   BusinessTaskSourceType,
   BusinessTaskStatus,
+  BusinessAlertType,
   GoogleBusinessProfileStatus,
   MembershipRole,
   Prisma,
@@ -19,6 +20,7 @@ import {
   WebsiteAuditFindingCategory,
   WebsiteAuditFindingSeverity,
   WebsiteAuditFindingStatus,
+  WebsiteScanFrequency,
 } from "@brandos/database";
 import { WebsiteCrawlStatus } from "@brandos/database";
 import { PrismaService } from "../database/prisma.service";
@@ -39,10 +41,6 @@ import { UpdateWebsiteAuditFindingDto } from "./dto/update-website-audit-finding
 import { UpdateWebsiteDto } from "./dto/update-website.dto";
 
 const LEGACY_TEMPORARY_USER_ID = "temporary-local-user";
-const MVP_VISIBILITY_SCORE_CAP = 89;
-const ADVANCED_VISIBILITY_CHECKS_AVAILABLE = false;
-const MVP_SCORE_CAP_MESSAGE =
-  "Advanced visibility checks are not available yet, so this MVP score is capped.";
 
 export type OrganizationSummary = {
   id: string;
@@ -85,6 +83,9 @@ export type WebsiteSummary = {
   normalizedUrl: string;
   domain: string;
   isPrimary: boolean;
+  scanFrequency: WebsiteScanFrequency;
+  nextRunAt: Date | null;
+  lastRunAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -191,6 +192,36 @@ export type BusinessTaskSummary = {
   updatedAt: Date;
 };
 
+export type BusinessScanHistorySummary = {
+  id: string;
+  businessId: string;
+  websiteId: string | null;
+  crawlId: string | null;
+  scannedAt: Date;
+  overallScore: number;
+  websiteFoundation: number;
+  aiReadiness: number;
+  structuredData: number;
+  localAuthority: number;
+  brandAuthority: number;
+  recommendationCount: number;
+  changeEvents: Prisma.JsonValue;
+  createdAt: Date;
+};
+
+export type BusinessAlertSummary = {
+  id: string;
+  businessId: string;
+  scanHistoryId: string | null;
+  type: BusinessAlertType;
+  title: string;
+  description: string;
+  eventCode: string;
+  metadata: Prisma.JsonValue | null;
+  readAt: Date | null;
+  createdAt: Date;
+};
+
 type RecommendationCandidate = {
   sourceType: BusinessRecommendationSourceType;
   priority: BusinessRecommendationPriority;
@@ -200,6 +231,28 @@ type RecommendationCandidate = {
   impact?: string;
   actionLabel?: string;
   evidence?: Prisma.InputJsonObject;
+};
+
+type VisibilityWeight = {
+  key: string;
+  label: string;
+  points: number;
+};
+
+type VisibilityCheck = VisibilityWeight & {
+  passed: boolean;
+  explanation: string;
+  recommendation: string;
+};
+
+type VisibilityCategory = {
+  key: string;
+  label: string;
+  score: number;
+  maxScore: 20;
+  explanation: string;
+  recommendations: string[];
+  checks: VisibilityCheck[];
 };
 
 @Injectable()
@@ -466,6 +519,159 @@ export class OrganizationsService {
     });
   }
 
+  async listBusinessScanHistory(
+    organizationId: string,
+    businessId: string,
+  ): Promise<BusinessScanHistorySummary[]> {
+    await this.requireBusiness(organizationId, businessId);
+
+    return this.prisma.businessScanHistory.findMany({
+      where: { businessId },
+      orderBy: { scannedAt: "desc" },
+      take: 50,
+      select: businessScanHistorySummarySelect,
+    });
+  }
+
+  async listBusinessAlerts(
+    organizationId: string,
+    businessId: string,
+  ): Promise<BusinessAlertSummary[]> {
+    await this.requireBusiness(organizationId, businessId);
+
+    return this.prisma.businessAlert.findMany({
+      where: { businessId },
+      orderBy: { createdAt: "desc" },
+      take: 25,
+      select: businessAlertSummarySelect,
+    });
+  }
+
+  async createBusinessMonitoringScan(
+    organizationId: string,
+    businessId: string,
+  ): Promise<BusinessScanHistorySummary> {
+    await this.requireBusiness(organizationId, businessId);
+
+    const primaryWebsite = await this.prisma.website.findFirst({
+      where: { businessId },
+      orderBy: [{ isPrimary: "desc" }, { createdAt: "desc" }],
+      select: {
+        id: true,
+        scanFrequency: true,
+      },
+    });
+    const requestedAt = new Date();
+    const crawl = primaryWebsite
+      ? await this.prisma.websiteCrawl.create({
+          data: {
+            websiteId: primaryWebsite.id,
+            status: WebsiteCrawlStatus.QUEUED,
+            requestedAt,
+          },
+          select: websiteCrawlSummarySelect,
+        })
+      : null;
+
+    if (crawl) {
+      await this.crawlQueue.enqueueWebsiteCrawl({
+        crawlId: crawl.id,
+        websiteId: crawl.websiteId,
+      });
+    }
+
+    const calculation = await this.buildVisibilityScoreCalculation(businessId);
+    const recommendationCount = await this.prisma.businessRecommendation.count({
+      where: {
+        businessId,
+        status: BusinessRecommendationStatus.OPEN,
+      },
+    });
+    const previous = await this.prisma.businessScanHistory.findFirst({
+      where: { businessId },
+      orderBy: { scannedAt: "desc" },
+      select: businessScanHistorySummarySelect,
+    });
+    const snapshot = scanSnapshotFromCalculation(
+      calculation,
+      recommendationCount,
+    );
+    const changeEvents = detectMonitoringEvents(previous, snapshot);
+    const history = await this.prisma.$transaction(async (tx) => {
+      const createdHistory = await tx.businessScanHistory.create({
+        data: {
+          businessId,
+          websiteId: primaryWebsite?.id ?? null,
+          crawlId: crawl?.id ?? null,
+          scannedAt: requestedAt,
+          overallScore: snapshot.overallScore,
+          websiteFoundation: snapshot.websiteFoundation,
+          aiReadiness: snapshot.aiReadiness,
+          structuredData: snapshot.structuredData,
+          localAuthority: snapshot.localAuthority,
+          brandAuthority: snapshot.brandAuthority,
+          recommendationCount,
+          changeEvents: changeEvents as unknown as Prisma.InputJsonArray,
+        },
+        select: businessScanHistorySummarySelect,
+      });
+
+      if (primaryWebsite) {
+        await tx.website.update({
+          where: { id: primaryWebsite.id },
+          data: {
+            lastRunAt: requestedAt,
+            nextRunAt: nextScheduledRunAt(
+              primaryWebsite.scanFrequency,
+              requestedAt,
+            ),
+          },
+        });
+      }
+
+      if (changeEvents.length > 0) {
+        await tx.businessAlert.createMany({
+          data: changeEvents.map((event) => ({
+            businessId,
+            scanHistoryId: createdHistory.id,
+            type: event.alertType,
+            title: event.title,
+            description: event.description,
+            eventCode: event.code,
+            metadata: {
+              value: event.value,
+            } satisfies Prisma.InputJsonObject,
+          })),
+        });
+      }
+
+      return createdHistory;
+    });
+
+    await this.prisma.businessVisibilityScore.upsert({
+      where: { businessId },
+      create: {
+        businessId,
+        score: calculation.score,
+        grade: calculation.grade,
+        summary: calculation.summary,
+        inputs: calculation.inputs,
+        breakdown: calculation.breakdown,
+        calculatedAt: requestedAt,
+      },
+      update: {
+        score: calculation.score,
+        grade: calculation.grade,
+        summary: calculation.summary,
+        inputs: calculation.inputs,
+        breakdown: calculation.breakdown,
+        calculatedAt: requestedAt,
+      },
+    });
+
+    return history;
+  }
+
   async listBusinessRecommendations(
     organizationId: string,
     businessId: string,
@@ -503,6 +709,7 @@ export class OrganizationsService {
       }
 
       for (const candidate of candidates) {
+        const evidence = recommendationEvidenceWithVisibilityCategory(candidate);
         await tx.businessRecommendation.upsert({
           where: {
             businessId_code: {
@@ -519,7 +726,7 @@ export class OrganizationsService {
             description: candidate.description,
             impact: candidate.impact,
             actionLabel: candidate.actionLabel,
-            evidence: candidate.evidence,
+            evidence,
           },
           update: {
             sourceType: candidate.sourceType,
@@ -528,7 +735,7 @@ export class OrganizationsService {
             description: candidate.description,
             impact: candidate.impact,
             actionLabel: candidate.actionLabel,
-            evidence: candidate.evidence,
+            evidence,
           },
         });
       }
@@ -798,7 +1005,11 @@ export class OrganizationsService {
   ): Promise<WebsiteSummary> {
     await this.requireWebsite(organizationId, businessId, websiteId);
 
-    if (input.url === undefined && input.isPrimary === undefined) {
+    if (
+      input.url === undefined &&
+      input.isPrimary === undefined &&
+      input.scanFrequency === undefined
+    ) {
       throw new BadRequestException("At least one website field is required.");
     }
 
@@ -821,6 +1032,12 @@ export class OrganizationsService {
             ...(input.isPrimary === undefined
               ? {}
               : { isPrimary: input.isPrimary }),
+            ...(input.scanFrequency === undefined
+              ? {}
+              : {
+                  scanFrequency: input.scanFrequency,
+                  nextRunAt: nextScheduledRunAt(input.scanFrequency, new Date()),
+                }),
           },
           select: websiteSummarySelect,
         });
@@ -1800,10 +2017,22 @@ export class OrganizationsService {
       where: { id: businessId },
       select: {
         id: true,
+        name: true,
+        category: true,
+        description: true,
+        phone: true,
+        email: true,
+        address: true,
+        postalCode: true,
+        openingHours: true,
+        services: true,
         websites: {
           orderBy: [{ isPrimary: "desc" }, { createdAt: "desc" }],
           select: {
             id: true,
+            url: true,
+            normalizedUrl: true,
+            domain: true,
             isPrimary: true,
             crawls: {
               where: { status: WebsiteCrawlStatus.COMPLETED },
@@ -1813,6 +2042,7 @@ export class OrganizationsService {
                 id: true,
                 status: true,
                 completedAt: true,
+                errorMessage: true,
                 metadata: true,
               },
             },
@@ -1826,6 +2056,8 @@ export class OrganizationsService {
             address: true,
             city: true,
             country: true,
+            phone: true,
+            websiteUrl: true,
           },
         },
         socialProfiles: {
@@ -1879,98 +2111,104 @@ export class OrganizationsService {
         googleProfile.country,
     );
     const socialProfileCount = business.socialProfiles.length;
-    const auditPenalty = openFindings.reduce(
-      (total, finding) => total + auditPenaltyBySeverity(finding.severity),
+    const hasConsistentNap = Boolean(
+      business.phone &&
+        (!googleProfile?.phone || googleProfile.phone === business.phone) &&
+        (!googleProfile?.address ||
+          !business.address ||
+          googleProfile.address === business.address),
+    );
+    const hasStructuredContent = Boolean(
+      metadata.pageTitle && metadata.metaDescription && metadata.h1Count >= 1,
+    );
+    const categoryLabels = {
+      websiteFoundation: "Website Foundation",
+      aiReadiness: "AI Readiness",
+      structuredData: "Structured Data",
+      localAuthority: "Local Authority",
+      brandAuthority: "Brand Authority",
+    } satisfies Record<string, string>;
+    const categories: VisibilityCategory[] = [
+      buildVisibilityCategory({
+        key: "websiteFoundation",
+        label: categoryLabels.websiteFoundation,
+        explanation:
+          "Measures whether the primary website is secure, crawlable, technically readable, and ready for search and AI systems.",
+        checks: [
+          visibilityCheck("https", "HTTPS", 4, Boolean(primaryWebsite?.normalizedUrl.startsWith("https://")), "The primary website uses HTTPS.", "Move the primary website to HTTPS."),
+          visibilityCheck("mobileFriendly", "Mobile friendly", 4, Boolean(latestCrawl), "A completed crawl indicates the homepage is reachable by modern clients.", "Run a crawl and review mobile layout issues."),
+          visibilityCheck("performance", "Performance", 4, Boolean(latestCrawl && metadata.httpStatus >= 200 && metadata.httpStatus < 400), "The latest crawl returned a successful HTTP status.", "Fix homepage response or performance issues."),
+          visibilityCheck("crawlability", "Crawlability", 4, Boolean(latestCrawl && !metadata.robotsMeta?.toLowerCase().includes("noindex")), "The homepage can be crawled and is not marked noindex.", "Remove noindex or crawl blockers from the homepage."),
+          visibilityCheck("canonicalTags", "Canonical tags", 4, Boolean(metadata.canonicalUrl), "A canonical URL was detected on the homepage.", "Add a canonical tag to clarify the preferred homepage URL."),
+        ],
+      }),
+      buildVisibilityCategory({
+        key: "aiReadiness",
+        label: categoryLabels.aiReadiness,
+        explanation:
+          "Measures whether the business provides clear, useful content that AI answer systems can understand and summarize.",
+        checks: [
+          visibilityCheck("faqQuality", "FAQ quality", 4, schemaTypes.includes("faqpage"), "FAQPage schema was detected.", "Add high-quality FAQ content and FAQPage schema."),
+          visibilityCheck("aboutPage", "About page", 4, Boolean(business.description), "The business has a description that can support an About page.", "Add a clear About page entity description."),
+          visibilityCheck("authorInformation", "Author information", 4, Boolean(business.name && business.email), "Business identity and email are present.", "Add visible author or business contact information."),
+          visibilityCheck("contactCompleteness", "Contact completeness", 4, Boolean(business.phone && business.email && business.address), "Phone, email, and address are present.", "Complete phone, email, and address details."),
+          visibilityCheck("structuredContent", "Structured content", 4, hasStructuredContent, "Title, description, and heading signals are present.", "Improve headings, page title, and meta description."),
+        ],
+      }),
+      buildVisibilityCategory({
+        key: "structuredData",
+        label: categoryLabels.structuredData,
+        explanation:
+          "Measures machine-readable schema coverage for business identity, services, navigation, and FAQ answers.",
+        checks: [
+          visibilityCheck("organizationSchema", "Organization schema", 4, schemaTypes.includes("organization"), "Organization schema was detected.", "Add Organization schema."),
+          visibilityCheck("localBusinessSchema", "LocalBusiness schema", 4, schemaTypes.includes("localbusiness"), "LocalBusiness schema was detected.", "Add LocalBusiness schema."),
+          visibilityCheck("faqSchema", "FAQ schema", 4, schemaTypes.includes("faqpage"), "FAQ schema was detected.", "Add FAQPage schema."),
+          visibilityCheck("breadcrumbSchema", "Breadcrumb schema", 4, schemaTypes.includes("breadcrumblist"), "Breadcrumb schema was detected.", "Add BreadcrumbList schema."),
+          visibilityCheck("serviceSchema", "Service schema", 4, schemaTypes.includes("service"), "Service schema was detected.", "Add Service schema for core services."),
+        ],
+      }),
+      buildVisibilityCategory({
+        key: "localAuthority",
+        label: categoryLabels.localAuthority,
+        explanation:
+          "Measures local discovery readiness through Google Business Profile coverage and consistent local business facts.",
+        checks: [
+          visibilityCheck("googleBusinessProfile", "Google Business Profile", 4, googleConnected, "Google Business Profile is connected.", "Connect Google Business Profile details."),
+          visibilityCheck("categories", "Categories", 3, Boolean(business.category), "A business category is present.", "Add a primary business category."),
+          visibilityCheck("openingHours", "Opening hours", 3, Boolean(business.openingHours || googleProfile), "Opening hours are available or can be represented by the local profile.", "Add opening hours."),
+          visibilityCheck("reviews", "Reviews", 3, googleProfile?.status === GoogleBusinessProfileStatus.VERIFIED, "Verified profile status is the current reviews-readiness proxy.", "Prepare for Google profile verification and review tracking."),
+          visibilityCheck("photos", "Photos", 3, googleProfile?.status === GoogleBusinessProfileStatus.VERIFIED, "Verified profile status is the current photos-readiness proxy.", "Prepare Google profile photos for future sync."),
+          visibilityCheck("napConsistency", "NAP consistency", 4, hasConsistentNap, "Name, address, and phone signals are consistent enough for local readiness.", "Keep business name, address, and phone consistent."),
+        ],
+      }),
+      buildVisibilityCategory({
+        key: "brandAuthority",
+        label: categoryLabels.brandAuthority,
+        explanation:
+          "Measures whether BrandOS can recognize a complete and consistent business entity across website, profile, and social signals.",
+        checks: [
+          visibilityCheck("socialProfiles", "Social profiles", 4, socialProfileCount > 0, "At least one social profile is connected.", "Add active social profiles."),
+          visibilityCheck("brandMentions", "Brand mentions", 4, socialProfileCount > 1 || Boolean(googleProfile), "Connected local or social profiles provide brand mention signals.", "Add another trusted brand profile or citation source."),
+          visibilityCheck("consistentBusinessIdentity", "Consistent business identity", 4, Boolean(business.name && business.category && hasConsistentNap), "Business name, category, and contact facts are aligned.", "Review business identity consistency."),
+          visibilityCheck("domainTrust", "Domain trust", 4, Boolean(primaryWebsite && latestCrawl && openFindings.length === 0), "The primary website has a completed crawl and no open audit findings.", "Resolve open website audit findings."),
+          visibilityCheck("entityCompleteness", "Entity completeness", 4, Boolean(business.description && business.services && googleProfile && socialProfileCount > 0), "Business description, services, local profile, and social signals are present.", "Complete the business entity profile."),
+        ],
+      }),
+    ];
+    const rawScore = categories.reduce(
+      (total, category) => total + category.score,
       0,
     );
-
-    const websiteFoundation = {
-      key: "websiteFoundation",
-      label: "Website foundation",
-      earned:
-        (primaryWebsite ? 10 : 0) +
-        (latestCrawl ? 10 : 0) +
-        (metadata.pageTitle ? 4 : 0) +
-        (metadata.metaDescription ? 4 : 0) +
-        (metadata.h1Count === 1 ? 4 : 0) +
-        (metadata.schemaTypes.length > 0 ? 4 : 0) +
-        (schemaTypes.includes("localbusiness") ? 4 : 0),
-      possible: 40,
-      details: {
-        primaryWebsiteExists: Boolean(primaryWebsite),
-        latestCrawlCompleted: Boolean(latestCrawl),
-        titlePresent: Boolean(metadata.pageTitle),
-        metaDescriptionPresent: Boolean(metadata.metaDescription),
-        exactlyOneH1: metadata.h1Count === 1,
-        schemaPresent: metadata.schemaTypes.length > 0,
-        localBusinessSchemaPresent: schemaTypes.includes("localbusiness"),
-      },
-    };
-    const localPresence = {
-      key: "localPresence",
-      label: "Local presence",
-      earned: (googleConnected ? 20 : 0) + (googleComplete ? 5 : 0),
-      possible: 25,
-      details: {
-        googleBusinessProfileConnected: googleConnected,
-        googleBusinessProfileComplete: googleComplete,
-      },
-    };
-    const socialPresence = {
-      key: "socialPresence",
-      label: "Social presence",
-      earned: (socialProfileCount >= 1 ? 10 : 0) + (socialProfileCount >= 2 ? 5 : 0),
-      possible: 15,
-      details: {
-        connectedProfileCount: socialProfileCount,
-        hasOneSocialProfile: socialProfileCount >= 1,
-        hasTwoOrMoreSocialProfiles: socialProfileCount >= 2,
-      },
-    };
-    const auditHealth = {
-      key: "auditHealth",
-      label: "Audit health",
-      earned: Math.max(0, 20 - auditPenalty),
-      possible: 20,
-      details: {
-        openFindingCount: openFindings.length,
-        penalty: auditPenalty,
-        findingsBySeverity: countFindingsBySeverity(openFindings),
-      },
-    };
-    const rawScore = clampScore(
-      websiteFoundation.earned +
-        localPresence.earned +
-        socialPresence.earned +
-        auditHealth.earned,
-    );
-    const isMvpCapped =
-      !ADVANCED_VISIBILITY_CHECKS_AVAILABLE &&
-      rawScore > MVP_VISIBILITY_SCORE_CAP;
-    const score = isMvpCapped ? MVP_VISIBILITY_SCORE_CAP : rawScore;
+    const score = clampScore(rawScore);
     const grade = gradeVisibilityScore(score);
-    const capAdjustment = score - rawScore;
-    const scoreCalibration = {
-      key: "scoreCalibration",
-      label: "MVP confidence cap",
-      earned: capAdjustment,
-      possible: 0,
-      details: {
-        rawScore,
-        cappedScore: score,
-        capAdjustment,
-        isMvpCapped,
-        mvpScoreCap: MVP_VISIBILITY_SCORE_CAP,
-        advancedVisibilityChecksAvailable: ADVANCED_VISIBILITY_CHECKS_AVAILABLE,
-        note: isMvpCapped ? MVP_SCORE_CAP_MESSAGE : null,
-      },
-    };
 
     return {
       score,
       grade,
-      summary: visibilityScoreSummary(rawScore, score, grade, isMvpCapped),
+      summary: visibilityScoreSummary(score, grade),
       inputs: {
+        engineVersion: "v2",
         businessId,
         primaryWebsiteId: primaryWebsite?.id ?? null,
         latestCompletedCrawlId: latestCrawl?.id ?? null,
@@ -1978,19 +2216,16 @@ export class OrganizationsService {
         socialProfileCount,
         openFindingCount: openFindings.length,
         rawScore,
-        cappedScore: score,
-        capAdjustment,
-        isMvpCapped,
-        mvpScoreCap: MVP_VISIBILITY_SCORE_CAP,
-        advancedVisibilityChecksAvailable: ADVANCED_VISIBILITY_CHECKS_AVAILABLE,
+        finalScore: score,
+        categoryMaxScore: 20,
+        categories: categories.map((category) => category.key),
       } satisfies Prisma.InputJsonObject,
-      breakdown: {
-        websiteFoundation,
-        localPresence,
-        socialPresence,
-        auditHealth,
-        scoreCalibration,
-      } satisfies Prisma.InputJsonObject,
+      breakdown: Object.fromEntries(
+        categories.map((category) => [
+          category.key,
+          serializeVisibilityCategory(category),
+        ]),
+      ) as Prisma.InputJsonObject,
     };
   }
 
@@ -2097,6 +2332,9 @@ const websiteSummarySelect = {
   normalizedUrl: true,
   domain: true,
   isPrimary: true,
+  scanFrequency: true,
+  nextRunAt: true,
+  lastRunAt: true,
   createdAt: true,
   updatedAt: true,
 } satisfies Prisma.WebsiteSelect;
@@ -2202,6 +2440,36 @@ const businessTaskSummarySelect = {
   createdAt: true,
   updatedAt: true,
 } satisfies Prisma.BusinessTaskSelect;
+
+const businessScanHistorySummarySelect = {
+  id: true,
+  businessId: true,
+  websiteId: true,
+  crawlId: true,
+  scannedAt: true,
+  overallScore: true,
+  websiteFoundation: true,
+  aiReadiness: true,
+  structuredData: true,
+  localAuthority: true,
+  brandAuthority: true,
+  recommendationCount: true,
+  changeEvents: true,
+  createdAt: true,
+} satisfies Prisma.BusinessScanHistorySelect;
+
+const businessAlertSummarySelect = {
+  id: true,
+  businessId: true,
+  scanHistoryId: true,
+  type: true,
+  title: true,
+  description: true,
+  eventCode: true,
+  metadata: true,
+  readAt: true,
+  createdAt: true,
+} satisfies Prisma.BusinessAlertSelect;
 
 function assertGoogleBusinessProfileUrl(rawUrl: string) {
   if (!isValidGoogleBusinessProfileUrl(rawUrl)) {
@@ -2379,6 +2647,9 @@ function parseHomepageMetadata(
     return {
       pageTitle: null,
       metaDescription: null,
+      canonicalUrl: null,
+      robotsMeta: null,
+      httpStatus: 0,
       h1Count: 0,
       schemaTypes: [] as string[],
     };
@@ -2396,6 +2667,15 @@ function parseHomepageMetadata(
       record.metaDescription.trim()
         ? record.metaDescription
         : null,
+    canonicalUrl:
+      typeof record.canonicalUrl === "string" && record.canonicalUrl.trim()
+        ? record.canonicalUrl
+        : null,
+    robotsMeta:
+      typeof record.robotsMeta === "string" && record.robotsMeta.trim()
+        ? record.robotsMeta
+        : null,
+    httpStatus: typeof record.httpStatus === "number" ? record.httpStatus : 0,
     h1Count: typeof record.h1Count === "number" ? record.h1Count : 0,
     schemaTypes: Array.isArray(record.schemaTypes)
       ? record.schemaTypes.filter(
@@ -2483,6 +2763,57 @@ function sortBusinessRecommendations<
   });
 }
 
+function recommendationEvidenceWithVisibilityCategory(
+  candidate: RecommendationCandidate,
+): Prisma.InputJsonObject {
+  return {
+    ...(candidate.evidence ?? {}),
+    improvesCategory: recommendationVisibilityCategory(candidate),
+  };
+}
+
+function recommendationVisibilityCategory(candidate: RecommendationCandidate) {
+  if (candidate.code.startsWith("website.add_schema")) {
+    return "Structured Data";
+  }
+
+  if (
+    candidate.code.includes("localbusiness_schema") ||
+    candidate.code.includes("faq_schema")
+  ) {
+    return "Structured Data";
+  }
+
+  if (
+    candidate.code.includes("faq") ||
+    candidate.code.includes("about") ||
+    candidate.code.includes("service_content") ||
+    candidate.code.includes("service_pages")
+  ) {
+    return "AI Readiness";
+  }
+
+  if (
+    candidate.sourceType === BusinessRecommendationSourceType.GOOGLE_BUSINESS ||
+    candidate.code.includes("nap_consistency")
+  ) {
+    return "Local Authority";
+  }
+
+  if (candidate.sourceType === BusinessRecommendationSourceType.SOCIAL) {
+    return "Brand Authority";
+  }
+
+  if (
+    candidate.sourceType === BusinessRecommendationSourceType.WEBSITE ||
+    candidate.sourceType === BusinessRecommendationSourceType.AUDIT_FINDING
+  ) {
+    return "Website Foundation";
+  }
+
+  return "Brand Authority";
+}
+
 function sortBusinessTasks<
   TTask extends {
     priority: BusinessTaskPriority;
@@ -2556,6 +2887,259 @@ function clampScore(score: number) {
   return Math.max(0, Math.min(100, Math.round(score)));
 }
 
+function visibilityCheck(
+  key: string,
+  label: string,
+  points: number,
+  passed: boolean,
+  explanation: string,
+  recommendation: string,
+): VisibilityCheck {
+  return {
+    key,
+    label,
+    points,
+    passed,
+    explanation,
+    recommendation,
+  };
+}
+
+function buildVisibilityCategory(input: {
+  key: string;
+  label: string;
+  explanation: string;
+  checks: VisibilityCheck[];
+}): VisibilityCategory {
+  const score = input.checks.reduce(
+    (total, check) => total + (check.passed ? check.points : 0),
+    0,
+  );
+
+  return {
+    key: input.key,
+    label: input.label,
+    score,
+    maxScore: 20,
+    explanation: input.explanation,
+    recommendations: input.checks
+      .filter((check) => !check.passed)
+      .map((check) => check.recommendation),
+    checks: input.checks,
+  };
+}
+
+function serializeVisibilityCategory(
+  category: VisibilityCategory,
+): Prisma.InputJsonObject {
+  return {
+    key: category.key,
+    label: category.label,
+    earned: category.score,
+    possible: category.maxScore,
+    score: category.score,
+    maxScore: category.maxScore,
+    explanation: category.explanation,
+    recommendations: category.recommendations,
+    checks: category.checks.map((check) => ({
+      key: check.key,
+      label: check.label,
+      points: check.points,
+      passed: check.passed,
+      explanation: check.explanation,
+      recommendation: check.recommendation,
+    })),
+    details: {
+      checks: category.checks.map((check) => ({
+        key: check.key,
+        label: check.label,
+        points: check.points,
+        passed: check.passed,
+      })),
+    },
+  };
+}
+
+type ScanSnapshot = {
+  overallScore: number;
+  websiteFoundation: number;
+  aiReadiness: number;
+  structuredData: number;
+  localAuthority: number;
+  brandAuthority: number;
+  recommendationCount: number;
+};
+
+type MonitoringEvent = {
+  code: string;
+  title: string;
+  description: string;
+  value: number | string;
+  alertType: BusinessAlertType;
+};
+
+function scanSnapshotFromCalculation(
+  calculation: {
+    score: number;
+    breakdown: Prisma.InputJsonObject;
+  },
+  recommendationCount: number,
+): ScanSnapshot {
+  return {
+    overallScore: calculation.score,
+    websiteFoundation: categoryScoreFromBreakdown(
+      calculation.breakdown,
+      "websiteFoundation",
+    ),
+    aiReadiness: categoryScoreFromBreakdown(
+      calculation.breakdown,
+      "aiReadiness",
+    ),
+    structuredData: categoryScoreFromBreakdown(
+      calculation.breakdown,
+      "structuredData",
+    ),
+    localAuthority: categoryScoreFromBreakdown(
+      calculation.breakdown,
+      "localAuthority",
+    ),
+    brandAuthority: categoryScoreFromBreakdown(
+      calculation.breakdown,
+      "brandAuthority",
+    ),
+    recommendationCount,
+  };
+}
+
+function categoryScoreFromBreakdown(
+  breakdown: Prisma.InputJsonObject,
+  key: string,
+) {
+  const section = breakdown[key];
+
+  if (
+    section &&
+    typeof section === "object" &&
+    !Array.isArray(section) &&
+    "score" in section &&
+    typeof section.score === "number"
+  ) {
+    return section.score;
+  }
+
+  return 0;
+}
+
+function detectMonitoringEvents(
+  previous: BusinessScanHistorySummary | null,
+  current: ScanSnapshot,
+): MonitoringEvent[] {
+  const events: MonitoringEvent[] = [];
+
+  if (!previous) {
+    events.push({
+      code: "monitoring.started",
+      title: "Monitoring started",
+      description: "BrandOS created the first visibility monitoring snapshot.",
+      value: current.overallScore,
+      alertType: BusinessAlertType.IMPROVEMENT,
+    });
+    return events;
+  }
+
+  const overallChange = current.overallScore - previous.overallScore;
+  if (overallChange >= 3) {
+    events.push({
+      code: "visibility.increased",
+      title: `+${overallChange} AI Visibility`,
+      description: `AI Visibility increased by ${overallChange} points.`,
+      value: overallChange,
+      alertType: BusinessAlertType.IMPROVEMENT,
+    });
+  } else if (overallChange <= -3) {
+    events.push({
+      code: "visibility.decreased",
+      title: `${overallChange} AI Visibility`,
+      description: `AI Visibility decreased by ${Math.abs(overallChange)} points.`,
+      value: overallChange,
+      alertType: BusinessAlertType.WARNING,
+    });
+  }
+
+  if (previous.websiteFoundation >= 8 && current.websiteFoundation === 0) {
+    events.push({
+      code: "website.unavailable",
+      title: "Website unavailable",
+      description: "Website Foundation dropped to zero during the latest scan.",
+      value: current.websiteFoundation,
+      alertType: BusinessAlertType.CRITICAL,
+    });
+  }
+
+  if (previous.structuredData < 12 && current.structuredData >= 12) {
+    events.push({
+      code: "schema.detected",
+      title: "FAQ schema detected",
+      description:
+        "Structured Data improved enough to indicate stronger schema coverage.",
+      value: current.structuredData - previous.structuredData,
+      alertType: BusinessAlertType.IMPROVEMENT,
+    });
+  }
+
+  if (previous.structuredData - current.structuredData >= 4) {
+    events.push({
+      code: "schema.removed",
+      title: "Structured data removed",
+      description: "Structured Data decreased by at least one weighted check.",
+      value: current.structuredData - previous.structuredData,
+      alertType: BusinessAlertType.WARNING,
+    });
+  }
+
+  if (current.localAuthority - previous.localAuthority >= 4) {
+    events.push({
+      code: "local_authority.increased",
+      title: "Local authority increased",
+      description: "Local Authority improved during the latest scan.",
+      value: current.localAuthority - previous.localAuthority,
+      alertType: BusinessAlertType.IMPROVEMENT,
+    });
+  }
+
+  if (previous.localAuthority - current.localAuthority >= 4) {
+    events.push({
+      code: "local_authority.decreased",
+      title: "Local authority decreased",
+      description: "Local Authority dropped during the latest scan.",
+      value: current.localAuthority - previous.localAuthority,
+      alertType: BusinessAlertType.WARNING,
+    });
+  }
+
+  return events;
+}
+
+function nextScheduledRunAt(
+  frequency: WebsiteScanFrequency,
+  from: Date,
+): Date | null {
+  if (frequency === WebsiteScanFrequency.MANUAL_ONLY) {
+    return null;
+  }
+
+  const nextRunAt = new Date(from);
+  if (frequency === WebsiteScanFrequency.DAILY) {
+    nextRunAt.setDate(nextRunAt.getDate() + 1);
+  } else if (frequency === WebsiteScanFrequency.WEEKLY) {
+    nextRunAt.setDate(nextRunAt.getDate() + 7);
+  } else {
+    nextRunAt.setMonth(nextRunAt.getMonth() + 1);
+  }
+
+  return nextRunAt;
+}
+
 function gradeVisibilityScore(score: number) {
   if (score >= 90) {
     return "Excellent";
@@ -2577,24 +3161,19 @@ function gradeVisibilityScore(score: number) {
 }
 
 function visibilityScoreSummary(
-  rawScore: number,
   score: number,
   grade: string,
-  isMvpCapped: boolean,
 ) {
-  const foundationLabel =
-    rawScore === 100
+  const visibilityLabel =
+    score === 100
       ? "perfect"
-      : rawScore >= 75
+      : score >= 75
         ? "strong"
-        : rawScore >= 60
+        : score >= 60
           ? "developing"
           : "early";
-  const summary = `Foundation readiness is ${foundationLabel} at ${rawScore}/100 based on current deterministic website, local, social, and audit health checks. The displayed AI Visibility Score is ${score}/100 ${grade.toLowerCase()}.`;
 
-  return isMvpCapped
-    ? `${summary} Final displayed score is capped until advanced AI answer visibility checks are available.`
-    : summary;
+  return `AI Visibility is ${visibilityLabel} at ${score}/100 ${grade.toLowerCase()}, calculated from five weighted categories: Website Foundation, AI Readiness, Structured Data, Local Authority, and Brand Authority.`;
 }
 
 function normalizeWebsiteUrl(rawUrl: string) {

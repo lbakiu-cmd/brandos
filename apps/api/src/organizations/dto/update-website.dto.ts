@@ -1,4 +1,5 @@
-import { IsBoolean, IsOptional, IsUrl, MaxLength } from "class-validator";
+import { WebsiteScanFrequency } from "@brandos/database";
+import { IsBoolean, IsEnum, IsOptional, IsUrl, MaxLength } from "class-validator";
 
 export class UpdateWebsiteDto {
   @IsOptional()
@@ -9,4 +10,8 @@ export class UpdateWebsiteDto {
   @IsOptional()
   @IsBoolean()
   isPrimary?: boolean;
+
+  @IsOptional()
+  @IsEnum(WebsiteScanFrequency)
+  scanFrequency?: WebsiteScanFrequency;
 }

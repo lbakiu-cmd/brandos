@@ -26,6 +26,8 @@ import { UpdateWebsiteAuditFindingDto } from "./dto/update-website-audit-finding
 import { UpdateWebsiteDto } from "./dto/update-website.dto";
 import {
   type BusinessRecommendationSummary,
+  type BusinessAlertSummary,
+  type BusinessScanHistorySummary,
   type BusinessSummary,
   type BusinessTaskSummary,
   type BusinessVisibilityScoreSummary,
@@ -111,6 +113,39 @@ export class OrganizationsController {
     @Param("businessId") businessId: string,
   ): Promise<BusinessVisibilityScoreSummary> {
     return this.organizationsService.calculateBusinessVisibilityScore(
+      organizationId,
+      businessId,
+    );
+  }
+
+  @Get(":organizationId/businesses/:businessId/scan-history")
+  listBusinessScanHistory(
+    @Param("organizationId") organizationId: string,
+    @Param("businessId") businessId: string,
+  ): Promise<BusinessScanHistorySummary[]> {
+    return this.organizationsService.listBusinessScanHistory(
+      organizationId,
+      businessId,
+    );
+  }
+
+  @Get(":organizationId/businesses/:businessId/alerts")
+  listBusinessAlerts(
+    @Param("organizationId") organizationId: string,
+    @Param("businessId") businessId: string,
+  ): Promise<BusinessAlertSummary[]> {
+    return this.organizationsService.listBusinessAlerts(
+      organizationId,
+      businessId,
+    );
+  }
+
+  @Post(":organizationId/businesses/:businessId/scan")
+  createBusinessMonitoringScan(
+    @Param("organizationId") organizationId: string,
+    @Param("businessId") businessId: string,
+  ): Promise<BusinessScanHistorySummary> {
+    return this.organizationsService.createBusinessMonitoringScan(
       organizationId,
       businessId,
     );

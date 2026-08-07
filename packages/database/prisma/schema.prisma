@@ -163,6 +163,19 @@ enum BusinessTaskSourceType {
   MANUAL
 }
 
+enum WebsiteScanFrequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+  MANUAL_ONLY
+}
+
+enum BusinessAlertType {
+  CRITICAL
+  WARNING
+  IMPROVEMENT
+}
+
 model Organization {
   id          String       @id @default(cuid())
   name        String
@@ -209,6 +222,8 @@ model Business {
   visibilityScore       BusinessVisibilityScore?
   recommendations       BusinessRecommendation[]
   tasks                 BusinessTask[]
+  scanHistory           BusinessScanHistory[]
+  alerts                BusinessAlert[]
   createdAt             DateTime                 @default(now())
   updatedAt             DateTime                 @updatedAt
 
@@ -223,9 +238,13 @@ model Website {
   normalizedUrl String
   domain        String
   isPrimary     Boolean               @default(false)
+  scanFrequency WebsiteScanFrequency  @default(MANUAL_ONLY)
+  nextRunAt     DateTime?
+  lastRunAt     DateTime?
   business      Business              @relation(fields: [businessId], references: [id], onDelete: Cascade)
   crawls        WebsiteCrawl[]
   auditFindings WebsiteAuditFinding[]
+  scanHistory   BusinessScanHistory[]
   createdAt     DateTime              @default(now())
   updatedAt     DateTime              @updatedAt
 
@@ -233,6 +252,8 @@ model Website {
   @@index([businessId])
   @@index([domain])
   @@index([businessId, isPrimary])
+  @@index([scanFrequency])
+  @@index([nextRunAt])
 }
 
 model WebsiteCrawl {
@@ -384,4 +405,49 @@ model BusinessTask {
   @@index([recommendationId])
   @@index([sourceType])
   @@index([dueDate])
+}
+
+model BusinessScanHistory {
+  id                    String   @id @default(cuid())
+  businessId            String
+  websiteId             String?
+  crawlId               String?
+  scannedAt             DateTime @default(now())
+  overallScore          Int
+  websiteFoundation     Int
+  aiReadiness           Int
+  structuredData        Int
+  localAuthority        Int
+  brandAuthority        Int
+  recommendationCount   Int
+  changeEvents          Json
+  business              Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  website               Website? @relation(fields: [websiteId], references: [id], onDelete: SetNull)
+  alerts                BusinessAlert[]
+  createdAt             DateTime @default(now())
+
+  @@index([businessId])
+  @@index([businessId, scannedAt])
+  @@index([websiteId])
+  @@index([crawlId])
+}
+
+model BusinessAlert {
+  id            String            @id @default(cuid())
+  businessId    String
+  scanHistoryId String?
+  type          BusinessAlertType
+  title         String
+  description   String
+  eventCode     String
+  metadata      Json?
+  readAt        DateTime?
+  business      Business          @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  scanHistory   BusinessScanHistory? @relation(fields: [scanHistoryId], references: [id], onDelete: SetNull)
+  createdAt     DateTime          @default(now())
+
+  @@index([businessId])
+  @@index([businessId, createdAt])
+  @@index([type])
+  @@index([readAt])
 }
