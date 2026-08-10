@@ -1,36 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 
-export {
-  BusinessRecommendationPriority,
-  BusinessRecommendationSourceType,
-  BusinessRecommendationStatus,
-  BusinessTaskPriority,
-  BusinessTaskSourceType,
-  BusinessTaskStatus,
-  GoogleBusinessProfileStatus,
-  MembershipRole,
-  Prisma,
-  PrismaClient,
-  SocialProfilePlatform,
-  SocialProfileStatus,
-  WebsiteAuditFindingCategory,
-  WebsiteAuditFindingSeverity,
-  WebsiteAuditFindingStatus,
-  WebsiteCrawlStatus,
-} from "@prisma/client";
-export type {
-  Business,
-  BusinessRecommendation,
-  BusinessTask,
-  BusinessVisibilityScore,
-  GoogleBusinessProfile,
-  Membership,
-  Organization,
-  SocialProfile,
-  WebsiteAuditFinding,
-  Website,
-  WebsiteCrawl,
-} from "@prisma/client";
+// Re-export everything from Prisma Client (all enums, types, and namespaces)
+export * from "@prisma/client";
 
 export function createPrismaClient() {
   return new PrismaClient();
