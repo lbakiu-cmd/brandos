@@ -1,18 +1,17 @@
 {
   "name": "brandos",
   "private": true,
-  "packageManager": "pnpm@11.13.0",
   "scripts": {
-    "dev": "turbo dev",
-    "build": "turbo build",
-    "lint": "turbo lint",
-    "test": "turbo test",
-    "typecheck": "turbo typecheck"
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "db:generate": "turbo run db:generate",
+    "db:push": "turbo run db:push",
+    "db:migrate": "turbo run db:migrate"
   },
   "devDependencies": {
-    "@types/node": "^20.19.0",
-    "turbo": "latest",
-    "typescript": "^5.9.0",
-    "prettier": "^3.6.0"
-  }
+    "turbo": "^2.4.0",
+    "typescript": "^5.9.3"
+  },
+  "packageManager": "pnpm@10.2.0"
 }

@@ -1,44 +1,26 @@
-import { ValidationPipe } from "@nestjs/common";
-import { NestFactory } from "@nestjs/core";
-import {
-  FastifyAdapter,
-  NestFastifyApplication,
-} from "@nestjs/platform-fastify";
-import { AppModule } from "./app.module";
-import { ApiExceptionFilter } from "./common/api-exception.filter";
+﻿import { NestFactory } from '@nestjs/core';
+import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
+import { Module, Controller, Get } from '@nestjs/common';
+
+@Controller()
+class AppController {
+  @Get()
+  getHealth() {
+    return { status: 'ok', service: 'brandos-api' };
+  }
+}
+
+@Module({
+  controllers: [AppController],
+})
+class AppModule {}
 
 async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
     new FastifyAdapter(),
   );
-
-  const allowedOrigins = [
-    process.env.WEB_ORIGIN ?? "http://localhost:3000",
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-  ];
-
-  app.enableCors({
-    origin: allowedOrigins,
-    methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type"],
-    credentials: true,
-  });
-
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      transform: true,
-      forbidNonWhitelisted: true,
-    }),
-  );
-
-  app.useGlobalFilters(new ApiExceptionFilter());
-
-  const port = Number(process.env.PORT ?? 4000);
-
-  await app.listen(port, "0.0.0.0");
+  await app.listen(3001, '0.0.0.0');
+  console.log(`🚀 BrandOS API is running on http://localhost:3001`);
 }
-
-void bootstrap();
+bootstrap();

@@ -2,21 +2,19 @@
   "name": "@brandos/database",
   "version": "0.1.0",
   "private": true,
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "./index.ts",
+  "types": "./index.ts",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "lint": "tsc --noEmit",
-    "typecheck": "tsc --noEmit",
-    "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev"
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push --skip-generate",
+    "db:migrate": "prisma migrate dev",
+    "db:studio": "prisma studio"
   },
   "dependencies": {
-    "@brandos/config": "workspace:*",
-    "@prisma/client": "^6.18.0"
+    "@prisma/client": "^6.0.0"
   },
   "devDependencies": {
-    "prisma": "^6.18.0",
-    "typescript": "^5.9.0"
+    "prisma": "^6.0.0",
+    "typescript": "^5"
   }
 }

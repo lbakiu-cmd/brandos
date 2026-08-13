@@ -1,3 +1,1 @@
-export type AiProvider = "openai";
-
-export const defaultAiProvider: AiProvider = "openai";
+export * from './ai';
