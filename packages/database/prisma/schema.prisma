@@ -7,9 +7,435 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ---------------- Enums ----------------
+
+enum Role {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+enum Platform {
+  INSTAGRAM
+  FACEBOOK
+  MESSENGER
+  WHATSAPP
+  TIKTOK
+  GOOGLE_BUSINESS
+  LINKEDIN
+  X
+  THREADS
+  PINTEREST
+  YOUTUBE
+}
+
+enum AccountStatus {
+  ACTIVE
+  EXPIRED
+  REVOKED
+  ERROR
+}
+
+enum PostStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHING
+  PUBLISHED
+  FAILED
+  CANCELLED
+}
+
+enum PublicationStatus {
+  PENDING
+  PUBLISHING
+  PUBLISHED
+  FAILED
+}
+
+enum ConversationStatus {
+  OPEN
+  PENDING
+  CLOSED
+  SPAM
+}
+
+enum MessageDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum SenderType {
+  CUSTOMER
+  AGENT
+  BOT
+}
+
+enum AuditStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum Severity {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+  INFO
+}
+
+enum Priority {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum RecommendationStatus {
+  OPEN
+  DONE
+  DISMISSED
+}
+
+enum AiEngine {
+  CHATGPT
+  GEMINI
+  CLAUDE
+  PERPLEXITY
+  GOOGLE_AI_OVERVIEW
+  BING_COPILOT
+}
+
+// ---------------- Identity & Tenancy ----------------
+
 model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  name         String?
+  avatarUrl    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  memberships   Membership[]
+  sessions      Session[]
+  posts         Post[]
+  conversations Conversation[]
+  messages      Message[]
+
+  @@map("users")
+}
+
+model Session {
   id        String   @id @default(uuid())
-  email     String   @unique
-  name      String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  ip        String?
+  userAgent String?
+  expiresAt DateTime
   createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model Business {
+  id        String   @id @default(uuid())
+  name      String
+  website   String?
+  phone     String?
+  email     String?
+  timezone  String   @default("Europe/Tirane")
+  industry  String?
+  city      String?
+  country   String?
+  logoUrl   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberships     Membership[]
+  socialAccounts  SocialAccount[]
+  posts           Post[]
+  mediaAssets     MediaAsset[]
+  conversations   Conversation[]
+  websiteAudits   WebsiteAudit[]
+  gbpAudits       GbpAudit[]
+  aiReports       AiVisibilityReport[]
+  recommendations Recommendation[]
+  competitors     Competitor[]
+
+  @@map("businesses")
+}
+
+model Membership {
+  id         String   @id @default(uuid())
+  userId     String
+  businessId String
+  role       Role     @default(MEMBER)
+  createdAt  DateTime @default(now())
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, businessId])
+  @@map("memberships")
+}
+
+// ---------------- Social & Content ----------------
+
+model SocialAccount {
+  id                String        @id @default(uuid())
+  businessId        String
+  business          Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  platform          Platform
+  platformAccountId String?
+  username          String?
+  displayName       String?
+  avatarUrl         String?
+  accessTokenEnc    String?
+  refreshTokenEnc   String?
+  tokenExpiresAt    DateTime?
+  scopes            String?
+  status            AccountStatus @default(ACTIVE)
+  lastSyncedAt      DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  publications  PostPublication[]
+  conversations Conversation[]
+
+  @@unique([businessId, platform, platformAccountId])
+  @@map("social_accounts")
+}
+
+model MediaAsset {
+  id         String   @id @default(uuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  url        String
+  mimeType   String?
+  sizeBytes  Int?
+  width      Int?
+  height     Int?
+  altText    String?
+  createdAt  DateTime @default(now())
+
+  postMedia PostMedia[]
+
+  @@map("media_assets")
+}
+
+model Post {
+  id           String     @id @default(uuid())
+  businessId   String
+  business     Business   @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  authorId     String?
+  author       User?      @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  caption      String?
+  status       PostStatus @default(DRAFT)
+  scheduledFor DateTime?
+  publishedAt  DateTime?
+  timezone     String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  media        PostMedia[]
+  publications PostPublication[]
+
+  @@index([businessId, status])
+  @@index([status, scheduledFor])
+  @@map("posts")
+}
+
+model PostMedia {
+  id           String     @id @default(uuid())
+  postId       String
+  post         Post       @relation(fields: [postId], references: [id], onDelete: Cascade)
+  mediaAssetId String
+  mediaAsset   MediaAsset @relation(fields: [mediaAssetId], references: [id], onDelete: Cascade)
+  position     Int        @default(0)
+
+  @@map("post_media")
+}
+
+model PostPublication {
+  id              String            @id @default(uuid())
+  postId          String
+  post            Post              @relation(fields: [postId], references: [id], onDelete: Cascade)
+  socialAccountId String
+  socialAccount   SocialAccount     @relation(fields: [socialAccountId], references: [id], onDelete: Cascade)
+  platform        Platform
+  status          PublicationStatus @default(PENDING)
+  externalPostId  String?
+  externalUrl     String?
+  error           String?
+  publishedAt     DateTime?
+  attempts        Int               @default(0)
+  idempotencyKey  String            @unique @default(uuid())
+
+  @@index([postId])
+  @@map("post_publications")
+}
+
+// ---------------- Unified Inbox ----------------
+
+model Conversation {
+  id                     String             @id @default(uuid())
+  businessId             String
+  business               Business           @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  socialAccountId        String
+  socialAccount          SocialAccount      @relation(fields: [socialAccountId], references: [id], onDelete: Cascade)
+  externalConversationId String?
+  participantName        String?
+  participantAvatar      String?
+  status                 ConversationStatus @default(OPEN)
+  assigneeId             String?
+  assignee               User?              @relation(fields: [assigneeId], references: [id], onDelete: SetNull)
+  lastMessageAt          DateTime?
+  unreadCount            Int                @default(0)
+  tags                   String?
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+
+  messages Message[]
+
+  @@unique([socialAccountId, externalConversationId])
+  @@index([businessId, status, lastMessageAt])
+  @@map("conversations")
+}
+
+model Message {
+  id                String           @id @default(uuid())
+  conversationId    String
+  conversation      Conversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  businessId        String
+  direction         MessageDirection
+  senderType        SenderType       @default(CUSTOMER)
+  authorId          String?
+  author            User?            @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  externalMessageId String?          @unique
+  body              String?
+  mediaUrl          String?
+  sentAt            DateTime
+  rawPayload        Json?
+  createdAt         DateTime         @default(now())
+
+  @@index([conversationId, sentAt])
+  @@map("messages")
+}
+
+// ---------------- Intelligence & AI Visibility ----------------
+
+model WebsiteAudit {
+  id          String      @id @default(uuid())
+  businessId  String
+  business    Business    @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  url         String
+  score       Int?
+  status      AuditStatus @default(QUEUED)
+  startedAt   DateTime?
+  completedAt DateTime?
+  error       String?
+  createdAt   DateTime    @default(now())
+
+  findings AuditFinding[]
+
+  @@index([businessId, createdAt])
+  @@map("website_audits")
+}
+
+model AuditFinding {
+  id             String         @id @default(uuid())
+  auditId        String
+  audit          WebsiteAudit   @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  category       String
+  severity       Severity       @default(MEDIUM)
+  title          String
+  description    String?
+  recommendation String?
+  impactPoints   Int            @default(0)
+  effortMinutes  Int            @default(0)
+  passed         Boolean        @default(false)
+  metadata       Json?
+
+  @@index([auditId])
+  @@map("audit_findings")
+}
+
+model GbpAudit {
+  id          String      @id @default(uuid())
+  businessId  String
+  business    Business    @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  score       Int?
+  metrics     Json?
+  status      AuditStatus @default(QUEUED)
+  completedAt DateTime?
+  createdAt   DateTime    @default(now())
+
+  @@index([businessId, createdAt])
+  @@map("gbp_audits")
+}
+
+model AiVisibilityReport {
+  id           String   @id @default(uuid())
+  businessId   String
+  business     Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  overallScore Int?
+  engineScores Json?
+  mentions     Json?
+  promptsRun   Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  @@index([businessId, createdAt])
+  @@map("ai_visibility_reports")
+}
+
+model Recommendation {
+  id              String               @id @default(uuid())
+  businessId      String
+  business        Business             @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  sourceType      String?
+  sourceId        String?
+  priority        Priority             @default(MEDIUM)
+  title           String
+  description     String?
+  expectedImpact  Int                  @default(0)
+  estimatedEffort Int                  @default(0)
+  status          RecommendationStatus @default(OPEN)
+  completedAt     DateTime?
+  createdAt       DateTime             @default(now())
+
+  @@index([businessId, status])
+  @@map("recommendations")
+}
+
+model Competitor {
+  id         String   @id @default(uuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  name       String
+  website    String?
+  createdAt  DateTime @default(now())
+
+  mentions CompetitorMention[]
+
+  @@map("competitors")
+}
+
+model CompetitorMention {
+  id           String    @id @default(uuid())
+  competitorId String
+  competitor   Competitor @relation(fields: [competitorId], references: [id], onDelete: Cascade)
+  engine       AiEngine
+  prompt       String
+  mentioned    Boolean   @default(false)
+  rank         Int?
+  sentiment    String?
+  citationUrl  String?
+  capturedAt   DateTime  @default(now())
+
+  @@index([competitorId, capturedAt])
+  @@map("competitor_mentions")
 }

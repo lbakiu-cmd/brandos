@@ -2,9 +2,10 @@
   "name": "@brandos/database",
   "version": "0.1.0",
   "private": true,
-  "main": "./index.ts",
-  "types": "./index.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "scripts": {
+    "build": "tsc",
     "db:generate": "prisma generate",
     "db:push": "prisma db push --skip-generate",
     "db:migrate": "prisma migrate dev",
@@ -14,6 +15,7 @@
     "@prisma/client": "^6.0.0"
   },
   "devDependencies": {
+    "@types/node": "^20",
     "prisma": "^6.0.0",
     "typescript": "^5"
   }

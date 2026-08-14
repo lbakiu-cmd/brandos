@@ -5,17 +5,19 @@
   "scripts": {
     "dev": "nest start --watch",
     "build": "nest build",
-    "start": "node dist/main"
+    "start": "node dist/main.js"
   },
   "dependencies": {
-    "@brandos/ai": "workspace:*",
     "@brandos/database": "workspace:*",
     "@brandos/shared": "workspace:*",
-    "@fastify/static": "^8.0.0",
+    "@fastify/cookie": "^11.0.1",
     "@nestjs/common": "^11.0.0",
     "@nestjs/core": "^11.0.0",
     "@nestjs/platform-fastify": "^11.0.0",
+    "bcryptjs": "^2.4.3",
     "bullmq": "^5.20.0",
+    "dotenv": "^16.4.5",
+    "fastify": "^5.0.0",
     "ioredis": "^5.4.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
@@ -24,8 +26,7 @@
   "devDependencies": {
     "@nestjs/cli": "^11.0.0",
     "@nestjs/schematics": "^11.0.0",
-    "@nestjs/testing": "^11.0.0",
-    "@types/cookie-parser": "^1.4.10",
+    "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20",
     "ts-node": "^10",
     "typescript": "^5"
