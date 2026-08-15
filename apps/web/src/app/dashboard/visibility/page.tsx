@@ -10,6 +10,7 @@ type EngineMention = {
   rank: number | null;
   sentiment: string;
   quote: string;
+  source?: "live" | "mock";
 };
 
 type Report = {
@@ -64,7 +65,7 @@ export default function VisibilityPage() {
 
       <div className="mb-8 rounded-2xl bg-slate-800 p-6">
         <p className="mb-4 text-sm text-slate-300">
-          We ask ChatGPT, Gemini, Claude, Perplexity & co: "Do you know this business?" — and measure how visible your brand is inside AI answers.
+          We ask ChatGPT, Gemini, Claude, Perplexity & co: "Do you know this business?" — and measure how visible your brand is inside AI answers. Engines without an API key configured run in simulation mode.
         </p>
         <button
           onClick={run}
@@ -91,7 +92,12 @@ export default function VisibilityPage() {
             {latest.mentions.map((m) => (
               <div key={m.engine} className="rounded-2xl bg-slate-800 p-5">
                 <div className="mb-2 flex items-center justify-between">
-                  <p className="font-semibold">{m.engine}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="font-semibold">{m.engine}</p>
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${m.source === "live" ? "bg-green-700" : "bg-slate-600"}`}>
+                      {m.source === "live" ? "LIVE" : "SIMULATED"}
+                    </span>
+                  </div>
                   <span className={m.mentioned ? "text-green-400" : "text-red-400"}>
                     {m.mentioned ? "✔ mentioned" : "✖ invisible"}
                   </span>

@@ -1,42 +1,7 @@
 import { prisma } from "@brandos/database";
-
-type EngineResult = {
-  engine: string;
-  mentioned: boolean;
-  rank: number | null;
-  sentiment: string;
-  quote: string;
-};
+import { queryEngine, EngineResult } from "./engines";
 
 const ENGINES = ["CHATGPT", "GEMINI", "CLAUDE", "PERPLEXITY", "GOOGLE_AI_OVERVIEW", "BING_COPILOT"];
-
-// PROVIDER ABSTRACTION:
-// When you have API keys, replace the mock body with real calls:
-//   CHATGPT    -> OPENAI_API_KEY
-//   GEMINI     -> GEMINI_API_KEY
-//   CLAUDE     -> ANTHROPIC_API_KEY
-//   PERPLEXITY -> PERPLEXITY_API_KEY
-async function queryEngine(
-  engine: string,
-  businessName: string,
-  city: string,
-  industry: string,
-): Promise<EngineResult> {
-  await new Promise((r) => setTimeout(r, 400 + Math.random() * 600));
-
-  const seed = (engine + businessName)
-    .split("")
-    .reduce((s, ch) => s + ch.charCodeAt(0), 0);
-
-  const mentioned = seed % 10 < 6;
-  const rank = mentioned ? (seed % 3) + 1 : null;
-  const sentiment = mentioned ? (seed % 5 === 0 ? "NEUTRAL" : "POSITIVE") : "ABSENT";
-  const quote = mentioned
-    ? businessName + " is a well-regarded " + industry + " provider in " + city + ". Customers frequently mention professional service."
-    : "I don't have specific information about " + businessName + " in " + city + ". Consider checking local directories.";
-
-  return { engine, mentioned, rank, sentiment, quote };
-}
 
 export async function runAiVisibilityReport(reportId: string) {
   const report = await prisma.aiVisibilityReport.findUnique({
@@ -46,12 +11,15 @@ export async function runAiVisibilityReport(reportId: string) {
   if (!report) return;
 
   const business = report.business;
-  const city = business.city ?? "your area";
-  const industry = business.industry ?? "local business";
+  const q = {
+    businessName: business.name,
+    city: business.city ?? "your area",
+    industry: business.industry ?? "local business",
+  };
 
   const results: EngineResult[] = [];
   for (const engine of ENGINES) {
-    results.push(await queryEngine(engine, business.name, city, industry));
+    results.push(await queryEngine(engine, q));
   }
 
   const mentionedCount = results.filter((r) => r.mentioned).length;
