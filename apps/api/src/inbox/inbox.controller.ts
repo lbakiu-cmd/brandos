@@ -33,8 +33,8 @@ export class InboxController {
 
   @Get("inbox/:id/messages")
   @UseGuards(AuthGuard)
-  messages(@Param("id") id: string) {
-    return this.inbox.listMessages(id);
+  messages(@Param("id") id: string, @Req() req: any) {
+    return this.inbox.listMessages(id, req.user.id);
   }
 
   @Post("inbox/:id/reply")

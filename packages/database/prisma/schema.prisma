@@ -98,6 +98,13 @@ enum RecommendationStatus {
   DISMISSED
 }
 
+enum SubscriptionTier {
+  FREE
+  STARTER
+  GROWTH
+  AGENCY
+}
+
 enum AiEngine {
   CHATGPT
   GEMINI
@@ -152,6 +159,24 @@ model Business {
   city      String?
   country   String?
   logoUrl   String?
+  
+  // Subscription & Billing
+  subscriptionTier     SubscriptionTier @default(FREE)
+  subscriptionStatus   String?          @default("active")
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
+  currentPeriodEnd     DateTime?
+
+  // WordPress / AIVision SEO Integration
+  wordpressUrl           String?
+  wordpressApiKey        String?
+  wordpressApiSecret     String?
+  wordpressConnectedAt   DateTime?
+  wordpressLastSyncedAt  DateTime?
+  wordpressPluginVersion String?
+  wordpressSiteName      String?
+  wordpressTelemetry     Json?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -162,11 +187,32 @@ model Business {
   conversations   Conversation[]
   websiteAudits   WebsiteAudit[]
   gbpAudits       GbpAudit[]
+  socialAudits    SocialAudit[]
   aiReports       AiVisibilityReport[]
   recommendations Recommendation[]
   competitors     Competitor[]
+  reviews         GoogleReview[]
 
   @@map("businesses")
+}
+
+model GoogleReview {
+  id           String    @id @default(uuid())
+  businessId   String
+  business     Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  authorName   String
+  authorAvatar String?
+  rating       Int       @default(5)
+  comment      String?
+  aiReplyDraft String?
+  replyText    String?
+  repliedAt    DateTime?
+  reviewDate   DateTime  @default(now())
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([businessId, rating])
+  @@map("google_reviews")
 }
 
 model Membership {
@@ -378,6 +424,20 @@ model GbpAudit {
   @@map("gbp_audits")
 }
 
+model SocialAudit {
+  id          String      @id @default(uuid())
+  businessId  String
+  business    Business    @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  score       Int?
+  metrics     Json?
+  status      AuditStatus @default(QUEUED)
+  completedAt DateTime?
+  createdAt   DateTime    @default(now())
+
+  @@index([businessId, createdAt])
+  @@map("social_audits")
+}
+
 model AiVisibilityReport {
   id           String   @id @default(uuid())
   businessId   String
@@ -398,9 +458,12 @@ model Recommendation {
   business        Business             @relation(fields: [businessId], references: [id], onDelete: Cascade)
   sourceType      String?
   sourceId        String?
+  category        String?
   priority        Priority             @default(MEDIUM)
   title           String
   description     String?
+  actionType      String?
+  actionPayload   Json?
   expectedImpact  Int                  @default(0)
   estimatedEffort Int                  @default(0)
   status          RecommendationStatus @default(OPEN)

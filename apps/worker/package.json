@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@brandos/ai": "workspace:*",
+    "@brandos/audit-engine": "workspace:*",
     "@brandos/database": "workspace:*",
     "bullmq": "^5.20.0",
     "dotenv": "^16.4.5",

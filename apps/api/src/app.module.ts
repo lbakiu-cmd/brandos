@@ -6,6 +6,11 @@ import { PostsModule } from "./posts/posts.module";
 import { AuditsModule } from "./audits/audits.module";
 import { VisibilityModule } from "./visibility/visibility.module";
 import { BusinessModule } from "./business/business.module";
+import { CompetitorsModule } from "./competitors/competitors.module";
+import { ReviewsModule } from "./reviews/reviews.module";
+import { BillingModule } from "./billing/billing.module";
+import { CopilotModule } from "./copilot/copilot.module";
+import { WordpressModule } from "./wordpress/wordpress.module";
 
 @Module({
   controllers: [AppController],
@@ -16,6 +21,11 @@ import { BusinessModule } from "./business/business.module";
     AuditsModule,
     VisibilityModule,
     BusinessModule,
+    CompetitorsModule,
+    ReviewsModule,
+    BillingModule,
+    CopilotModule,
+    WordpressModule,
   ],
 })
 export class AppModule {}

@@ -7,7 +7,10 @@
     "lint": "turbo run lint",
     "db:generate": "turbo run db:generate",
     "db:push": "turbo run db:push",
-    "db:migrate": "turbo run db:migrate"
+    "db:migrate": "turbo run db:migrate",
+    "docker:up": "docker compose -f infrastructure/docker/docker-compose.yml up -d",
+    "docker:down": "docker compose -f infrastructure/docker/docker-compose.yml down",
+    "docker:logs": "docker compose -f infrastructure/docker/docker-compose.yml logs -f"
   },
   "devDependencies": {
     "turbo": "^2.4.0",

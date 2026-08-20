@@ -8,6 +8,7 @@
     "start": "node dist/main.js"
   },
   "dependencies": {
+    "@brandos/audit-engine": "workspace:*",
     "@brandos/database": "workspace:*",
     "@brandos/shared": "workspace:*",
     "@fastify/cookie": "^11.0.1",

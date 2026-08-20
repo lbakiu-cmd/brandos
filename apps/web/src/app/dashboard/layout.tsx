@@ -10,6 +10,7 @@ const NAV = [
   { href: "/dashboard/content", label: "Content Studio" },
   { href: "/dashboard/audit", label: "Website Audit" },
   { href: "/dashboard/visibility", label: "AI Visibility" },
+  { href: "/dashboard/integrations", label: "WordPress & Integrations" },
   { href: "/dashboard/settings", label: "Settings" },
 ];
 

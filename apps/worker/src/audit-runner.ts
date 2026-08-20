@@ -1,85 +1,237 @@
 import { prisma } from "@brandos/database";
-
-type Check = {
-  category: string;
-  severity: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "INFO";
-  title: string;
-  description: string;
-  recommendation: string;
-  passed: boolean;
-  impact: number;
-};
-
-const WEIGHTS: Record<Check["severity"], number> = {
-  CRITICAL: 25, HIGH: 15, MEDIUM: 10, LOW: 5, INFO: 2,
-};
-
-async function safeFetch(url: string): Promise<string | null> {
-  try {
-    const res = await fetch(url, { headers: { "User-Agent": "BrandOS-Audit/1.0" }, redirect: "follow" });
-    if (!res.ok) return null;
-    return await res.text();
-  } catch { return null; }
-}
+import {
+  evaluateWebsiteHtml,
+  fetchHtmlSafe,
+  evaluateGoogleBusinessProfile,
+  evaluateSocialPresence,
+  generateJsonLdSchema,
+  generateLlmsTxt,
+  generateRobotsTxtFix,
+  generateReviewReplyTemplate,
+  generateSocialBioSnippet,
+  WebsiteCheck,
+  GbpCheck,
+  SocialCheck,
+} from "@brandos/audit-engine";
 
 export async function runWebsiteAudit(auditId: string) {
-  const audit = await prisma.websiteAudit.findUnique({ where: { id: auditId } });
+  const audit = await prisma.websiteAudit.findUnique({
+    where: { id: auditId },
+    include: { business: true },
+  });
   if (!audit) return;
 
-  await prisma.websiteAudit.update({ where: { id: auditId }, data: { status: "RUNNING", startedAt: new Date() } });
+  await prisma.websiteAudit.update({
+    where: { id: auditId },
+    data: { status: "RUNNING", startedAt: new Date() },
+  });
 
   try {
     const base = audit.url;
-    const html = await safeFetch(base);
-    if (html === null) throw new Error("Could not fetch the website.");
+    const [html, robotsTxt, llmsTxt] = await Promise.all([
+      fetchHtmlSafe(base),
+      fetchHtmlSafe(new URL("/robots.txt", base).toString()),
+      fetchHtmlSafe(new URL("/llms.txt", base).toString()),
+    ]);
 
-    const checks: Check[] = [];
-    const add = (category: string, severity: Check["severity"], title: string, passed: boolean, recommendation: string, description: string) =>
-      checks.push({ category, severity, title, passed, recommendation, description, impact: WEIGHTS[severity] });
+    if (html === null) {
+      throw new Error(`Could not reach ${base}. Check if the URL is accessible.`);
+    }
 
-    add("TECHNICAL", "HIGH", "Descriptive title tag", /<title[^>]*>[^<]{10,}<\/title>/i.test(html), "Write a unique 30-60 character <title>.", "Search engines use the title as the primary page signal.");
-    add("TECHNICAL", "HIGH", "Meta description present", /<meta[^>]+name=["']description["'][^>]+content=["'][^"']{40,}["']/i.test(html), "Add a 140-160 character meta description.", "Used by engines to summarize your page.");
-    add("TECHNICAL", "MEDIUM", "Single H1 heading", /<h1[\s>]/i.test(html), "Use exactly one <h1>.", "Headings define the content hierarchy.");
-    add("TECHNICAL", "MEDIUM", "Canonical URL set", /<link[^>]+rel=["']canonical["']/i.test(html), "Add a <link rel=canonical>.", "Prevents split authority.");
-    add("TECHNICAL", "MEDIUM", "OpenGraph tags present", /property=["']og:title["']/i.test(html), "Add og:title, og:description.", "Controls how your brand appears when shared.");
-    add("TECHNICAL", "HIGH", "HTTPS enabled", base.startsWith("https://"), "Serve the site over HTTPS.", "Non-HTTPS sites are down-ranked.");
-    
-    const imgs = (html.match(/<img[^>]*>/gi) || []).length;
-    const alts = (html.match(/<img[^>]*alt=["'][^"']+["']/gi) || []).length;
-    add("TECHNICAL", "LOW", "Images have alt text", imgs === 0 || alts / imgs >= 0.8, "Add descriptive alt text.", "Alt text is machine-readable context.");
+    const { score, checks } = evaluateWebsiteHtml(
+      base,
+      html,
+      robotsTxt ?? undefined,
+      llmsTxt ?? undefined,
+      audit.business.industry || audit.business.name
+    );
 
-    add("AI_READINESS", "CRITICAL", "Schema.org structured data (JSON-LD)", /<script[^>]+type=["']application\/ld\+json["']/i.test(html), "Add LocalBusiness + FAQPage JSON-LD.", "Structured data is the #1 way AI engines extract facts.");
-
-    const robotsText = (await safeFetch(new URL("/robots.txt", base).toString())) || "";
-    const aiBots = ["GPTBot", "ChatGPT-User", "Google-Extended", "Claude-Web", "PerplexityBot", "ClaudeBot"];
-    const blockedBots = aiBots.filter((b) => new RegExp("user-agent:\\s*" + b + "[\\s\\S]{0,300}?disallow:\\s*/", "i").test(robotsText));
-    add("AI_READINESS", "HIGH", "AI crawlers allowed in robots.txt", blockedBots.length === 0, "Remove Disallow rules for: " + (blockedBots.join(", ") || "AI bots"), "If blocked, ChatGPT/Perplexity cannot read your site.");
-
-    add("AI_READINESS", "MEDIUM", "llms.txt present", (await safeFetch(new URL("/llms.txt", base).toString())) !== null, "Publish an llms.txt.", "Emerging standard for LLMs.");
-    add("AI_READINESS", "HIGH", "FAQ content detected", /faqpage/i.test(html) || /\bfaq\b/i.test(html) || /<details[\s>]/i.test(html), "Add a real FAQ section.", "Q&A format is how AI engines extract answers.");
-    add("AI_READINESS", "HIGH", "Contact info (NAP) detectable", /href=["']tel:/i.test(html) || /tel[:]/i.test(html), "Publish phone + address.", "NAP consistency drives local recommendations.");
-
-    const textOnly = html.replace(/<script[\s\S]*?<\/script>/gi, " ").replace(/<style[\s\S]*?<\/style>/gi, " ").replace(/<[^>]+>/g, " ");
-    const words = textOnly.split(/\s+/).filter(Boolean).length;
-    add("CONTENT", "MEDIUM", "Substantial content (500+ words)", words >= 500, "Expand core pages to 500+ words.", "Thin pages give AI engines nothing to cite.");
-
-    const totalWeight = checks.reduce((s, c) => s + c.impact, 0);
-    const passedWeight = checks.reduce((s, c) => s + (c.passed ? c.impact : 0), 0);
-    const score = Math.round((passedWeight / totalWeight) * 100);
-
+    // Save individual findings
     await prisma.auditFinding.createMany({
-      data: checks.map((c) => ({ auditId, category: c.category, severity: c.severity, title: c.title, description: c.description, recommendation: c.recommendation, passed: c.passed, impactPoints: c.impact })),
+      data: checks.map((c: WebsiteCheck) => ({
+        auditId,
+        category: c.category,
+        severity: c.severity,
+        title: c.title,
+        description: c.description,
+        recommendation: c.recommendation,
+        passed: c.passed,
+        impactPoints: c.impact,
+      })),
     });
 
-    const failed = checks.filter((c) => !c.passed && ["CRITICAL", "HIGH", "MEDIUM"].includes(c.severity));
-    if (failed.length > 0) {
-      await prisma.recommendation.createMany({
-        data: failed.map((f) => ({ businessId: audit.businessId, sourceType: "WEBSITE_AUDIT", sourceId: auditId, priority: f.severity === "MEDIUM" ? "MEDIUM" : "HIGH", title: f.title, description: f.recommendation, expectedImpact: f.impact, estimatedEffort: 30 })),
+    // Create actionable recommendations with code/template fixes
+    const failedChecks = checks.filter((c: WebsiteCheck) => !c.passed && ["CRITICAL", "HIGH", "MEDIUM"].includes(c.severity));
+
+    for (const f of failedChecks) {
+      let actionType: string | null = null;
+      let actionPayload: any = null;
+
+      if (f.fixType === "CODE_SNIPPET" && f.title.includes("Schema.org")) {
+        const fix = generateJsonLdSchema(audit.business);
+        actionType = fix.actionType;
+        actionPayload = fix;
+      } else if (f.fixType === "LLMS_TXT" || f.title.includes("llms.txt")) {
+        const fix = generateLlmsTxt(audit.business);
+        actionType = fix.actionType;
+        actionPayload = fix;
+      } else if (f.fixType === "ROBOTS_TXT" || f.title.includes("robots.txt")) {
+        const fix = generateRobotsTxtFix();
+        actionType = fix.actionType;
+        actionPayload = fix;
+      }
+
+      await prisma.recommendation.create({
+        data: {
+          businessId: audit.businessId,
+          sourceType: "WEBSITE_AUDIT",
+          sourceId: auditId,
+          category: f.category,
+          priority: f.severity === "CRITICAL" || f.severity === "HIGH" ? "HIGH" : "MEDIUM",
+          title: f.title,
+          description: f.recommendation,
+          actionType: actionType ?? undefined,
+          actionPayload: actionPayload ?? undefined,
+          expectedImpact: f.impact,
+          estimatedEffort: f.severity === "CRITICAL" ? 15 : 30,
+        },
       });
     }
 
-    await prisma.websiteAudit.update({ where: { id: auditId }, data: { status: "COMPLETED", completedAt: new Date(), score } });
+    await prisma.websiteAudit.update({
+      where: { id: auditId },
+      data: { status: "COMPLETED", completedAt: new Date(), score },
+    });
   } catch (e: any) {
-    await prisma.websiteAudit.update({ where: { id: auditId }, data: { status: "FAILED", error: String(e?.message || e), completedAt: new Date() } });
+    await prisma.websiteAudit.update({
+      where: { id: auditId },
+      data: { status: "FAILED", error: String(e?.message || e), completedAt: new Date() },
+    });
+  }
+}
+
+export async function runGbpAudit(gbpAuditId: string) {
+  const audit = await prisma.gbpAudit.findUnique({
+    where: { id: gbpAuditId },
+    include: { business: true },
+  });
+  if (!audit) return;
+
+  await prisma.gbpAudit.update({
+    where: { id: gbpAuditId },
+    data: { status: "RUNNING" },
+  });
+
+  try {
+    const biz = audit.business;
+    const { score, metrics, checks } = evaluateGoogleBusinessProfile({
+      businessName: biz.name,
+      category: biz.industry,
+      city: biz.city,
+      phone: biz.phone,
+      website: biz.website,
+    });
+
+    const failed = checks.filter((c: GbpCheck) => !c.passed);
+    for (const f of failed) {
+      let actionType: string | null = null;
+      let actionPayload: any = null;
+
+      if (f.fixType === "GBP_REVIEWS") {
+        const fix = generateReviewReplyTemplate(biz.name);
+        actionType = fix.actionType;
+        actionPayload = fix;
+      }
+
+      await prisma.recommendation.create({
+        data: {
+          businessId: audit.businessId,
+          sourceType: "GBP_AUDIT",
+          sourceId: gbpAuditId,
+          category: "LOCAL_SEO",
+          priority: f.severity === "CRITICAL" || f.severity === "HIGH" ? "HIGH" : "MEDIUM",
+          title: f.title,
+          description: f.recommendation,
+          actionType: actionType ?? undefined,
+          actionPayload: actionPayload ?? undefined,
+          expectedImpact: f.maxScore,
+          estimatedEffort: 20,
+        },
+      });
+    }
+
+    await prisma.gbpAudit.update({
+      where: { id: gbpAuditId },
+      data: { status: "COMPLETED", completedAt: new Date(), score, metrics },
+    });
+  } catch {
+    await prisma.gbpAudit.update({
+      where: { id: gbpAuditId },
+      data: { status: "FAILED", completedAt: new Date() },
+    });
+  }
+}
+
+export async function runSocialAudit(socialAuditId: string) {
+  const audit = await prisma.socialAudit.findUnique({
+    where: { id: socialAuditId },
+    include: { business: { include: { socialAccounts: true, posts: true } } },
+  });
+  if (!audit) return;
+
+  await prisma.socialAudit.update({
+    where: { id: socialAuditId },
+    data: { status: "RUNNING" },
+  });
+
+  try {
+    const biz = audit.business;
+    const platforms = biz.socialAccounts.map((a) => a.platform);
+    const scheduled = biz.posts.filter((p) => p.status === "SCHEDULED").length;
+    const published = biz.posts.filter((p) => p.status === "PUBLISHED").length;
+
+    const { score, metrics, checks } = evaluateSocialPresence({
+      connectedPlatforms: platforms,
+      scheduledPostCount: scheduled,
+      recentPostCount: published,
+    });
+
+    const failed = checks.filter((c: SocialCheck) => !c.passed);
+    for (const f of failed) {
+      let actionType: string | null = null;
+      let actionPayload: any = null;
+
+      if (f.fixType === "SOCIAL_BIO") {
+        const fix = generateSocialBioSnippet(biz);
+        actionType = fix.actionType;
+        actionPayload = fix;
+      }
+
+      await prisma.recommendation.create({
+        data: {
+          businessId: audit.businessId,
+          sourceType: "SOCIAL_AUDIT",
+          sourceId: socialAuditId,
+          category: "SOCIAL_PRESENCE",
+          priority: f.severity === "HIGH" ? "HIGH" : "MEDIUM",
+          title: f.title,
+          description: f.recommendation,
+          actionType: actionType ?? undefined,
+          actionPayload: actionPayload ?? undefined,
+          expectedImpact: f.maxScore,
+          estimatedEffort: 15,
+        },
+      });
+    }
+
+    await prisma.socialAudit.update({
+      where: { id: socialAuditId },
+      data: { status: "COMPLETED", completedAt: new Date(), score, metrics },
+    });
+  } catch {
+    await prisma.socialAudit.update({
+      where: { id: socialAuditId },
+      data: { status: "FAILED", completedAt: new Date() },
+    });
   }
 }

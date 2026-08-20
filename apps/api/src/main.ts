@@ -2,7 +2,7 @@ import "dotenv/config";
 import "reflect-metadata";
 import { NestFactory } from "@nestjs/core";
 import { FastifyAdapter, NestFastifyApplication } from "@nestjs/platform-fastify";
-import { ExceptionFilter, Catch, ArgumentsHost } from "@nestjs/common";
+import { ExceptionFilter, Catch, ArgumentsHost, HttpException, HttpStatus } from "@nestjs/common";
 import type { FastifyReply } from "fastify";
 import { AppModule } from "./app.module";
 
@@ -13,17 +13,34 @@ const fastifyCookie = require("@fastify/cookie");
 @Catch()
 class AllExceptionsFilter implements ExceptionFilter {
   catch(exception: unknown, host: ArgumentsHost) {
-    console.error("\n🔥 UNHANDLED API ERROR:");
-    console.error(exception);
-    
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<FastifyReply>();
-    
-    // Send the FULL STACK TRACE to the HTTP response!
-    response.status(500).send({
-      statusCode: 500,
-      message: exception instanceof Error ? exception.message : "Internal server error",
-      stack: exception instanceof Error ? exception.stack : "No stack trace available",
+
+    const isHttp = exception instanceof HttpException;
+    const status = isHttp
+      ? exception.getStatus()
+      : HttpStatus.INTERNAL_SERVER_ERROR;
+
+    const isDev = process.env.NODE_ENV !== "production";
+
+    if (!isHttp) {
+      console.error("\n🔥 UNHANDLED API ERROR:", exception);
+    }
+
+    const resBody = isHttp ? exception.getResponse() : null;
+    const message =
+      typeof resBody === "object" && resBody !== null && "message" in resBody
+        ? (resBody as any).message
+        : exception instanceof Error
+          ? exception.message
+          : "Internal server error";
+
+    response.status(status).send({
+      statusCode: status,
+      message,
+      ...(isDev && !isHttp && exception instanceof Error
+        ? { stack: exception.stack }
+        : {}),
     });
   }
 }

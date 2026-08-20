@@ -116,7 +116,15 @@ export class InboxService {
     });
   }
 
-  async listMessages(conversationId: string) {
+  async listMessages(conversationId: string, userId: string) {
+    const memberships = await prisma.membership.findMany({ where: { userId } });
+    const businessIds = memberships.map((m) => m.businessId);
+
+    const conversation = await prisma.conversation.findFirst({
+      where: { id: conversationId, businessId: { in: businessIds } },
+    });
+    if (!conversation) throw new NotFoundException("Conversation not found.");
+
     return prisma.message.findMany({
       where: { conversationId },
       orderBy: { sentAt: "asc" },
@@ -124,8 +132,11 @@ export class InboxService {
   }
 
   async reply(conversationId: string, text: string, userId: string) {
-    const conversation = await prisma.conversation.findUnique({
-      where: { id: conversationId },
+    const memberships = await prisma.membership.findMany({ where: { userId } });
+    const businessIds = memberships.map((m) => m.businessId);
+
+    const conversation = await prisma.conversation.findFirst({
+      where: { id: conversationId, businessId: { in: businessIds } },
     });
     if (!conversation) throw new NotFoundException("Conversation not found.");
 

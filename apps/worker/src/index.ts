@@ -1,7 +1,7 @@
 import "dotenv/config";
 import { Worker } from "bullmq";
 import { prisma } from "@brandos/database";
-import { runWebsiteAudit } from "./audit-runner";
+import { runWebsiteAudit, runGbpAudit, runSocialAudit } from "./audit-runner";
 import { runAiVisibilityReport } from "./ai-visibility-runner";
 
 function redisConnection() {
@@ -50,26 +50,42 @@ async function publishPublication(publicationId: string) {
 const publishWorker = new Worker("publish", async (job) => {
   console.log("⚙️ publish job:", job.id);
   await publishPublication(String(job.data.publicationId));
-}, { connection: redisConnection(), attempts: 3, backoff: { type: "exponential", delay: 3000 } });
+}, { connection: redisConnection() });
 
 const auditWorker = new Worker("audit", async (job) => {
-  console.log("🔍 audit job:", job.id);
+  console.log("🔍 website audit job:", job.id);
   await runWebsiteAudit(String(job.data.auditId));
-}, { connection: redisConnection(), attempts: 1 });
+}, { connection: redisConnection() });
+
+const gbpWorker = new Worker("gbp-audit", async (job) => {
+  console.log("📍 gbp audit job:", job.id);
+  await runGbpAudit(String(job.data.gbpAuditId));
+}, { connection: redisConnection() });
+
+const socialWorker = new Worker("social-audit", async (job) => {
+  console.log("📱 social audit job:", job.id);
+  await runSocialAudit(String(job.data.socialAuditId));
+}, { connection: redisConnection() });
 
 const aiWorker = new Worker("ai-visibility", async (job) => {
   console.log("🔮 ai-visibility job:", job.id);
   await runAiVisibilityReport(String(job.data.reportId));
-}, { connection: redisConnection(), attempts: 1 });
+}, { connection: redisConnection() });
 
 publishWorker.on("failed", async (job, err) => {
   console.error("❌ publish failed:", job?.id, err.message);
 });
 auditWorker.on("failed", (job, err) => {
-  console.error("❌ audit failed:", job?.id, err.message);
+  console.error("❌ website audit failed:", job?.id, err.message);
+});
+gbpWorker.on("failed", (job, err) => {
+  console.error("❌ gbp audit failed:", job?.id, err.message);
+});
+socialWorker.on("failed", (job, err) => {
+  console.error("❌ social audit failed:", job?.id, err.message);
 });
 aiWorker.on("failed", (job, err) => {
   console.error("❌ ai-visibility failed:", job?.id, err.message);
 });
 
-console.log("⚙️ BrandOS Worker listening on queues: publish, audit, ai-visibility");
+console.log("⚙️ BrandOS Worker listening on: publish, audit, gbp-audit, social-audit, ai-visibility");
