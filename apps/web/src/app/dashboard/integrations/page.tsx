@@ -129,8 +129,17 @@ export default function IntegrationsPage() {
     }
   }, [fetchStatus]);
 
-  const handleOAuthConnect = (provider: "google" | "meta") => {
-    window.location.href = `/api/oauth/${provider}/authorize`;
+  const handleOAuthConnect = async (provider: "google" | "meta") => {
+    try {
+      const res = await apiFetch<{ url: string }>(`/oauth/${provider}/url`);
+      if (res?.url) {
+        window.location.assign(res.url);
+      } else {
+        window.location.assign(`/api/oauth/${provider}/authorize`);
+      }
+    } catch {
+      window.location.assign(`/api/oauth/${provider}/authorize`);
+    }
   };
 
   const handleSimulatedConnect = async (provider: string) => {

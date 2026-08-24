@@ -72,7 +72,18 @@ export class OAuthController {
   }
 
   /**
-   * 1. Google OAuth: Initiate Consent Flow
+   * 1. Google OAuth: Get URL (JSON endpoint for SPA)
+   */
+  @Get("google/url")
+  @UseGuards(AuthGuard)
+  async getGoogleAuthUrl(@Req() req: any, @Query("returnUrl") returnUrl?: string) {
+    const biz = await this.business.get(req.user.id);
+    const authUrl = this.googleOAuth.generateAuthUrl(biz.id, returnUrl);
+    return { url: authUrl };
+  }
+
+  /**
+   * 1b. Google OAuth: Initiate Consent Flow (Direct 302 Redirect)
    */
   @Get("google/authorize")
   @UseGuards(AuthGuard)
@@ -83,7 +94,22 @@ export class OAuthController {
   ) {
     const biz = await this.business.get(req.user.id);
     const authUrl = this.googleOAuth.generateAuthUrl(biz.id, returnUrl);
-    return res.redirect(authUrl);
+    
+    // Explicit 302 redirect for Fastify + HTML fallback
+    res.status(302);
+    res.header("Location", authUrl);
+    return res.send(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta http-equiv="refresh" content="0;url=${authUrl}">
+          <script>window.location.href = "${authUrl}";</script>
+        </head>
+        <body>
+          <p>Redirecting to Google Sign-In... <a href="${authUrl}">Click here if not redirected automatically</a>.</p>
+        </body>
+      </html>
+    `);
   }
 
   /**
@@ -100,7 +126,9 @@ export class OAuthController {
 
     if (error || !code) {
       this.logger.warn(`Google OAuth error or cancellation: ${error}`);
-      return res.redirect(`${frontendBase}/dashboard/integrations?error=google_cancelled`);
+      res.status(302);
+      res.header("Location", `${frontendBase}/dashboard/integrations?error=google_cancelled`);
+      return res.send();
     }
 
     try {
@@ -160,17 +188,30 @@ export class OAuthController {
       ]);
 
       this.logger.log(`Google OAuth completed successfully for business: ${businessId}`);
-      return res.redirect(`${frontendBase}${returnPath}?success=google_connected`);
+      res.status(302);
+      res.header("Location", `${frontendBase}${returnPath}?success=google_connected`);
+      return res.send();
     } catch (err: any) {
       this.logger.error(`Google OAuth Callback Error: ${err.message}`, err.stack);
-      return res.redirect(
-        `${frontendBase}/dashboard/integrations?error=${encodeURIComponent(err.message)}`
-      );
+      res.status(302);
+      res.header("Location", `${frontendBase}/dashboard/integrations?error=${encodeURIComponent(err.message)}`);
+      return res.send();
     }
   }
 
   /**
-   * 3. Meta OAuth: Initiate Consent Flow
+   * 3. Meta OAuth: Get URL (JSON endpoint for SPA)
+   */
+  @Get("meta/url")
+  @UseGuards(AuthGuard)
+  async getMetaAuthUrl(@Req() req: any, @Query("returnUrl") returnUrl?: string) {
+    const biz = await this.business.get(req.user.id);
+    const authUrl = this.metaOAuth.generateAuthUrl(biz.id, returnUrl);
+    return { url: authUrl };
+  }
+
+  /**
+   * 3b. Meta OAuth: Initiate Consent Flow (Direct 302 Redirect)
    */
   @Get("meta/authorize")
   @UseGuards(AuthGuard)
@@ -181,7 +222,20 @@ export class OAuthController {
   ) {
     const biz = await this.business.get(req.user.id);
     const authUrl = this.metaOAuth.generateAuthUrl(biz.id, returnUrl);
-    return res.redirect(authUrl);
+    res.status(302);
+    res.header("Location", authUrl);
+    return res.send(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta http-equiv="refresh" content="0;url=${authUrl}">
+          <script>window.location.href = "${authUrl}";</script>
+        </head>
+        <body>
+          <p>Redirecting to Meta Sign-In... <a href="${authUrl}">Click here if not redirected automatically</a>.</p>
+        </body>
+      </html>
+    `);
   }
 
   /**
@@ -198,7 +252,9 @@ export class OAuthController {
 
     if (error || !code) {
       this.logger.warn(`Meta OAuth error or cancellation: ${error}`);
-      return res.redirect(`${frontendBase}/dashboard/integrations?error=meta_cancelled`);
+      res.status(302);
+      res.header("Location", `${frontendBase}/dashboard/integrations?error=meta_cancelled`);
+      return res.send();
     }
 
     try {
@@ -253,12 +309,14 @@ export class OAuthController {
       ]);
 
       this.logger.log(`Meta OAuth completed successfully for business: ${businessId}`);
-      return res.redirect(`${frontendBase}${returnPath}?success=meta_connected`);
+      res.status(302);
+      res.header("Location", `${frontendBase}${returnPath}?success=meta_connected`);
+      return res.send();
     } catch (err: any) {
       this.logger.error(`Meta OAuth Callback Error: ${err.message}`, err.stack);
-      return res.redirect(
-        `${frontendBase}/dashboard/integrations?error=${encodeURIComponent(err.message)}`
-      );
+      res.status(302);
+      res.header("Location", `${frontendBase}/dashboard/integrations?error=${encodeURIComponent(err.message)}`);
+      return res.send();
     }
   }
 
