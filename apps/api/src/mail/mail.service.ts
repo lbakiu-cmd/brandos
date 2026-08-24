@@ -8,18 +8,33 @@ export interface SendMailOptions {
   text?: string;
 }
 
+export interface MailerLiteSubscriber {
+  email: string;
+  fields?: {
+    name?: string;
+    last_name?: string;
+    company?: string;
+    city?: string;
+    phone?: string;
+  };
+  groups?: string[];
+  status?: "active" | "unsubscribed" | "unconfirmed" | "bounced" | "junk";
+}
+
 @Injectable()
 export class MailService {
   private readonly logger = new Logger(MailService.name);
   private transporter: nodemailer.Transporter | null = null;
+  private mailerLiteApiKey: string = "";
 
   constructor() {
     this.initTransporter();
+    this.initMailerLite();
   }
 
   private initTransporter() {
-    const host = process.env.SMTP_HOST || "smtp.zoho.com";
-    const port = parseInt(process.env.SMTP_PORT || "465", 10);
+    const host = process.env.SMTP_HOST || "smtp.mailersend.net";
+    const port = parseInt(process.env.SMTP_PORT || "587", 10);
     const secure = process.env.SMTP_SECURE === "true" || port === 465;
     const user = process.env.SMTP_USER;
     const pass = process.env.SMTP_PASS || process.env.SMTP_PASSWORD;
@@ -33,7 +48,54 @@ export class MailService {
       });
       this.logger.log(`SMTP Mail Transporter initialized for ${user} via ${host}:${port}`);
     } else {
-      this.logger.warn("SMTP credentials not provided in environment. Emails will be logged to console in simulated mode.");
+      this.logger.warn("SMTP credentials not provided in environment. Direct SMTP will be logged to console in simulated mode.");
+    }
+  }
+
+  private initMailerLite() {
+    this.mailerLiteApiKey = process.env.MAILERLITE_API_KEY || "";
+    if (this.mailerLiteApiKey) {
+      this.logger.log("MailerLite REST API integration initialized.");
+    }
+  }
+
+  /**
+   * Sync or add user to MailerLite subscriber list
+   */
+  async syncSubscriberToMailerLite(sub: MailerLiteSubscriber): Promise<boolean> {
+    const apiKey = this.mailerLiteApiKey || process.env.MAILERLITE_API_KEY;
+    if (!apiKey) {
+      this.logger.log(`[SIMULATED MAILERLITE SYNC] ${sub.email}`);
+      return true;
+    }
+
+    try {
+      const res = await fetch("https://connect.mailerlite.com/api/subscribers", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          email: sub.email,
+          fields: sub.fields || {},
+          groups: sub.groups || [],
+          status: sub.status || "active",
+        }),
+      });
+
+      if (res.ok) {
+        this.logger.log(`Synced subscriber ${sub.email} to MailerLite.`);
+        return true;
+      } else {
+        const err = await res.text();
+        this.logger.warn(`MailerLite sync response (${res.status}): ${err}`);
+        return false;
+      }
+    } catch (err: any) {
+      this.logger.error(`Failed to sync subscriber to MailerLite: ${err.message}`);
+      return false;
     }
   }
 
@@ -65,9 +127,16 @@ export class MailService {
   }
 
   /**
-   * 1. Welcome Email
+   * 1. Welcome Email (also auto-syncs contact to MailerLite)
    */
   async sendWelcomeEmail(to: string, name: string, businessName: string) {
+    // Sync contact to MailerLite
+    await this.syncSubscriberToMailerLite({
+      email: to,
+      fields: { name, company: businessName },
+      status: "active",
+    });
+
     const subject = `Welcome to BrandOS Eye, ${name}! 🚀`;
     const html = `
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #020617; color: #f8fafc; border-radius: 16px; overflow: hidden; border: 1px solid #1e293b;">
@@ -83,7 +152,7 @@ export class MailService {
           <div style="margin: 28px 0; padding: 20px; background-color: #0f172a; border-radius: 12px; border: 1px solid #334155;">
             <h3 style="margin: 0 0 12px 0; font-size: 14px; color: #38bdf8;">Your Next Quick Steps:</h3>
             <ul style="margin: 0; padding-left: 20px; color: #cbd5e1; font-size: 13px; line-height: 1.8;">
-              <li>Complete your Business NAP & Opening Hours</li>
+              <li>Complete your Business Profile & Opening Hours</li>
               <li>Connect your Google Search Console & Google Maps</li>
               <li>Install the 1-Click WordPress AIVision SEO Plugin</li>
             </ul>
