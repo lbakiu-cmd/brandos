@@ -152,7 +152,14 @@ export default function Page() {
 
       {/* Footer */}
       <footer className="border-t border-slate-800/80 px-6 py-8 text-center text-xs text-slate-500">
-        <p>© 2026 BrandOS · AI Visibility Operating System for Small Business. All rights reserved.</p>
+        <div className="flex justify-center gap-6 mb-3">
+          <Link href="/" className="hover:text-slate-300">Home</Link>
+          <Link href="/scan" className="hover:text-slate-300">Free Audit Scanner</Link>
+          <Link href="/pricing" className="hover:text-slate-300">Pricing</Link>
+          <Link href="/privacy" className="text-slate-400 hover:text-white transition">Privacy Policy</Link>
+          <Link href="/terms" className="text-slate-400 hover:text-white transition">Terms of Service</Link>
+        </div>
+        <p>© 2026 BrandOS Eye · AI Visibility Operating System for Small Business. All rights reserved.</p>
       </footer>
     </div>
   );

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { authApi } from "@/lib/api";
 
@@ -102,6 +103,12 @@ export default function LoginPage() {
             {isLogin ? "Register" : "Log In"}
           </button>
         </p>
+
+        <div className="mt-6 flex justify-center gap-4 text-xs text-slate-500 border-t border-slate-700/60 pt-4">
+          <Link href="/privacy" className="hover:text-slate-300">Privacy Policy</Link>
+          <span>·</span>
+          <Link href="/terms" className="hover:text-slate-300">Terms of Service</Link>
+        </div>
       </div>
     </main>
   );
