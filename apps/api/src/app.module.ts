@@ -12,11 +12,13 @@ import { BillingModule } from "./billing/billing.module";
 import { CopilotModule } from "./copilot/copilot.module";
 import { WordpressModule } from "./wordpress/wordpress.module";
 import { OAuthModule } from "./oauth/oauth.module";
+import { MailModule } from "./mail/mail.module";
 
 @Module({
   controllers: [AppController],
   imports: [
     AuthModule,
+    MailModule,
     IntegrationsModule,
     OAuthModule,
     WidgetsModule,
