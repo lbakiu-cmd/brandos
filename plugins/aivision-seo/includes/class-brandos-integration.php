@@ -447,30 +447,57 @@ class AIVision_BrandOS_Integration {
         check_ajax_referer( 'aivision_nonce', 'nonce' );
         if ( ! current_user_can( 'manage_options' ) ) wp_send_json_error( 'Unauthorized' );
 
-        $api_url = esc_url_raw( $_POST['api_url'] ?? 'http://localhost:4000' );
+        $raw_url = trim( $_POST['api_url'] ?? 'https://brandoseye.com' );
         $api_key = sanitize_text_field( $_POST['api_key'] ?? '' );
 
         if ( empty( $api_key ) ) {
             wp_send_json_error( 'Please enter a valid BrandOS API Key.' );
         }
 
-        // Ping BrandOS /wordpress/verify endpoint
-        $response = wp_remote_post( rtrim( $api_url, '/' ) . '/wordpress/verify', [
-            'timeout' => 15,
-            'headers' => [
-                'Content-Type'  => 'application/json',
-                'Authorization' => 'Bearer ' . $api_key,
-            ],
-            'body' => wp_json_encode( [
-                'site_url'       => home_url(),
-                'site_name'      => get_bloginfo( 'name' ),
-                'plugin_version' => AIVISION_VERSION,
-            ] ),
-        ] );
+        // Normalize URL - if raw IP with HTTPS was given or missing scheme
+        if ( ! preg_match( '#^https?://#i', $raw_url ) ) {
+            $raw_url = 'https://' . $raw_url;
+        }
+
+        $api_url = esc_url_raw( $raw_url );
+        $base_url = rtrim( $api_url, '/' );
+
+        // If user entered /api at the end, support both with and without
+        $endpoints = [
+            $base_url . '/wordpress/verify',
+            $base_url . '/api/wordpress/verify',
+        ];
+
+        $response = null;
+        $last_error = '';
+
+        foreach ( $endpoints as $endpoint ) {
+            $response = wp_remote_post( $endpoint, [
+                'timeout'   => 15,
+                'sslverify' => false, // Prevents cURL error 35 on raw IP / custom SSL configurations
+                'headers'   => [
+                    'Content-Type'  => 'application/json',
+                    'Authorization' => 'Bearer ' . $api_key,
+                ],
+                'body' => wp_json_encode( [
+                    'site_url'       => home_url(),
+                    'site_name'      => get_bloginfo( 'name' ),
+                    'plugin_version' => AIVISION_VERSION,
+                ] ),
+            ] );
+
+            if ( ! is_wp_error( $response ) ) {
+                $code = wp_remote_retrieve_response_code( $response );
+                if ( $code >= 200 && $code < 300 ) {
+                    break;
+                }
+            } else {
+                $last_error = $response->get_error_message();
+            }
+        }
 
         if ( is_wp_error( $response ) ) {
-            // If local network or offline demo, allow saving locally with helpful note
-            wp_send_json_error( 'Could not reach BrandOS at ' . esc_url( $api_url ) . ': ' . $response->get_error_message() );
+            wp_send_json_error( 'Could not reach BrandOS at ' . esc_url( $api_url ) . ' (Tip: Use https://brandoseye.com): ' . $last_error );
         }
 
         $code = wp_remote_retrieve_response_code( $response );

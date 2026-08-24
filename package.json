@@ -10,9 +10,13 @@
     "db:migrate": "turbo run db:migrate",
     "docker:up": "docker compose -f infrastructure/docker/docker-compose.yml up -d",
     "docker:down": "docker compose -f infrastructure/docker/docker-compose.yml down",
-    "docker:logs": "docker compose -f infrastructure/docker/docker-compose.yml logs -f"
+    "docker:logs": "docker compose -f infrastructure/docker/docker-compose.yml logs -f",
+    "build:plugin": "node plugins/build-zip.js",
+    "deploy:vps": "node infrastructure/deploy-to-vps.js"
   },
   "devDependencies": {
+    "@types/ssh2": "^1.15.5",
+    "ssh2": "^1.17.0",
     "turbo": "^2.4.0",
     "typescript": "^5.9.3"
   },

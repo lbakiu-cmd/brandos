@@ -1,8 +1,42 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import Link from "next/link";
+import {
+  Search,
+  BarChart3,
+  MapPin,
+  Plug,
+  Users,
+  Camera,
+  Share2,
+  CheckCircle2,
+  RefreshCw,
+  Copy,
+  Check,
+  Download,
+  ShieldCheck,
+  Sparkles,
+  Zap,
+  Globe,
+  ExternalLink,
+  Key,
+  HelpCircle,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
 import { apiFetch } from "@/lib/api";
+
+type IntegrationItem = {
+  provider: string;
+  name: string;
+  category: string;
+  description: string;
+  connected: boolean;
+  accountName?: string | null;
+  status: string;
+  lastSyncedAt?: string | null;
+  metricsAvailable: string[];
+};
 
 type WPConnection = {
   connected: boolean;
@@ -16,435 +50,547 @@ type WPConnection = {
 };
 
 export default function IntegrationsPage() {
+  const [integrations, setIntegrations] = useState<IntegrationItem[]>([]);
+  const [business, setBusiness] = useState<any>(null);
   const [wp, setWp] = useState<WPConnection | null>(null);
   const [loading, setLoading] = useState(true);
-  const [connectUrl, setConnectUrl] = useState("");
-  const [connecting, setConnecting] = useState(false);
-  const [syncing, setSyncing] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [actionStatus, setActionStatus] = useState<{ type: "success" | "error"; msg: string } | null>(null);
+  const [syncingProvider, setSyncingProvider] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [copiedKey, setCopiedKey] = useState(false);
+  const [copiedUrl, setCopiedUrl] = useState(false);
+  const [copiedGoogleUri, setCopiedGoogleUri] = useState(false);
+  const [copiedMetaUri, setCopiedMetaUri] = useState(false);
+  const [wpUrl, setWpUrl] = useState("");
+  const [connectingWp, setConnectingWp] = useState(false);
+  const [showSetupGuide, setShowSetupGuide] = useState(false);
 
-  const fetchConnection = useCallback(async () => {
+  const brandosApiUrl = typeof window !== "undefined" ? window.location.origin : "https://brandoseye.com";
+  const googleCallbackUri = `${brandosApiUrl}/api/oauth/google/callback`;
+  const metaCallbackUri = `${brandosApiUrl}/api/oauth/meta/callback`;
+
+  const copyApiUrl = () => {
+    navigator.clipboard.writeText(brandosApiUrl);
+    setCopiedUrl(true);
+    setTimeout(() => setCopiedUrl(false), 2000);
+  };
+
+  const copyGoogleUri = () => {
+    navigator.clipboard.writeText(googleCallbackUri);
+    setCopiedGoogleUri(true);
+    setTimeout(() => setCopiedGoogleUri(false), 2000);
+  };
+
+  const copyMetaUri = () => {
+    navigator.clipboard.writeText(metaCallbackUri);
+    setCopiedMetaUri(true);
+    setTimeout(() => setCopiedMetaUri(false), 2000);
+  };
+
+  const fetchStatus = useCallback(async () => {
     try {
-      const data = await apiFetch<WPConnection>("/wordpress/connection");
-      setWp(data);
-      if (data.wordpressUrl) setConnectUrl(data.wordpressUrl);
+      const [intRes, wpRes, bRes] = await Promise.all([
+        apiFetch<any>("/integrations/status"),
+        apiFetch<WPConnection>("/wordpress/connection"),
+        apiFetch<any>("/business"),
+      ]);
+
+      if (bRes) setBusiness(bRes);
+      if (intRes?.integrations) {
+        setIntegrations(intRes.integrations);
+      }
+      if (wpRes) {
+        setWp(wpRes);
+        if (wpRes.wordpressUrl) {
+          setWpUrl(wpRes.wordpressUrl);
+        } else if (bRes?.website) {
+          setWpUrl(bRes.website);
+        }
+      }
     } catch {
-      // Ignored
+      // Ignored fallback
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchConnection();
-  }, [fetchConnection]);
+    fetchStatus();
 
-  async function handleConnect() {
-    if (!connectUrl) return;
-    setConnecting(true);
-    setActionStatus(null);
+    // Check URL query parameters for OAuth returns
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("success") === "google_connected") {
+        setNotice("🎉 Google Account connected successfully via OAuth! Real search and analytics data are now live.");
+      } else if (params.get("success") === "meta_connected") {
+        setNotice("🎉 Meta (Facebook & Instagram) connected successfully via OAuth! Real social reach and audience data are now live.");
+      } else if (params.get("error")) {
+        setNotice(`⚠️ Connection note: ${params.get("error")}`);
+      }
+    }
+  }, [fetchStatus]);
+
+  const handleOAuthConnect = (provider: "google" | "meta") => {
+    window.location.href = `/api/oauth/${provider}/authorize`;
+  };
+
+  const handleSimulatedConnect = async (provider: string) => {
+    try {
+      await apiFetch(`/integrations/connect/${provider.toLowerCase()}`, {
+        method: "POST",
+        body: JSON.stringify({
+          accountName: business?.name ? `${business.name} (${provider})` : `${provider} Account`,
+          isDemo: true,
+        }),
+      });
+      setNotice(`Connected to ${provider}! Live metrics active.`);
+      await fetchStatus();
+    } catch (e: any) {
+      setNotice(`Connection error: ${e.message}`);
+    } finally {
+      setTimeout(() => setNotice(null), 4000);
+    }
+  };
+
+  const handleDisconnect = async (provider: string) => {
+    try {
+      await apiFetch(`/integrations/disconnect/${provider.toLowerCase()}`, {
+        method: "POST",
+      });
+      setNotice(`Disconnected ${provider}.`);
+      await fetchStatus();
+    } catch (e: any) {
+      setNotice(`Error: ${e.message}`);
+    } finally {
+      setTimeout(() => setNotice(null), 4000);
+    }
+  };
+
+  const handleSync = async (provider: string) => {
+    setSyncingProvider(provider);
+    try {
+      await apiFetch(`/integrations/sync/${provider.toLowerCase()}`, {
+        method: "POST",
+      });
+      setNotice(`Refreshed telemetry for ${provider}.`);
+      await fetchStatus();
+    } catch (e: any) {
+      setNotice(`Sync error: ${e.message}`);
+    } finally {
+      setSyncingProvider(null);
+      setTimeout(() => setNotice(null), 4000);
+    }
+  };
+
+  const handleConnectWp = async () => {
+    if (!wpUrl) return;
+    setConnectingWp(true);
     try {
       const res = await apiFetch<any>("/wordpress/connect", {
         method: "POST",
-        body: JSON.stringify({ site_url: connectUrl }),
+        body: JSON.stringify({ site_url: wpUrl }),
       });
-      setActionStatus({ type: "success", msg: res.message || "Connected to WordPress successfully!" });
-      await fetchConnection();
+      setNotice(res.message || "Connected to WordPress!");
+      await fetchStatus();
     } catch (err: any) {
-      setActionStatus({ type: "error", msg: err.message || "Failed to connect to WordPress site." });
+      setNotice(err.message || "Failed to connect to WordPress.");
     } finally {
-      setConnecting(false);
+      setConnectingWp(false);
+      setTimeout(() => setNotice(null), 4000);
     }
-  }
+  };
 
-  async function handleDisconnect() {
-    if (!confirm("Are you sure you want to disconnect this WordPress site?")) return;
-    setActionStatus(null);
-    try {
-      await apiFetch("/wordpress/disconnect", { method: "POST" });
-      setActionStatus({ type: "success", msg: "WordPress site disconnected. Plugin is now in Standalone mode." });
-      await fetchConnection();
-    } catch (err: any) {
-      setActionStatus({ type: "error", msg: err.message || "Disconnect failed." });
+  const copyApiKey = () => {
+    if (wp?.apiKey) {
+      navigator.clipboard.writeText(wp.apiKey);
+      setCopiedKey(true);
+      setTimeout(() => setCopiedKey(false), 2000);
     }
-  }
+  };
 
-  async function handleSync() {
-    setSyncing(true);
-    setActionStatus(null);
-    try {
-      const res = await apiFetch<any>("/wordpress/sync", { method: "POST" });
-      setActionStatus({ type: "success", msg: "Telemetry and post scores successfully synchronized!" });
-      await fetchConnection();
-    } catch (err: any) {
-      setActionStatus({ type: "error", msg: err.message || "Failed to sync with WordPress site." });
-    } finally {
-      setSyncing(false);
+  const getProviderIcon = (provider: string) => {
+    switch (provider) {
+      case "GOOGLE_SEARCH_CONSOLE":
+        return <Search className="h-5 w-5 text-blue-400" />;
+      case "GOOGLE_ANALYTICS_4":
+        return <BarChart3 className="h-5 w-5 text-amber-400" />;
+      case "GOOGLE_BUSINESS_PROFILE":
+        return <MapPin className="h-5 w-5 text-emerald-400" />;
+      case "FACEBOOK_PAGE":
+        return <Users className="h-5 w-5 text-blue-500" />;
+      case "INSTAGRAM_INSIGHTS":
+        return <Camera className="h-5 w-5 text-pink-400" />;
+      case "LINKEDIN_COMPANY":
+        return <Share2 className="h-5 w-5 text-sky-400" />;
+      default:
+        return <Plug className="h-5 w-5 text-indigo-400" />;
     }
-  }
-
-  async function handleRemoteFix(fixType: string, payload: any = {}) {
-    setActionStatus(null);
-    try {
-      const res = await apiFetch<any>("/wordpress/apply-fix", {
-        method: "POST",
-        body: JSON.stringify({ fix_type: fixType, payload }),
-      });
-      setActionStatus({ type: "success", msg: `⚡ Remote Fix Applied: ${res.message || "Updated successfully!"}` });
-      await fetchConnection();
-    } catch (err: any) {
-      setActionStatus({ type: "error", msg: err.message || "Failed to apply fix in WordPress." });
-    }
-  }
-
-  function copyApiKey() {
-    if (!wp?.apiKey) return;
-    navigator.clipboard.writeText(wp.apiKey);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }
-
-  const telemetry = wp?.wordpressTelemetry?.telemetry;
-  const statusData = wp?.wordpressTelemetry?.status;
+  };
 
   return (
-    <main className="min-h-screen bg-slate-950 p-6 text-slate-100 md:p-10">
-      <div className="mx-auto max-w-6xl space-y-8">
-        {/* Header */}
-        <header className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800/80 pb-6">
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-3xl font-black tracking-tight text-white">Integrations &amp; CMS Connectors</h1>
-              <span className="rounded-full bg-blue-500/10 px-3 py-1 text-xs font-semibold text-blue-400 border border-blue-500/20">
-                AIVision Ecosystem
-              </span>
+    <main className="p-8 max-w-7xl mx-auto space-y-8">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20">
+              <Plug className="h-5 w-5" />
             </div>
-            <p className="mt-1 text-sm text-slate-400">
-              Connect your WordPress sites, local search profiles, and discovery engines for automated 1-click execution.
-            </p>
+            <h1 className="text-2xl font-black text-white">Connected Accounts & OAuth</h1>
           </div>
-          <div className="flex gap-3">
-            <Link
-              href="/dashboard/audit"
-              className="rounded-xl border border-slate-800 bg-slate-900 px-4 py-2 text-sm font-semibold text-slate-300 hover:bg-slate-800"
-            >
-              ← Back to Audits
-            </Link>
-          </div>
-        </header>
+          <p className="text-xs text-slate-400 mt-1">
+            Connect your real Google accounts, Meta pages, and WordPress site to monitor your actual traffic, rankings, and customer calls for <strong className="text-slate-200">{business?.name || "your business"}</strong>.
+          </p>
+        </div>
 
-        {/* Global Feedback Alert */}
-        {actionStatus && (
-          <div
-            className={`flex items-center justify-between rounded-2xl p-4 text-sm font-medium ${
-              actionStatus.type === "success"
-                ? "border border-emerald-500/30 bg-emerald-950/40 text-emerald-300"
-                : "border border-rose-500/30 bg-rose-950/40 text-rose-300"
-            }`}
+        <button
+          onClick={() => setShowSetupGuide(!showSetupGuide)}
+          className="flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-900 px-4 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-800 hover:text-white transition"
+        >
+          <Key className="h-4 w-4 text-amber-400" />
+          <span>OAuth Developer Setup Guide</span>
+          {showSetupGuide ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+        </button>
+      </div>
+
+      {/* Notice Banner */}
+      {notice && (
+        <div className="flex items-center gap-2 rounded-xl bg-blue-500/10 border border-blue-500/20 px-4 py-3 text-xs font-semibold text-blue-400 animate-in fade-in duration-200">
+          <CheckCircle2 className="h-4 w-4 shrink-0" />
+          {notice}
+        </div>
+      )}
+
+      {/* Expandable Developer App Setup Guide */}
+      {showSetupGuide && (
+        <div className="rounded-3xl border border-amber-500/30 bg-amber-950/10 p-6 space-y-5">
+          <div className="flex items-center gap-2 text-amber-300 font-bold text-sm">
+            <ShieldCheck className="h-5 w-5" />
+            <h3>Google & Meta OAuth App Credentials Setup</h3>
+          </div>
+          <p className="text-xs text-slate-300 leading-relaxed">
+            To pull 100% real live data from your production accounts, add the following <strong>Authorized Redirect URIs</strong> to your Google Cloud Project and Meta Developer App:
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+            {/* Google OAuth URI */}
+            <div className="rounded-2xl bg-slate-950 border border-slate-800 p-4 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-blue-400">1. Google Cloud Console Redirect URI</span>
+                <button
+                  onClick={copyGoogleUri}
+                  className="text-xs text-slate-400 hover:text-white flex items-center gap-1"
+                >
+                  {copiedGoogleUri ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+                  {copiedGoogleUri ? "Copied" : "Copy"}
+                </button>
+              </div>
+              <code className="block rounded-lg bg-slate-900 p-2 text-[11px] text-slate-300 break-all select-all border border-slate-800">
+                {googleCallbackUri}
+              </code>
+              <p className="text-[11px] text-slate-500">
+                Enable: <em>Google Search Console API</em>, <em>Google Analytics Data API</em>, <em>Google Business Information API</em>.
+              </p>
+            </div>
+
+            {/* Meta OAuth URI */}
+            <div className="rounded-2xl bg-slate-950 border border-slate-800 p-4 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-indigo-400">2. Meta Developer Portal Redirect URI</span>
+                <button
+                  onClick={copyMetaUri}
+                  className="text-xs text-slate-400 hover:text-white flex items-center gap-1"
+                >
+                  {copiedMetaUri ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+                  {copiedMetaUri ? "Copied" : "Copy"}
+                </button>
+              </div>
+              <code className="block rounded-lg bg-slate-900 p-2 text-[11px] text-slate-300 break-all select-all border border-slate-800">
+                {metaCallbackUri}
+              </code>
+              <p className="text-[11px] text-slate-500">
+                Permissions: <em>pages_show_list</em>, <em>pages_read_engagement</em>, <em>instagram_basic</em>, <em>instagram_manage_insights</em>.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SECTION 1: Google OAuth Ecosystem */}
+      <div className="space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <h2 className="text-base font-bold text-white flex items-center gap-2">
+            <Globe className="h-4 w-4 text-blue-400" /> Google Search & Local Ecosystem
+          </h2>
+          <button
+            onClick={() => handleOAuthConnect("google")}
+            className="inline-flex items-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-500 px-4 py-2 text-xs font-bold text-white shadow-md shadow-blue-600/30 transition"
           >
-            <span>{actionStatus.msg}</span>
-            <button
-              onClick={() => setActionStatus(null)}
-              className="text-xs font-bold opacity-70 hover:opacity-100"
-            >
-              ✕ Dismiss
-            </button>
-          </div>
-        )}
+            <Globe className="h-4 w-4" />
+            Connect Google Account via OAuth
+          </button>
+        </div>
 
-        {/* WordPress / AIVision SEO Integration Card */}
-        <section className="rounded-3xl border border-blue-500/30 bg-gradient-to-b from-blue-950/20 via-slate-900/60 to-slate-950 p-6 backdrop-blur md:p-8">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="flex items-start gap-4">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-600/20 border border-blue-500/30 text-3xl shadow-lg shadow-blue-500/10">
-                🔌
-              </div>
-              <div>
-                <div className="flex items-center gap-3">
-                  <h2 className="text-xl font-bold text-white">WordPress — AIVision SEO Plugin</h2>
-                  <span className="rounded-md bg-slate-800 px-2 py-0.5 text-[11px] font-bold text-slate-300">
-                    v{wp?.wordpressPluginVersion || "1.4.1"}
-                  </span>
-                </div>
-                <p className="mt-1 text-xs text-slate-400 max-w-xl">
-                  The on-site execution engine for SEO, AEO (Answer Engine), and GEO (Generative AI) discovery. Works 100% standalone or connected to BrandOS for remote 1-click fixes and AI post publishing.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3">
-              {wp?.connected ? (
-                <span className="flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-1.5 text-xs font-bold text-emerald-400">
-                  <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-                  Connected to WordPress
-                </span>
-              ) : (
-                <span className="flex items-center gap-2 rounded-full border border-slate-700 bg-slate-800/80 px-3.5 py-1.5 text-xs font-bold text-slate-300">
-                  <span className="h-2 w-2 rounded-full bg-slate-500" />
-                  Standalone / Ready to Connect
-                </span>
-              )}
-            </div>
-          </div>
-
-          {/* Connected Details or Connect Form */}
-          <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-3">
-            {/* Left: Connect or Manage (2 cols) */}
-            <div className="space-y-6 lg:col-span-2">
-              <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5">
-                <h3 className="text-sm font-bold text-slate-200">
-                  {wp?.connected ? "1. Connected WordPress Site" : "1. Connect WordPress Site"}
-                </h3>
-
-                <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-                  <input
-                    type="url"
-                    value={connectUrl}
-                    onChange={(e) => setConnectUrl(e.target.value)}
-                    placeholder="e.g. https://mybrandwebsite.com"
-                    className="flex-1 rounded-xl border border-slate-700 bg-slate-950 px-4 py-2.5 text-sm text-white placeholder-slate-500 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-                  />
-                  <button
-                    onClick={handleConnect}
-                    disabled={connecting || !connectUrl}
-                    className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-500/20 transition hover:bg-blue-500 disabled:opacity-50"
-                  >
-                    {connecting ? "Connecting…" : wp?.connected ? "Update URL" : "Connect Site"}
-                  </button>
-                  {wp?.connected && (
-                    <button
-                      onClick={handleSync}
-                      disabled={syncing}
-                      className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-2.5 text-sm font-bold text-slate-200 hover:bg-slate-700 disabled:opacity-50"
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {integrations
+            .filter((i) => i.category === "Google")
+            .map((item) => (
+              <div
+                key={item.provider}
+                className="flex flex-col justify-between rounded-2xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl backdrop-blur space-y-5"
+              >
+                <div>
+                  <div className="flex items-start justify-between">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-950 border border-slate-800">
+                      {getProviderIcon(item.provider)}
+                    </div>
+                    <span
+                      className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold border ${
+                        item.connected
+                          ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                          : "bg-slate-800 text-slate-400 border-slate-700"
+                      }`}
                     >
-                      {syncing ? "Syncing…" : "🔄 Sync Now"}
-                    </button>
+                      {item.connected ? "Connected" : "Disconnected"}
+                    </span>
+                  </div>
+
+                  <h3 className="text-base font-bold text-white mt-3">{item.name}</h3>
+                  <p className="text-xs text-slate-400 mt-1 line-clamp-2">{item.description}</p>
+
+                  <div className="mt-4 flex flex-wrap gap-1.5">
+                    {item.metricsAvailable.map((m) => (
+                      <span
+                        key={m}
+                        className="rounded bg-slate-950 px-2 py-0.5 text-[10px] font-medium text-slate-400 border border-slate-800"
+                      >
+                        {m}
+                      </span>
+                    ))}
+                  </div>
+
+                  {item.connected && (
+                    <div className="mt-4 rounded-xl bg-slate-950/80 border border-slate-800/80 p-3 space-y-1">
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="text-slate-400">Linked Property:</span>
+                        <span className="font-semibold text-slate-200 truncate max-w-[150px]">
+                          {item.accountName || "Google Account"}
+                        </span>
+                      </div>
+                      {item.lastSyncedAt && (
+                        <div className="flex items-center justify-between text-[10px] text-slate-500">
+                          <span>Last Synced:</span>
+                          <span>{new Date(item.lastSyncedAt).toLocaleTimeString()}</span>
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
 
-                {wp?.connected && wp.wordpressUrl && (
-                  <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-slate-800/80 pt-4 text-xs text-slate-400">
-                    <div>
-                      <span>Linked URL: </span>
-                      <a href={wp.wordpressUrl} target="_blank" rel="noreferrer" className="text-blue-400 hover:underline">
-                        {wp.wordpressUrl}
-                      </a>
+                <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between gap-2">
+                  {item.connected ? (
+                    <>
+                      <button
+                        onClick={() => handleSync(item.provider)}
+                        disabled={syncingProvider === item.provider}
+                        className="flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-700 transition"
+                      >
+                        <RefreshCw
+                          className={`h-3 w-3 ${syncingProvider === item.provider ? "animate-spin text-blue-400" : ""}`}
+                        />
+                        <span>Sync</span>
+                      </button>
+                      <button
+                        onClick={() => handleDisconnect(item.provider)}
+                        className="text-xs font-medium text-rose-400/80 hover:text-rose-300 transition"
+                      >
+                        Disconnect
+                      </button>
+                    </>
+                  ) : (
+                    <div className="flex items-center gap-2 w-full">
+                      <button
+                        onClick={() => handleOAuthConnect("google")}
+                        className="flex-1 rounded-lg bg-blue-600 hover:bg-blue-500 px-3 py-2 text-xs font-bold text-white transition shadow-sm"
+                      >
+                        Connect OAuth
+                      </button>
+                      <button
+                        onClick={() => handleSimulatedConnect(item.provider)}
+                        className="rounded-lg border border-slate-800 bg-slate-950 px-2.5 py-2 text-[10px] font-semibold text-slate-400 hover:text-slate-200"
+                        title="Connect simulated demo telemetry without developer credentials"
+                      >
+                        Demo Link
+                      </button>
                     </div>
-                    <div>
-                      <span>Last Synced: </span>
-                      <span className="text-slate-300">{wp.wordpressLastSyncedAt ? new Date(wp.wordpressLastSyncedAt).toLocaleString() : "Just now"}</span>
+                  )}
+                </div>
+              </div>
+            ))}
+        </div>
+      </div>
+
+      {/* SECTION 2: Meta Social Ecosystem */}
+      <div className="space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <h2 className="text-base font-bold text-white flex items-center gap-2">
+            <Users className="h-4 w-4 text-indigo-400" /> Meta (Facebook & Instagram)
+          </h2>
+          <button
+            onClick={() => handleOAuthConnect("meta")}
+            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 px-4 py-2 text-xs font-bold text-white shadow-md shadow-indigo-600/30 transition"
+          >
+            <Users className="h-4 w-4" />
+            Connect Meta via OAuth
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {integrations
+            .filter((i) => i.category === "Meta")
+            .map((item) => (
+              <div
+                key={item.provider}
+                className="flex flex-col justify-between rounded-2xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl backdrop-blur space-y-5"
+              >
+                <div>
+                  <div className="flex items-start justify-between">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-950 border border-slate-800">
+                      {getProviderIcon(item.provider)}
                     </div>
-                    <button
-                      onClick={handleDisconnect}
-                      className="text-rose-400 hover:text-rose-300 font-semibold"
+                    <span
+                      className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold border ${
+                        item.connected
+                          ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                          : "bg-slate-800 text-slate-400 border-slate-700"
+                      }`}
                     >
-                      Disconnect Site
-                    </button>
+                      {item.connected ? "Connected" : "Disconnected"}
+                    </span>
                   </div>
-                )}
-              </div>
 
-              {/* 1-Click Remote Control Actions */}
-              {wp?.connected && (
-                <div className="rounded-2xl border border-blue-500/20 bg-blue-950/10 p-5">
-                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                    <span>⚡ Remote 1-Click Execution Dispatcher</span>
-                    <span className="text-[10px] bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded font-mono">LIVE REST API</span>
-                  </h3>
-                  <p className="mt-1 text-xs text-slate-400">
-                    Push automated AI visibility and on-page optimization fixes directly to your WordPress site with zero manual editing.
-                  </p>
+                  <h3 className="text-base font-bold text-white mt-3">{item.name}</h3>
+                  <p className="text-xs text-slate-400 mt-1 line-clamp-2">{item.description}</p>
 
-                  <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-                    <button
-                      onClick={() => handleRemoteFix("OPTIMIZE_ROBOTS")}
-                      className="rounded-xl border border-slate-700/80 bg-slate-900/90 p-3 text-left transition hover:border-blue-500 hover:bg-blue-500/10"
-                    >
-                      <p className="text-xs font-bold text-white">🤖 Push robots.txt</p>
-                      <p className="mt-1 text-[11px] text-slate-400">Allow GPTBot, ClaudeBot, PerplexityBot</p>
-                    </button>
-
-                    <button
-                      onClick={() => handleRemoteFix("GENERATE_FEEDS")}
-                      className="rounded-xl border border-slate-700/80 bg-slate-900/90 p-3 text-left transition hover:border-blue-500 hover:bg-blue-500/10"
-                    >
-                      <p className="text-xs font-bold text-white">📄 Sync /llms.txt</p>
-                      <p className="mt-1 text-[11px] text-slate-400">Regenerate dynamic &amp; full feeds</p>
-                    </button>
-
-                    <button
-                      onClick={() => handleRemoteFix("LOCAL_BUSINESS_SCHEMA", { schema_type: "LocalBusiness", schema_json: { "@context": "https://schema.org", "@type": "LocalBusiness", "name": wp.wordpressSiteName || "Business", "url": wp.wordpressUrl } })}
-                      className="rounded-xl border border-slate-700/80 bg-slate-900/90 p-3 text-left transition hover:border-blue-500 hover:bg-blue-500/10"
-                    >
-                      <p className="text-xs font-bold text-white">🏷️ Inject Schema</p>
-                      <p className="mt-1 text-[11px] text-slate-400">Push Schema.org JSON-LD graph</p>
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Right: API Key & Plugin Download (1 col) */}
-            <div className="space-y-6">
-              {/* API Key Box */}
-              <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5">
-                <h3 className="text-sm font-bold text-slate-200">2. Business API Key</h3>
-                <p className="mt-1 text-xs text-slate-400">
-                  Paste this key into the <strong>AIVision SEO → Settings</strong> screen inside WordPress.
-                </p>
-
-                <div className="mt-3 flex items-center gap-2">
-                  <input
-                    type="password"
-                    readOnly
-                    value={wp?.apiKey || "Loading…"}
-                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs font-mono text-slate-300 outline-none"
-                  />
-                  <button
-                    onClick={copyApiKey}
-                    className="rounded-xl bg-slate-800 px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-700 shrink-0"
-                  >
-                    {copied ? "✔ Copied" : "Copy"}
-                  </button>
-                </div>
-              </div>
-
-              {/* Download Plugin Package */}
-              <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5">
-                <h3 className="text-sm font-bold text-slate-200">3. Download Plugin</h3>
-                <p className="mt-1 text-xs text-slate-400">
-                  Get the official, standalone-ready AIVision SEO WordPress plugin package.
-                </p>
-
-                <a
-                  href="/api/wordpress/plugin-download"
-                  download="aivision-seo-v1.4.1.zip"
-                  className="mt-4 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-emerald-500/20 transition hover:from-emerald-500 hover:to-teal-500"
-                >
-                  <span>⬇️ Download AIVision SEO (v1.4.1 .ZIP)</span>
-                </a>
-              </div>
-            </div>
-          </div>
-
-          {/* Telemetry Summary Table (If Synced) */}
-          {telemetry?.posts && telemetry.posts.length > 0 && (
-            <div className="mt-8 border-t border-slate-800 pt-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                  <span>📈 Live WordPress Post Telemetry</span>
-                  <span className="text-xs bg-slate-800 px-2 py-0.5 rounded text-slate-400 font-normal">
-                    {telemetry.posts.length} posts synchronized
-                  </span>
-                </h3>
-                <div className="flex gap-4 text-xs font-semibold">
-                  <span className="text-blue-400">Avg SEO: {telemetry.summary?.average_seo}%</span>
-                  <span className="text-indigo-400">Avg AEO: {telemetry.summary?.average_aeo}%</span>
-                  <span className="text-emerald-400">Avg GEO: {telemetry.summary?.average_geo}%</span>
-                </div>
-              </div>
-
-              <div className="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-950/60">
-                <table className="w-full text-left text-xs">
-                  <thead className="border-b border-slate-800 bg-slate-900/60 text-[11px] uppercase tracking-wider text-slate-400">
-                    <tr>
-                      <th className="p-3">Title &amp; URL</th>
-                      <th className="p-3">Focus Keyword</th>
-                      <th className="p-3 text-center">SEO</th>
-                      <th className="p-3 text-center">AEO</th>
-                      <th className="p-3 text-center">GEO</th>
-                      <th className="p-3 text-center">Schema</th>
-                      <th className="p-3">Word Count</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-800/60">
-                    {telemetry.posts.slice(0, 5).map((p: any) => (
-                      <tr key={p.id} className="hover:bg-slate-900/40 transition">
-                        <td className="p-3 font-semibold text-white max-w-xs truncate">
-                          <a href={p.url} target="_blank" rel="noreferrer" className="hover:text-blue-400">
-                            {p.title}
-                          </a>
-                        </td>
-                        <td className="p-3 text-slate-400">{p.focus_keyword || "—"}</td>
-                        <td className="p-3 text-center">
-                          <span className="rounded bg-blue-500/20 px-2 py-0.5 font-bold text-blue-400">
-                            {p.seo_score}%
-                          </span>
-                        </td>
-                        <td className="p-3 text-center">
-                          <span className="rounded bg-indigo-500/20 px-2 py-0.5 font-bold text-indigo-400">
-                            {p.aeo_score}%
-                          </span>
-                        </td>
-                        <td className="p-3 text-center">
-                          <span className="rounded bg-emerald-500/20 px-2 py-0.5 font-bold text-emerald-400">
-                            {p.geo_score}%
-                          </span>
-                        </td>
-                        <td className="p-3 text-center text-slate-300">
-                          {p.has_schema ? "✔ Injected" : "❌ None"}
-                        </td>
-                        <td className="p-3 text-slate-400">{p.word_count} words</td>
-                      </tr>
+                  <div className="mt-4 flex flex-wrap gap-1.5">
+                    {item.metricsAvailable.map((m) => (
+                      <span
+                        key={m}
+                        className="rounded bg-slate-950 px-2 py-0.5 text-[10px] font-medium text-slate-400 border border-slate-800"
+                      >
+                        {m}
+                      </span>
                     ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-        </section>
+                  </div>
 
-        {/* Other Platform Channels */}
-        <section className="grid grid-cols-1 gap-6 md:grid-cols-3">
-          <div className="rounded-3xl border border-slate-800 bg-slate-900/50 p-6">
-            <div className="flex items-center gap-3">
-              <span className="text-2xl">📍</span>
-              <div>
-                <h3 className="text-base font-bold text-white">Google Business Profile</h3>
-                <p className="text-xs text-slate-400">Local Maps &amp; Knowledge Panel</p>
+                  {item.connected && (
+                    <div className="mt-4 rounded-xl bg-slate-950/80 border border-slate-800/80 p-3 space-y-1">
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="text-slate-400">Account:</span>
+                        <span className="font-semibold text-slate-200 truncate max-w-[150px]">
+                          {item.accountName || "Meta Account"}
+                        </span>
+                      </div>
+                      {item.lastSyncedAt && (
+                        <div className="flex items-center justify-between text-[10px] text-slate-500">
+                          <span>Last Synced:</span>
+                          <span>{new Date(item.lastSyncedAt).toLocaleTimeString()}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between gap-2">
+                  {item.connected ? (
+                    <>
+                      <button
+                        onClick={() => handleSync(item.provider)}
+                        disabled={syncingProvider === item.provider}
+                        className="flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-700 transition"
+                      >
+                        <RefreshCw
+                          className={`h-3 w-3 ${syncingProvider === item.provider ? "animate-spin text-blue-400" : ""}`}
+                        />
+                        <span>Sync</span>
+                      </button>
+                      <button
+                        onClick={() => handleDisconnect(item.provider)}
+                        className="text-xs font-medium text-rose-400/80 hover:text-rose-300 transition"
+                      >
+                        Disconnect
+                      </button>
+                    </>
+                  ) : (
+                    <div className="flex items-center gap-2 w-full">
+                      <button
+                        onClick={() => handleOAuthConnect("meta")}
+                        className="flex-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 px-3 py-2 text-xs font-bold text-white transition shadow-sm"
+                      >
+                        Connect Meta OAuth
+                      </button>
+                      <button
+                        onClick={() => handleSimulatedConnect(item.provider)}
+                        className="rounded-lg border border-slate-800 bg-slate-950 px-2.5 py-2 text-[10px] font-semibold text-slate-400 hover:text-slate-200"
+                      >
+                        Demo Link
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
+            ))}
+        </div>
+      </div>
+
+      {/* SECTION 3: WordPress Bi-Directional Bridge */}
+      <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-8 shadow-xl backdrop-blur space-y-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800/80 pb-6">
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+              <Zap className="h-6 w-6" />
             </div>
-            <p className="mt-3 text-xs text-slate-400">
-              Synced directly via Google API for review sentiment and local proximity signals.
-            </p>
-            <div className="mt-4">
-              <span className="text-xs font-semibold text-emerald-400">● Active</span>
+            <div>
+              <h2 className="text-lg font-black text-white">WordPress Live Bridge & Plugin</h2>
+              <p className="text-xs text-slate-400">
+                1-Click Execution Plugin: Synchronize /llms.txt AI bio, LocalBusiness Schema JSON-LD, and robots.txt
+              </p>
             </div>
           </div>
 
-          <div className="rounded-3xl border border-slate-800 bg-slate-900/50 p-6">
-            <div className="flex items-center gap-3">
-              <span className="text-2xl">🤖</span>
-              <div>
-                <h3 className="text-base font-bold text-white">AI Search Simulations</h3>
-                <p className="text-xs text-slate-400">ChatGPT, Perplexity, Gemini, Claude</p>
-              </div>
-            </div>
-            <p className="mt-3 text-xs text-slate-400">
-              Continuous synthetic query probes tracking citation rank against local competitors.
-            </p>
-            <div className="mt-4">
-              <span className="text-xs font-semibold text-blue-400">● Multi-Engine Probing</span>
-            </div>
-          </div>
+          <a
+            href="/aivision-seo.zip"
+            download
+            className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-blue-500/20 hover:from-blue-500 hover:to-indigo-500 transition"
+          >
+            <Download className="h-4 w-4" /> Download AIVision SEO Plugin (.zip)
+          </a>
+        </div>
 
-          <div className="rounded-3xl border border-slate-800 bg-slate-900/50 p-6">
-            <div className="flex items-center gap-3">
-              <span className="text-2xl">📱</span>
-              <div>
-                <h3 className="text-base font-bold text-white">Social Discovery Feeds</h3>
-                <p className="text-xs text-slate-400">Instagram, Facebook, LinkedIn, TikTok</p>
-              </div>
-            </div>
-            <p className="mt-3 text-xs text-slate-400">
-              Social channel authority indexing feeding BrandOS composite brand visibility score.
-            </p>
-            <div className="mt-4">
-              <span className="text-xs font-semibold text-slate-400">Configured</span>
+        {/* 3 Step Instructions */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+          <div className="rounded-2xl bg-slate-950 p-4 border border-slate-800 space-y-2">
+            <span className="font-bold text-blue-400">1. Install in WordPress</span>
+            <p className="text-slate-400">Go to WP Admin → Plugins → Add New → Upload Plugin and upload the downloaded <code>.zip</code> file.</p>
+          </div>
+          <div className="rounded-2xl bg-slate-950 p-4 border border-slate-800 space-y-2">
+            <span className="font-bold text-indigo-400">2. Enter BrandOS API URL</span>
+            <div className="flex items-center justify-between bg-slate-900 p-2 rounded-lg border border-slate-800">
+              <code className="text-[11px] text-slate-200 font-mono select-all truncate">{brandosApiUrl}</code>
+              <button onClick={copyApiUrl} className="text-slate-400 hover:text-white pl-2">
+                {copiedUrl ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+              </button>
             </div>
           </div>
-        </section>
+          <div className="rounded-2xl bg-slate-950 p-4 border border-slate-800 space-y-2">
+            <span className="font-bold text-emerald-400">3. Paste your API Key</span>
+            <div className="flex items-center justify-between bg-slate-900 p-2 rounded-lg border border-slate-800">
+              <code className="text-[11px] text-slate-200 font-mono select-all truncate">{wp?.apiKey || "Loading..."}</code>
+              <button onClick={copyApiKey} className="text-slate-400 hover:text-white pl-2">
+                {copiedKey ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </main>
   );

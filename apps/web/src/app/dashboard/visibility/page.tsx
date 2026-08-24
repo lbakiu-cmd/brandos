@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { Sparkles, Bot, ArrowRight, CheckCircle2, AlertCircle, HelpCircle, Zap } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
 type EngineMention = {
@@ -74,32 +75,32 @@ export default function VisibilityPage() {
               <span className="rounded-full bg-blue-500/20 px-2.5 py-0.5 text-xs font-bold text-blue-400">
                 {business?.industry || "Local Business"}
               </span>
-              <span className="text-xs text-slate-500">• {business?.city || "Local Market"}</span>
+              <span className="text-xs text-slate-400">• {business?.city || "Local Market"}</span>
             </div>
-            <h1 className="mt-1 text-3xl font-black tracking-tight text-white">AI Search Engine Visibility Studio</h1>
-            <p className="text-sm text-slate-400">
-              Live and simulated AI query testing across ChatGPT, Claude, Perplexity, Gemini, and Apple Intelligence.
+            <h1 className="mt-1 text-2xl md:text-3xl font-black tracking-tight text-white">
+              AI Recommendation Studio (ChatGPT & Gemini)
+            </h1>
+            <p className="text-xs md:text-sm text-slate-400 mt-1">
+              Find out how often AI assistants recommend your business when potential customers ask for recommendations in your area.
             </p>
           </div>
           <div className="flex gap-3">
-            <Link href="/dashboard" className="rounded-xl border border-slate-800 bg-slate-900 px-4 py-2 text-sm font-semibold text-slate-300 hover:bg-slate-800">
+            <Link href="/dashboard" className="rounded-xl border border-slate-800 bg-slate-900 px-4 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-800">
               ← Dashboard
-            </Link>
-            <Link href="/dashboard/competitors" className="rounded-xl border border-slate-800 bg-slate-900 px-4 py-2 text-sm font-semibold text-slate-300 hover:bg-slate-800">
-              Competitor AI Share
             </Link>
           </div>
         </header>
 
         {/* Action Hero */}
-        <div className="mb-8 rounded-3xl border border-slate-800/80 bg-slate-900/60 p-6 backdrop-blur">
+        <div className="mb-8 rounded-3xl border border-slate-800/80 bg-slate-900/60 p-6 backdrop-blur space-y-4">
           <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
             <div>
-              <h2 className="text-base font-bold text-white">
-                Simulate Buyer Prompts for "{business?.name || "Apex Dental Care"}"
+              <h2 className="text-base font-bold text-white flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-amber-400" />
+                Simulate Customer Inquiries for "{business?.name || "Your Business"}"
               </h2>
               <p className="mt-1 text-xs text-slate-400 max-w-2xl">
-                We query 5 major LLMs with high-intent customer prompts (e.g. <em>"Who is the top rated {business?.industry || "specialist"} in {business?.city || "your city"}?"</em>) and analyze citation rank and sentiment.
+                We simulate real customer prompts on ChatGPT, Perplexity, Gemini, and Claude (e.g. <em>"Who is the top rated {business?.industry || "specialist"} in {business?.city || "your city"}?"</em>) and verify if your business is recommended.
               </p>
             </div>
 
@@ -108,8 +109,33 @@ export default function VisibilityPage() {
               disabled={busy || running}
               className="shrink-0 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-3 text-xs font-bold text-white shadow-lg shadow-blue-500/20 hover:from-blue-500 hover:to-indigo-500 disabled:opacity-50 transition"
             >
-              {running ? "⚡ Querying AI Models…" : "Run Full AI Visibility Test"}
+              {running ? "⚡ Querying AI Models…" : "Run Live AI Visibility Check"}
             </button>
+          </div>
+
+          {/* Beginner explainer card */}
+          <div className="rounded-2xl bg-slate-950/70 border border-slate-800/80 p-4 grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+            <div className="flex items-start gap-2.5">
+              <span className="text-blue-400 font-bold">1.</span>
+              <div>
+                <p className="font-bold text-white">How AI Picks You</p>
+                <p className="text-[11px] text-slate-400 mt-0.5">AI reads your website's <code>/llms.txt</code> feed and verified customer reviews.</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-2.5">
+              <span className="text-indigo-400 font-bold">2.</span>
+              <div>
+                <p className="font-bold text-white">Direct Customer Referrals</p>
+                <p className="text-[11px] text-slate-400 mt-0.5">When users ask for local suggestions, AI provides a direct clickable link to your site.</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-2.5">
+              <span className="text-emerald-400 font-bold">3.</span>
+              <div>
+                <p className="font-bold text-white">Higher Conversion Rate</p>
+                <p className="text-[11px] text-slate-400 mt-0.5">AI-referred visitors are already interested and convert 3x faster into paying clients.</p>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -125,17 +151,17 @@ export default function VisibilityPage() {
                   <div>
                     <h3 className="text-lg font-bold text-white">AI Recommendation Score</h3>
                     <p className="text-xs text-slate-400">
-                      Percentage of simulated AI search queries that actively recommend {business?.name || "your business"}.
+                      Percentage of simulated AI search queries that actively recommend {business?.name || "your business"} as the top choice.
                     </p>
                   </div>
                 </div>
 
                 <div className="flex gap-2">
                   <span className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-bold text-emerald-400">
-                    {latest.mentions.filter((m) => m.mentioned).length} Recommended
+                    {latest.mentions.filter((m) => m.mentioned).length} Recommended You
                   </span>
                   <span className="rounded-xl border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-bold text-slate-300">
-                    {latest.mentions.length} Total Engines
+                    {latest.mentions.length} AI Engines Tested
                   </span>
                 </div>
               </div>
@@ -173,7 +199,7 @@ export default function VisibilityPage() {
                           : "bg-rose-500/20 text-rose-400 border border-rose-500/30"
                       }`}
                     >
-                      {m.mentioned ? "✔ Mentioned" : "✕ Not Cited"}
+                      {m.mentioned ? "✔ Recommended" : "✕ Not Recommended"}
                     </span>
                   </div>
 
@@ -199,8 +225,8 @@ export default function VisibilityPage() {
         )}
 
         {!latest && (
-          <div className="rounded-3xl border border-dashed border-slate-800 p-12 text-center text-slate-500">
-            Click "Run Full AI Visibility Test" above to simulate AI recommendations for your business.
+          <div className="rounded-3xl border border-dashed border-slate-800 p-12 text-center text-slate-500 text-sm">
+            Click "Run Live AI Visibility Check" above to see how AI assistants answer questions about your business.
           </div>
         )}
       </div>

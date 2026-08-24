@@ -1,0 +1,67 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: brandos-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-brandos}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-brandos_secure_password_2026}
+      POSTGRES_DB: ${POSTGRES_DB:-brandos}
+    volumes:
+      - brandos_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-brandos} -d ${POSTGRES_DB:-brandos}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    networks:
+      - brandos-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: brandos-redis
+    restart: always
+    command: redis-server --appendonly yes
+    volumes:
+      - brandos_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 3s
+    networks:
+      - brandos-net
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: brandos-caddy
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - brandos_caddy_data:/data
+      - brandos_caddy_config:/config
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - brandos-net
+
+networks:
+  brandos-net:
+    name: brandos_network
+    driver: bridge
+
+volumes:
+  brandos_postgres_data:
+    name: brandos_postgres_data
+  brandos_redis_data:
+    name: brandos_redis_data
+  brandos_caddy_data:
+    name: brandos_caddy_data
+  brandos_caddy_config:
+    name: brandos_caddy_config

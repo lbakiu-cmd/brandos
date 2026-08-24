@@ -529,13 +529,13 @@ class AIVision_Admin {
                         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
                             <div class="aivision-form-group">
                                 <label style="font-weight:600; font-size:13px; color:#e2e8f0;">BrandOS API URL</label>
-                                <input type="url" name="brandos_api_url" id="av-brandos-api-url" value="<?php echo esc_attr( $brandos_settings['api_url'] ?: 'http://localhost:4000' ); ?>" placeholder="http://localhost:4000 or https://api.brandos.ai" style="width:100%; padding:9px 12px; border-radius:8px; background:#0f172a; border:1px solid #334155; color:#fff;">
-                                <p class="aivision-hint">Your BrandOS API instance endpoint.</p>
+                                <input type="url" name="brandos_api_url" id="av-brandos-api-url" value="<?php echo esc_attr( $brandos_settings['api_url'] ?: 'https://brandoseye.com' ); ?>" placeholder="https://brandoseye.com" style="width:100%; padding:9px 12px; border-radius:8px; background:#0f172a; border:1px solid #334155; color:#fff;">
+                                <p class="aivision-hint">Your BrandOS API instance endpoint (e.g. <code>https://brandoseye.com</code>).</p>
                             </div>
                             <div class="aivision-form-group">
                                 <label style="font-weight:600; font-size:13px; color:#e2e8f0;">BrandOS API Key / Business Token</label>
                                 <input type="text" name="brandos_api_key" id="av-brandos-api-key" value="<?php echo esc_attr( $brandos_settings['api_key'] ); ?>" placeholder="bos_live_..." style="width:100%; padding:9px 12px; border-radius:8px; background:#0f172a; border:1px solid #334155; color:#fff;">
-                                <p class="aivision-hint">Found in your BrandOS Dashboard → Settings → Integrations.</p>
+                                <p class="aivision-hint">Found in your BrandOS Dashboard → Integrations &amp; OAuth.</p>
                             </div>
                         </div>
 

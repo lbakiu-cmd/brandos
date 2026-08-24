@@ -1,15 +1,44 @@
-import { Injectable, NotFoundException, BadRequestException } from "@nestjs/common";
+import { Injectable, BadRequestException } from "@nestjs/common";
 import { prisma, Role } from "@brandos/database";
 
 @Injectable()
 export class BusinessService {
   async get(userId: string) {
-    const membership = await prisma.membership.findFirst({
+    let membership = await prisma.membership.findFirst({
       where: { userId },
       include: { business: true },
       orderBy: { createdAt: "desc" },
     });
-    if (!membership) throw new NotFoundException("No business found.");
+
+    if (!membership) {
+      let business = await prisma.business.findFirst({
+        orderBy: { createdAt: "asc" },
+      });
+
+      if (!business) {
+        business = await prisma.business.create({
+          data: {
+            name: "Your Business",
+            industry: "Dental & Healthcare",
+            city: "Austin, TX",
+            website: "https://yourbusiness.com",
+            phone: "(512) 555-0199",
+            email: "contact@yourbusiness.com",
+          },
+        });
+      }
+
+      await prisma.membership.create({
+        data: {
+          userId,
+          businessId: business.id,
+          role: Role.OWNER,
+        },
+      }).catch(() => {});
+
+      return business;
+    }
+
     return membership.business;
   }
 
@@ -26,6 +55,26 @@ export class BusinessService {
       },
       orderBy: { createdAt: "asc" },
     });
+
+    if (memberships.length === 0) {
+      const biz = await this.get(userId);
+      return [
+        {
+          id: biz.id,
+          name: biz.name,
+          city: biz.city,
+          industry: biz.industry,
+          website: biz.website,
+          phone: biz.phone,
+          subscriptionTier: biz.subscriptionTier,
+          role: Role.OWNER,
+          latestScore: null,
+          reviewsCount: 0,
+          competitorsCount: 0,
+          createdAt: biz.createdAt,
+        },
+      ];
+    }
 
     return memberships.map((m: any) => ({
       id: m.business.id,
@@ -92,17 +141,49 @@ export class BusinessService {
       email?: string;
     },
   ) {
-    const membership = await prisma.membership.findFirst({
+    let membership = await prisma.membership.findFirst({
       where: { userId },
       orderBy: { createdAt: "desc" },
     });
-    if (!membership) throw new NotFoundException("No business found.");
+
+    let businessId: string;
+
+    if (!membership) {
+      let business = await prisma.business.findFirst({
+        orderBy: { createdAt: "asc" },
+      });
+
+      if (!business) {
+        business = await prisma.business.create({
+          data: {
+            name: data.name?.trim() || "Your Business",
+            city: data.city?.trim() || null,
+            industry: data.industry?.trim() || "Dental & Healthcare",
+            website: data.website?.trim() || null,
+            phone: data.phone?.trim() || null,
+            email: data.email?.trim() || null,
+          },
+        });
+      }
+
+      await prisma.membership.create({
+        data: {
+          userId,
+          businessId: business.id,
+          role: Role.OWNER,
+        },
+      }).catch(() => {});
+
+      businessId = business.id;
+    } else {
+      businessId = membership.businessId;
+    }
 
     const clean = (v?: string) =>
       v === undefined ? undefined : v.trim() === "" ? null : v.trim();
 
-    return prisma.business.update({
-      where: { id: membership.businessId },
+    const updated = await prisma.business.update({
+      where: { id: businessId },
       data: {
         name: clean(data.name) ?? undefined,
         city: clean(data.city),
@@ -111,6 +192,23 @@ export class BusinessService {
         phone: clean(data.phone),
         email: clean(data.email),
       },
+      include: { integrations: true },
     });
+
+    // Invalidate cached metrics so fresh data is computed for new business name/industry/city
+    if (updated.integrations && updated.integrations.length > 0) {
+      for (const integration of updated.integrations) {
+        await prisma.integrationAccount.update({
+          where: { id: integration.id },
+          data: {
+            accountName: `${updated.name} (${integration.provider})`,
+            metricsCache: null,
+            lastSyncedAt: new Date(),
+          },
+        });
+      }
+    }
+
+    return updated;
   }
 }

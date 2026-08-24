@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
+import { CheckCircle2, AlertCircle, RefreshCw } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
 type Business = {
@@ -81,32 +82,93 @@ const VERTICALS = [
   },
 ];
 
+const LOCAL_STORAGE_KEY = "brandos_nap_profile";
+
 export default function SettingsPage() {
-  const [form, setForm] = useState<Record<string, string>>({});
+  const [form, setForm] = useState<Record<string, string>>({
+    name: "",
+    city: "",
+    industry: "Dental & Healthcare",
+    website: "",
+    phone: "",
+    email: "",
+  });
+  const [loading, setLoading] = useState(true);
   const [saved, setSaved] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  // 1. Preload from localStorage on mount, then sync with backend
   useEffect(() => {
+    try {
+      const cached = localStorage.getItem(LOCAL_STORAGE_KEY);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed && typeof parsed === "object") {
+          setForm((prev) => ({ ...prev, ...parsed }));
+        }
+      }
+    } catch {
+      // Ignore localStorage read errors
+    }
+
     apiFetch<Business>("/business")
       .then((b) => {
-        setForm({
-          name: b.name || "",
-          city: b.city || "",
-          industry: b.industry || "Dental & Healthcare",
-          website: b.website || "",
-          phone: b.phone || "",
-          email: b.email || "",
-        });
+        if (b) {
+          const freshData: Record<string, string> = {
+            name: b.name || "",
+            city: b.city || "",
+            industry: b.industry || "Dental & Healthcare",
+            website: b.website || "",
+            phone: b.phone || "",
+            email: b.email || "",
+          };
+          setForm(freshData);
+          try {
+            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(freshData));
+          } catch {}
+        }
       })
-      .catch(() => {});
+      .catch((err) => {
+        console.warn("Could not fetch business from API, using cached data:", err);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   }, []);
 
   async function save() {
     setBusy(true);
+    setErrorMessage(null);
     try {
-      await apiFetch("/business", { method: "PATCH", body: JSON.stringify(form) });
+      const updated = await apiFetch<Business>("/business", {
+        method: "PATCH",
+        body: JSON.stringify(form),
+      });
+
+      if (updated) {
+        const freshData: Record<string, string> = {
+          name: updated.name || form.name || "",
+          city: updated.city || form.city || "",
+          industry: updated.industry || form.industry || "Dental & Healthcare",
+          website: updated.website || form.website || "",
+          phone: updated.phone || form.phone || "",
+          email: updated.email || form.email || "",
+        };
+        setForm(freshData);
+        try {
+          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(freshData));
+        } catch {}
+      } else {
+        try {
+          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(form));
+        } catch {}
+      }
+
       setSaved(true);
-      setTimeout(() => setSaved(false), 2500);
+      setTimeout(() => setSaved(false), 3000);
+    } catch (err: any) {
+      setErrorMessage(err?.message || "Failed to save changes. Please try again.");
     } finally {
       setBusy(false);
     }
@@ -133,6 +195,21 @@ export default function SettingsPage() {
             </Link>
           </div>
         </header>
+
+        {/* Status Alerts */}
+        {saved && (
+          <div className="mb-6 flex items-center gap-2 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 px-4 py-3 text-sm font-semibold text-emerald-400 animate-in fade-in">
+            <CheckCircle2 className="h-5 w-5 shrink-0" />
+            Business profile & NAP settings updated and synchronized across all dashboards!
+          </div>
+        )}
+
+        {errorMessage && (
+          <div className="mb-6 flex items-center gap-2 rounded-2xl bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm font-semibold text-red-400 animate-in fade-in">
+            <AlertCircle className="h-5 w-5 shrink-0" />
+            {errorMessage}
+          </div>
+        )}
 
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
           {/* Main Form (2 Cols) */}
@@ -172,20 +249,27 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            {/* Core Details */}
+            {/* Core Details (NAP) */}
             <div className="rounded-3xl border border-slate-800/80 bg-slate-900/60 p-6 backdrop-blur">
-              <h2 className="text-lg font-bold text-white">2. Business NAP & Identity</h2>
-              <p className="mt-1 text-xs text-slate-400">
-                Machine-readable Name, Address, Phone, and website used across audits, AI reports, and client PDFs.
-              </p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-bold text-white">2. Business NAP & Identity</h2>
+                  <p className="mt-1 text-xs text-slate-400">
+                    Machine-readable Name, Address, Phone, and website used across audits, AI reports, and client PDFs.
+                  </p>
+                </div>
+                {loading && (
+                  <RefreshCw className="h-4 w-4 animate-spin text-blue-400" />
+                )}
+              </div>
 
               <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <label className="mb-1.5 block text-xs font-semibold text-slate-300">Business Name</label>
                   <input
-                    value={form.name ?? ""}
+                    value={form.name}
                     onChange={(e) => setForm({ ...form, name: e.target.value })}
-                    placeholder="e.g. Apex Dental Care"
+                    placeholder="e.g. Apex Legal Group or Nobel Dental"
                     className="w-full rounded-xl border border-slate-800 bg-slate-950/80 px-4 py-2.5 text-sm text-white placeholder-slate-600 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
                   />
                 </div>
@@ -193,9 +277,9 @@ export default function SettingsPage() {
                 <div>
                   <label className="mb-1.5 block text-xs font-semibold text-slate-300">City & Region</label>
                   <input
-                    value={form.city ?? ""}
+                    value={form.city}
                     onChange={(e) => setForm({ ...form, city: e.target.value })}
-                    placeholder="e.g. Austin, TX"
+                    placeholder="e.g. Austin, TX or Tirana, Albania"
                     className="w-full rounded-xl border border-slate-800 bg-slate-950/80 px-4 py-2.5 text-sm text-white placeholder-slate-600 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
                   />
                 </div>
@@ -203,9 +287,9 @@ export default function SettingsPage() {
                 <div>
                   <label className="mb-1.5 block text-xs font-semibold text-slate-300">Official Website URL</label>
                   <input
-                    value={form.website ?? ""}
+                    value={form.website}
                     onChange={(e) => setForm({ ...form, website: e.target.value })}
-                    placeholder="e.g. https://apexdentalcare.com"
+                    placeholder="e.g. https://apexlegalgroup.com"
                     className="w-full rounded-xl border border-slate-800 bg-slate-950/80 px-4 py-2.5 text-sm text-white placeholder-slate-600 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
                   />
                 </div>
@@ -213,7 +297,7 @@ export default function SettingsPage() {
                 <div>
                   <label className="mb-1.5 block text-xs font-semibold text-slate-300">Direct Phone (NAP)</label>
                   <input
-                    value={form.phone ?? ""}
+                    value={form.phone}
                     onChange={(e) => setForm({ ...form, phone: e.target.value })}
                     placeholder="e.g. (512) 555-0199"
                     className="w-full rounded-xl border border-slate-800 bg-slate-950/80 px-4 py-2.5 text-sm text-white placeholder-slate-600 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
@@ -223,9 +307,9 @@ export default function SettingsPage() {
                 <div className="sm:col-span-2">
                   <label className="mb-1.5 block text-xs font-semibold text-slate-300">Contact Email</label>
                   <input
-                    value={form.email ?? ""}
+                    value={form.email}
                     onChange={(e) => setForm({ ...form, email: e.target.value })}
-                    placeholder="e.g. contact@apexdentalcare.com"
+                    placeholder="e.g. contact@apexlegalgroup.com"
                     className="w-full rounded-xl border border-slate-800 bg-slate-950/80 px-4 py-2.5 text-sm text-white placeholder-slate-600 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
                   />
                 </div>

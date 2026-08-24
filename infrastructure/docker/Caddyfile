@@ -1,0 +1,22 @@
+# Caddy configuration for BrandOS
+# Replace :80 with your domain (e.g. app.yourbrand.com) when ready for automatic HTTPS/SSL
+
+:80 {
+    # Route API requests to NestJS backend
+    handle /api/* {
+        uri strip_prefix /api
+        reverse_proxy api:3001
+    }
+
+    # Route WordPress plugin downloads & endpoints directly
+    handle /wordpress/* {
+        reverse_proxy api:3001
+    }
+
+    # Route all other traffic to Next.js Web App
+    handle {
+        reverse_proxy web:3000
+    }
+
+    encode gzip zstd
+}
