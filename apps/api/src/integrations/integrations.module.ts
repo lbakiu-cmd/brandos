@@ -3,9 +3,10 @@ import { IntegrationsController } from "./integrations.controller";
 import { IntegrationsService } from "./integrations.service";
 import { BusinessModule } from "../business/business.module";
 import { AuthModule } from "../auth/auth.module";
+import { OAuthModule } from "../oauth/oauth.module";
 
 @Module({
-  imports: [BusinessModule, AuthModule],
+  imports: [BusinessModule, AuthModule, OAuthModule],
   controllers: [IntegrationsController],
   providers: [IntegrationsService],
   exports: [IntegrationsService],

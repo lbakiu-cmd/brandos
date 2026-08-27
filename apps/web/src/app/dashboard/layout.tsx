@@ -15,6 +15,7 @@ import {
   Settings,
   Flame,
 } from "lucide-react";
+import { DomainSelector } from "@/components/DomainSelector";
 
 const NAV = [
   { href: "/dashboard", label: "Growth Dashboard", icon: LayoutDashboard },
@@ -80,14 +81,31 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
               </span>
-              <span className="text-xs font-semibold text-slate-200">Live Sync</span>
+              <span className="text-xs font-semibold text-slate-200">Google OAuth</span>
             </div>
-            <span className="text-[10px] text-emerald-400 font-bold bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">ACTIVE</span>
+            <span className="text-[10px] text-emerald-400 font-bold bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">CONNECTED</span>
           </div>
         </div>
       </aside>
 
-      <div className="pl-64 min-h-screen flex flex-col">{children}</div>
+      <div className="pl-64 min-h-screen flex flex-col">
+        {/* Top Header with Global Domain Switcher */}
+        <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-slate-800/80 bg-slate-950/80 px-8 backdrop-blur-md">
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-medium text-slate-400">Workspace /</span>
+            <span className="text-xs font-bold text-white uppercase tracking-wider">
+              {pathname.replace("/dashboard", "").replace("/", "") || "Overview"}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <DomainSelector />
+          </div>
+        </header>
+
+        {/* Main Page Content */}
+        <div className="flex-1">{children}</div>
+      </div>
     </div>
   );
 }

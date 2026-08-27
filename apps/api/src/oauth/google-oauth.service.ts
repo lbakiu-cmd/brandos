@@ -10,6 +10,13 @@ export interface GoogleTokens {
   id_token?: string;
 }
 
+export interface GscSiteItem {
+  siteUrl: string;
+  domain: string;
+  permissionLevel: string;
+  isSelected?: boolean;
+}
+
 @Injectable()
 export class GoogleOAuthService {
   private readonly logger = new Logger(GoogleOAuthService.name);
@@ -93,31 +100,149 @@ export class GoogleOAuthService {
   }
 
   /**
-   * Fetch live Search Console queries and metrics
+   * Automatically refresh and return a valid access token
    */
-  async fetchGscMetrics(accessToken: string, siteUrl: string) {
+  async getFreshAccessToken(businessId: string): Promise<string | null> {
+    const account = await prisma.integrationAccount.findFirst({
+      where: { businessId, provider: IntegrationProvider.GOOGLE_SEARCH_CONSOLE },
+    });
+
+    if (!account || !account.accessTokenEnc) {
+      return null;
+    }
+
+    // Check if token is expired (with 2 min buffer)
+    const isExpired = account.tokenExpiresAt
+      ? account.tokenExpiresAt.getTime() - Date.now() < 120000
+      : true;
+
+    if (!isExpired && account.accessTokenEnc) {
+      return account.accessTokenEnc;
+    }
+
+    if (!account.refreshTokenEnc) {
+      return account.accessTokenEnc;
+    }
+
+    // Refresh token
+    const { clientId, clientSecret } = this.getCredentials();
+    if (!clientId || !clientSecret) return account.accessTokenEnc;
+
     try {
-      // 1. Check sites available
-      const sitesRes = await fetch("https://www.googleapis.com/webmasters/v3/sites", {
-        headers: { Authorization: `Bearer ${accessToken}` },
+      const refreshParams = new URLSearchParams({
+        client_id: clientId,
+        client_secret: clientSecret,
+        refresh_token: account.refreshTokenEnc,
+        grant_type: "refresh_token",
       });
 
-      let targetSite = siteUrl;
-      if (sitesRes.ok) {
-        const sitesData = await sitesRes.json();
-        if (sitesData.siteEntry && sitesData.siteEntry.length > 0) {
-          const matched = sitesData.siteEntry.find(
-            (s: any) =>
-              siteUrl &&
-              (s.siteUrl.includes(siteUrl.replace(/^https?:\/\//, "")) ||
-                siteUrl.includes(s.siteUrl.replace(/^https?:\/\//, "")))
+      const res = await fetch("https://oauth2.googleapis.com/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: refreshParams.toString(),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const newExpiry = new Date(Date.now() + (data.expires_in || 3600) * 1000);
+
+        // Update all Google integration rows
+        await prisma.integrationAccount.updateMany({
+          where: {
+            businessId,
+            provider: {
+              in: [
+                IntegrationProvider.GOOGLE_SEARCH_CONSOLE,
+                IntegrationProvider.GOOGLE_ANALYTICS_4,
+                IntegrationProvider.GOOGLE_BUSINESS_PROFILE,
+              ],
+            },
+          },
+          data: {
+            accessTokenEnc: data.access_token,
+            tokenExpiresAt: newExpiry,
+            lastSyncedAt: new Date(),
+          },
+        });
+
+        this.logger.log(`Google access token refreshed for business ${businessId}`);
+        return data.access_token;
+      }
+    } catch (err: any) {
+      this.logger.warn(`Failed to refresh Google access token: ${err.message}`);
+    }
+
+    return account.accessTokenEnc;
+  }
+
+  /**
+   * Get all verified sites from Google Search Console for domain selection
+   */
+  async getSitesList(businessId: string): Promise<GscSiteItem[]> {
+    const token = await this.getFreshAccessToken(businessId);
+    if (!token) return [];
+
+    try {
+      const res = await fetch("https://www.googleapis.com/webmasters/v3/sites", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!res.ok) return [];
+      const data = await res.json();
+      const rawSites = data.siteEntry || [];
+
+      const business = await prisma.business.findUnique({ where: { id: businessId } });
+      const currentSite = business?.website || "";
+
+      return rawSites.map((s: any) => {
+        let domain = s.siteUrl
+          .replace("sc-domain:", "")
+          .replace(/^https?:\/\//, "")
+          .replace(/\/$/, "");
+
+        const isSelected =
+          currentSite.includes(domain) || domain.includes(currentSite.replace(/^https?:\/\//, ""));
+
+        return {
+          siteUrl: s.siteUrl,
+          domain,
+          permissionLevel: s.permissionLevel,
+          isSelected,
+        };
+      });
+    } catch (err: any) {
+      this.logger.warn(`Failed to fetch GSC sites list: ${err.message}`);
+      return [];
+    }
+  }
+
+  /**
+   * Fetch live Search Console queries and metrics for any selected site
+   */
+  async fetchGscMetrics(accessToken: string, targetSite: string, days = 28) {
+    try {
+      let siteToQuery = targetSite;
+
+      // Check sites available if targetSite isn't an exact match
+      if (!siteToQuery.startsWith("sc-domain:") && !siteToQuery.startsWith("http")) {
+        const sitesRes = await fetch("https://www.googleapis.com/webmasters/v3/sites", {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+
+        if (sitesRes.ok) {
+          const sitesData = await sitesRes.json();
+          const entries = sitesData.siteEntry || [];
+          const cleanTarget = targetSite.replace(/^https?:\/\//, "").replace(/\/$/, "");
+          const matched = entries.find(
+            (s: any) => s.siteUrl.includes(cleanTarget) || cleanTarget.includes(s.siteUrl)
           );
-          targetSite = matched ? matched.siteUrl : sitesData.siteEntry[0].siteUrl;
+          if (matched) siteToQuery = matched.siteUrl;
+          else if (entries.length > 0) siteToQuery = entries[0].siteUrl;
         }
       }
 
-      // 2. Query search analytics for past 28 days
-      const startDate = new Date(Date.now() - 28 * 24 * 60 * 60 * 1000)
+      // Query search analytics
+      const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
         .toISOString()
         .split("T")[0];
       const endDate = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000)
@@ -126,7 +251,7 @@ export class GoogleOAuthService {
 
       const queryRes = await fetch(
         `https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(
-          targetSite
+          siteToQuery
         )}/searchAnalytics/query`,
         {
           method: "POST",
@@ -138,7 +263,7 @@ export class GoogleOAuthService {
             startDate,
             endDate,
             dimensions: ["query"],
-            rowLimit: 10,
+            rowLimit: 25,
           }),
         }
       );
@@ -167,20 +292,46 @@ export class GoogleOAuthService {
         const avgCtr = totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : 0;
         const avgPosition = rows.length > 0 ? totalPositionSum / rows.length : 1.0;
 
+        const cleanDomain = siteToQuery
+          .replace("sc-domain:", "")
+          .replace(/^https?:\/\//, "")
+          .replace(/\/$/, "");
+
         return {
-          siteUrl: targetSite,
-          totalClicks: Math.max(totalClicks, 120),
-          totalImpressions: Math.max(totalImpressions, 2400),
+          siteUrl: siteToQuery,
+          domain: cleanDomain,
+          totalClicks,
+          totalImpressions,
           averageCtr: parseFloat(avgCtr.toFixed(2)),
           averagePosition: parseFloat(avgPosition.toFixed(1)),
           clicksGrowth: 14.8,
           impressionsGrowth: 22.4,
-          topQueries: topQueries.length > 0 ? topQueries : undefined,
+          topQueries: topQueries.length > 0 ? topQueries : [],
           isLiveOAuth: true,
+          lastFetchedAt: new Date().toISOString(),
+        };
+      } else {
+        const cleanDomain = siteToQuery
+          .replace("sc-domain:", "")
+          .replace(/^https?:\/\//, "")
+          .replace(/\/$/, "");
+        return {
+          siteUrl: siteToQuery,
+          domain: cleanDomain,
+          totalClicks: 0,
+          totalImpressions: 0,
+          averageCtr: 0,
+          averagePosition: 0,
+          clicksGrowth: 0,
+          impressionsGrowth: 0,
+          topQueries: [],
+          isLiveOAuth: true,
+          notice: "No search queries recorded yet for this domain in Google Search Console.",
+          lastFetchedAt: new Date().toISOString(),
         };
       }
-    } catch (err) {
-      this.logger.warn(`Failed to query live Google Search Console: ${err}`);
+    } catch (err: any) {
+      this.logger.warn(`Failed to query live Google Search Console: ${err.message}`);
     }
     return null;
   }
@@ -190,7 +341,6 @@ export class GoogleOAuthService {
    */
   async fetchGa4Metrics(accessToken: string) {
     try {
-      // 1. Get GA4 account summaries
       const accountRes = await fetch(
         "https://analyticsadmin.googleapis.com/v1beta/accountSummaries",
         {
@@ -204,7 +354,6 @@ export class GoogleOAuthService {
 
       if (!firstProperty) return null;
 
-      // 2. Query GA4 Data API for traffic and sessionSource
       const propertyId = firstProperty.replace("properties/", "");
       const reportRes = await fetch(
         `https://analyticsdata.googleapis.com/v1beta/properties/${propertyId}:runReport`,
@@ -270,8 +419,8 @@ export class GoogleOAuthService {
           isLiveOAuth: true,
         };
       }
-    } catch (err) {
-      this.logger.warn(`Failed to query live GA4 Data API: ${err}`);
+    } catch (err: any) {
+      this.logger.warn(`Failed to query live GA4 Data API: ${err.message}`);
     }
     return null;
   }
@@ -281,7 +430,6 @@ export class GoogleOAuthService {
    */
   async fetchGbpMetrics(accessToken: string) {
     try {
-      // 1. Get business accounts
       const accountsRes = await fetch(
         "https://mybusinessaccountmanagement.googleapis.com/v1/accounts",
         {
@@ -295,7 +443,6 @@ export class GoogleOAuthService {
 
       if (!firstAccount) return null;
 
-      // 2. Fetch locations
       const locRes = await fetch(
         `https://mybusinessbusinessinformation.googleapis.com/v1/${firstAccount}/locations?readMask=name,title,storefrontAddress,websiteUri,phoneNumbers`,
         {
@@ -320,8 +467,8 @@ export class GoogleOAuthService {
           isLiveOAuth: true,
         };
       }
-    } catch (err) {
-      this.logger.warn(`Failed to query live Google Business Profile: ${err}`);
+    } catch (err: any) {
+      this.logger.warn(`Failed to query live Google Business Profile: ${err.message}`);
     }
     return null;
   }
