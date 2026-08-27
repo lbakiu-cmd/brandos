@@ -9,13 +9,10 @@ import {
   Users,
   Share2,
   Globe,
-  Instagram,
-  Facebook,
-  Linkedin,
-  Youtube,
   Video,
-  ArrowUpRight,
-  MousePointerClick,
+  Play,
+  MessageCircle,
+  ExternalLink,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
@@ -105,8 +102,8 @@ export default function Ga4Page() {
     {
       name: "Instagram",
       domain: "instagram.com / l.instagram.com",
-      icon: Instagram,
-      iconColor: "text-pink-400 bg-pink-500/10 border-pink-500/20",
+      color: "from-pink-500 to-rose-500",
+      badge: "Meta Ecosystem",
       sessions: 1640,
       share: "42.9%",
       growth: "+34.2%",
@@ -117,8 +114,8 @@ export default function Ga4Page() {
     {
       name: "Facebook",
       domain: "facebook.com / m.facebook.com",
-      icon: Facebook,
-      iconColor: "text-blue-400 bg-blue-500/10 border-blue-500/20",
+      color: "from-blue-600 to-indigo-600",
+      badge: "Meta Ads & Pages",
       sessions: 1120,
       share: "29.3%",
       growth: "+18.7%",
@@ -129,8 +126,8 @@ export default function Ga4Page() {
     {
       name: "TikTok",
       domain: "tiktok.com",
-      icon: Video,
-      iconColor: "text-cyan-400 bg-cyan-500/10 border-cyan-500/20",
+      color: "from-cyan-500 to-teal-500",
+      badge: "Shorts & Video",
       sessions: 520,
       share: "13.6%",
       growth: "+64.5%",
@@ -141,8 +138,8 @@ export default function Ga4Page() {
     {
       name: "LinkedIn",
       domain: "linkedin.com / lnkd.in",
-      icon: Linkedin,
-      iconColor: "text-indigo-400 bg-indigo-500/10 border-indigo-500/20",
+      color: "from-blue-500 to-cyan-600",
+      badge: "B2B & Medical Network",
       sessions: 340,
       share: "8.9%",
       growth: "+12.1%",
@@ -153,8 +150,8 @@ export default function Ga4Page() {
     {
       name: "YouTube",
       domain: "youtube.com / youtu.be",
-      icon: Youtube,
-      iconColor: "text-rose-400 bg-rose-500/10 border-rose-500/20",
+      color: "from-red-500 to-rose-600",
+      badge: "Video Guides",
       sessions: 200,
       share: "5.2%",
       growth: "+22.0%",
@@ -176,11 +173,11 @@ export default function Ga4Page() {
             <h1 className="text-2xl font-black text-white">Google Analytics 4 & Referral Traffic</h1>
             <span className="rounded-full bg-emerald-500/10 px-3 py-0.5 text-xs font-bold text-emerald-400 border border-emerald-500/20 flex items-center gap-1.5">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-              GA4 OAuth Connected
+              GA4 Connected
             </span>
           </div>
           <p className="text-xs text-slate-400 mt-1">
-            Analyze AI search engine referrals (ChatGPT, Perplexity, Claude) and Social referrals (Instagram, Facebook, TikTok, LinkedIn) for <strong className="text-white">{bName}</strong>
+            Analyze AI search referrals (ChatGPT, Perplexity, Claude) and Social referrals (Instagram, Facebook, TikTok, LinkedIn) for <strong className="text-white">{bName}</strong>
           </p>
         </div>
 
@@ -325,32 +322,32 @@ export default function Ga4Page() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60">
-                {defaultSocial.map((s, i) => {
-                  const Icon = s.icon;
-                  return (
-                    <tr key={i} className="hover:bg-slate-800/40 transition">
-                      <td className="py-3.5 font-semibold text-slate-200">
-                        <div className="flex items-center gap-2.5">
-                          <div className={`flex h-7 w-7 items-center justify-center rounded-lg border ${s.iconColor}`}>
-                            <Icon className="h-3.5 w-3.5" />
-                          </div>
-                          <div>
-                            <span className="font-bold text-white block">{s.name}</span>
-                            <span className="text-[10px] text-slate-500 font-mono">{s.domain}</span>
-                          </div>
+                {defaultSocial.map((s, i) => (
+                  <tr key={i} className="hover:bg-slate-800/40 transition">
+                    <td className="py-3.5 font-semibold text-slate-200">
+                      <div className="flex items-center gap-2.5">
+                        <div className={`flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-tr ${s.color} text-white font-bold text-[11px] shadow-sm`}>
+                          {s.name.substring(0, 2)}
                         </div>
-                      </td>
-                      <td className="py-3.5 text-right font-black text-white">{s.sessions.toLocaleString()}</td>
-                      <td className="py-3.5 text-right text-slate-300 font-semibold">{s.share}</td>
-                      <td className="py-3.5 text-right text-emerald-400 font-bold">{s.growth}</td>
-                      <td className="py-3.5 text-right text-slate-400">{s.avgDuration}</td>
-                      <td className="py-3.5 text-right text-emerald-400 font-black">{s.conversionRate}</td>
-                      <td className="py-3.5 text-blue-400 font-mono text-[11px] hover:underline cursor-pointer">
-                        {s.topLanding}
-                      </td>
-                    </tr>
-                  );
-                })}
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-white">{s.name}</span>
+                            <span className="text-[9px] text-slate-400 bg-slate-800 px-1.5 py-0.2 rounded font-medium">{s.badge}</span>
+                          </div>
+                          <span className="text-[10px] text-slate-500 font-mono">{s.domain}</span>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="py-3.5 text-right font-black text-white">{s.sessions.toLocaleString()}</td>
+                    <td className="py-3.5 text-right text-slate-300 font-semibold">{s.share}</td>
+                    <td className="py-3.5 text-right text-emerald-400 font-bold">{s.growth}</td>
+                    <td className="py-3.5 text-right text-slate-400">{s.avgDuration}</td>
+                    <td className="py-3.5 text-right text-emerald-400 font-black">{s.conversionRate}</td>
+                    <td className="py-3.5 text-blue-400 font-mono text-[11px] hover:underline cursor-pointer">
+                      {s.topLanding}
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
