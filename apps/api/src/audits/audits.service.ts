@@ -325,9 +325,10 @@ export class AuditsService {
           id: true,
           name: true,
           website: true,
-          wpSiteUrl: true,
-          wpConnected: true,
-          wpVersion: true,
+          wordpressUrl: true,
+          wordpressConnectedAt: true,
+          wordpressPluginVersion: true,
+          wordpressSiteName: true,
         },
       }),
     ]);
@@ -353,13 +354,41 @@ export class AuditsService {
       recommendations,
       wordpress: firstBiz
         ? {
-            connected: Boolean(firstBiz.wpConnected),
-            url: firstBiz.wpSiteUrl,
-            siteName: firstBiz.name,
-            version: firstBiz.wpVersion,
+            connected: Boolean(firstBiz.wordpressConnectedAt),
+            url: firstBiz.wordpressUrl,
+            siteName: firstBiz.wordpressSiteName || firstBiz.name,
+            version: firstBiz.wordpressPluginVersion,
           }
         : null,
     };
+  }
+
+  async list(userId: string) {
+    return this.listWebsiteAudits(userId);
+  }
+
+  async get(id: string, userId: string) {
+    return this.getWebsiteAudit(userId, id);
+  }
+
+  async recommendations(userId: string) {
+    const membership = await prisma.membership.findFirst({ where: { userId } });
+    if (!membership) throw new NotFoundException("No business found.");
+
+    return prisma.recommendation.findMany({
+      where: { businessId: membership.businessId },
+      orderBy: [{ priority: "asc" }, { createdAt: "desc" }],
+    });
+  }
+
+  async updateRecommendationStatus(id: string, status: any, userId: string) {
+    const membership = await prisma.membership.findFirst({ where: { userId } });
+    if (!membership) throw new NotFoundException("No business found.");
+
+    return prisma.recommendation.update({
+      where: { id, businessId: membership.businessId },
+      data: { status: status as RecommendationStatus },
+    });
   }
 
   async listWebsiteAudits(userId: string) {
