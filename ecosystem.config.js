@@ -13,7 +13,8 @@ module.exports = {
         PORT: 3001,
         DATABASE_URL: "postgresql://brandos:brandos_password@localhost:5432/brandos?schema=public",
         REDIS_URL: "redis://localhost:6379",
-        API_URL: "http://169.58.227.157/api",
+        API_URL: "https://brandoseye.com/api",
+        FRONTEND_URL: "https://brandoseye.com",
       },
     },
     {
@@ -28,6 +29,20 @@ module.exports = {
       env: {
         NODE_ENV: "production",
         PORT: 3000,
+      },
+    },
+    {
+      name: "brandos-worker",
+      cwd: "./apps/worker",
+      script: "dist/index.js",
+      instances: 1,
+      autorestart: true,
+      watch: false,
+      max_memory_restart: "500M",
+      env: {
+        NODE_ENV: "production",
+        DATABASE_URL: "postgresql://brandos:brandos_password@localhost:5432/brandos?schema=public",
+        REDIS_URL: "redis://localhost:6379",
       },
     },
   ],
