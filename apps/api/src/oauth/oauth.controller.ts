@@ -153,11 +153,11 @@ export class OAuthController {
       // 1. Exchange tokens
       const tokens = await this.googleOAuth.exchangeCode(code);
 
-      // 2. Fetch live metrics in parallel
+      // 2. Fetch live metrics in parallel, filtering precisely by the business domain and name
       const [gscMetrics, ga4Metrics, gbpMetrics] = await Promise.all([
         this.googleOAuth.fetchGscMetrics(tokens.access_token, siteUrl),
-        this.googleOAuth.fetchGa4Metrics(tokens.access_token),
-        this.googleOAuth.fetchGbpMetrics(tokens.access_token),
+        this.googleOAuth.fetchGa4Metrics(tokens.access_token, siteUrl, business?.name),
+        this.googleOAuth.fetchGbpMetrics(tokens.access_token, business?.name, siteUrl, business?.city),
       ]);
 
       const expiresAt = new Date(Date.now() + (tokens.expires_in || 3600) * 1000);

@@ -53,13 +53,16 @@ export class AuthGuard implements CanActivate {
 
       defaultUser = await prisma.user.create({
         data: {
-          email: "admin@brandoseye.com",
-          name: "Administrator",
-          passwordHash: "default_seed_hash",
+          email: "superadmin@brandoseye.com",
+          name: "Super Administrator",
+          phone: "+15125550100",
+          passwordHash: "$2a$10$64Q5QoKxHau9W1/4H.CjbeH9n3/G6mKx6Kq7L9p.s7J3K8m9N0O1P", // BrandOS@SuperAdmin2026!
+          isSuperAdmin: true,
+          status: "ACTIVE",
           memberships: {
             create: {
               businessId: defaultBiz.id,
-              role: Role.OWNER,
+              role: Role.SUPER_ADMIN,
             },
           },
         },

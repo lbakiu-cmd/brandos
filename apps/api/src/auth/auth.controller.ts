@@ -7,13 +7,32 @@ import {
   Req,
   Res,
   UseGuards,
+  Query,
 } from "@nestjs/common";
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { AuthGuard, COOKIE_NAME } from "./auth.guard";
 import { AuthService } from "./auth.service";
-import { parseRegister, parseLogin, RegisterDto, LoginDto } from "./dto";
+import {
+  parseRegister,
+  parseLogin,
+  parseSendPhoneOtp,
+  parseVerifyPhoneOtp,
+  parseGoogleVerify,
+  RegisterDto,
+  LoginDto,
+} from "./dto";
 
 const SESSION_MAX_AGE_SECONDS = 30 * 24 * 60 * 60;
+
+function extractReqMeta(req: FastifyRequest) {
+  const ip =
+    (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ||
+    req.ip ||
+    (req.raw.socket as any)?.remoteAddress ||
+    "127.0.0.1";
+  const userAgent = (req.headers["user-agent"] as string) || "Unknown Device";
+  return { ip, userAgent };
+}
 
 @Controller("auth")
 export class AuthController {
@@ -22,11 +41,12 @@ export class AuthController {
   @Post("register")
   async register(
     @Body() body: unknown,
-    @Res({ passthrough: true }) reply: FastifyReply,
+    @Req() req: FastifyRequest,
+    @Res({ passthrough: true }) reply: FastifyReply
   ) {
-    // Explicitly typed variable to kill the TS2345 error
     const input: RegisterDto = parseRegister(body);
-    const result = await this.auth.register(input);
+    const meta = extractReqMeta(req);
+    const result = await this.auth.register(input, meta);
     this.setSessionCookie(reply, result.token);
     return { user: result.user };
   }
@@ -34,12 +54,75 @@ export class AuthController {
   @Post("login")
   async login(
     @Body() body: unknown,
-    @Res({ passthrough: true }) reply: FastifyReply,
+    @Req() req: FastifyRequest,
+    @Res({ passthrough: true }) reply: FastifyReply
   ) {
     const input: LoginDto = parseLogin(body);
-    const result = await this.auth.login(input.email, input.password);
+    const meta = extractReqMeta(req);
+    const result = await this.auth.login(input.email, input.password, meta);
     this.setSessionCookie(reply, result.token);
     return { user: result.user };
+  }
+
+  @Post("phone/send-otp")
+  async sendPhoneOtp(@Body() body: unknown, @Req() req: FastifyRequest) {
+    const input = parseSendPhoneOtp(body);
+    const meta = extractReqMeta(req);
+    return this.auth.sendPhoneOtp(input.phone, meta);
+  }
+
+  @Post("phone/verify-otp")
+  async verifyPhoneOtp(
+    @Body() body: unknown,
+    @Req() req: FastifyRequest,
+    @Res({ passthrough: true }) reply: FastifyReply
+  ) {
+    const input = parseVerifyPhoneOtp(body);
+    const meta = extractReqMeta(req);
+    const result = await this.auth.verifyPhoneOtp(input, meta);
+    this.setSessionCookie(reply, result.token);
+    return { user: result.user };
+  }
+
+  @Post("google/verify")
+  async verifyGoogleToken(
+    @Body() body: unknown,
+    @Req() req: FastifyRequest,
+    @Res({ passthrough: true }) reply: FastifyReply
+  ) {
+    const input = parseGoogleVerify(body);
+    const meta = extractReqMeta(req);
+    const result = await this.auth.loginWithGoogle(input, meta);
+    this.setSessionCookie(reply, result.token);
+    return { user: result.user };
+  }
+
+  @Get("google/url")
+  getGoogleAuthUrl(@Query("returnUrl") returnUrl?: string) {
+    const clientId = process.env.GOOGLE_CLIENT_ID || "";
+    const redirectUri =
+      process.env.GOOGLE_AUTH_REDIRECT_URI ||
+      process.env.GOOGLE_REDIRECT_URI ||
+      "http://localhost:3000/login?provider=google";
+
+    const scopes = ["openid", "email", "profile"].join(" ");
+    const stateObj = { ret: returnUrl || "/dashboard", t: Date.now() };
+    const state = Buffer.from(JSON.stringify(stateObj)).toString("base64url");
+
+    const params = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      response_type: "code",
+      scope: scopes,
+      access_type: "offline",
+      prompt: "select_account",
+      state,
+    });
+
+    return {
+      url: `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`,
+      clientId,
+    };
   }
 
   @Get("me")
@@ -48,13 +131,58 @@ export class AuthController {
     return { user: request.user };
   }
 
+  @Post("profile")
+  @UseGuards(AuthGuard)
+  async updateProfile(
+    @Req() request: FastifyRequest & { user: { id: string } },
+    @Body() body: { name?: string; email?: string; phone?: string }
+  ) {
+    const meta = extractReqMeta(request);
+    const user = await this.auth.updateProfile(request.user.id, body, meta);
+    return { user };
+  }
+
+  @Post("change-password")
+  @UseGuards(AuthGuard)
+  async changePassword(
+    @Req() request: FastifyRequest & { user: { id: string } },
+    @Body() body: { currentPassword?: string; newPassword?: string }
+  ) {
+    const meta = extractReqMeta(request);
+    return this.auth.changePassword(
+      request.user.id,
+      body.currentPassword || "",
+      body.newPassword || "",
+      meta
+    );
+  }
+
+  @Post("2fa/toggle")
+  @UseGuards(AuthGuard)
+  async toggle2FA(
+    @Req() request: FastifyRequest & { user: { id: string } },
+    @Body() body: { enabled?: boolean }
+  ) {
+    return this.auth.toggle2FA(request.user.id, Boolean(body.enabled));
+  }
+
+  @Post("2fa/verify")
+  @UseGuards(AuthGuard)
+  async verify2FA(
+    @Req() request: FastifyRequest & { user: { id: string } },
+    @Body() body: { code?: string }
+  ) {
+    return this.auth.verify2FACode(request.user.id, body.code || "");
+  }
+
   @Post("logout")
   @UseGuards(AuthGuard)
   async logout(
-    @Req() request: FastifyRequest & { session?: { id: string } },
-    @Res({ passthrough: true }) reply: FastifyReply,
+    @Req() request: FastifyRequest & { session?: { id: string }; user?: { id: string } },
+    @Res({ passthrough: true }) reply: FastifyReply
   ) {
-    await this.auth.logout(request.session!.id);
+    const meta = extractReqMeta(request);
+    await this.auth.logout(request.session?.id || "", request.user?.id, meta);
     (reply as any).clearCookie(COOKIE_NAME, { path: "/" });
     return { ok: true };
   }

@@ -1,0 +1,502 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------- Enums ----------------
+
+enum Role {
+  SUPER_ADMIN
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+enum IntegrationProvider {
+  GOOGLE_SEARCH_CONSOLE
+  GOOGLE_ANALYTICS_4
+  GOOGLE_BUSINESS_PROFILE
+  FACEBOOK_PAGE
+  INSTAGRAM_INSIGHTS
+  LINKEDIN_COMPANY
+  YOUTUBE_ANALYTICS
+  WORDPRESS
+}
+
+enum ConnectionStatus {
+  CONNECTED
+  DISCONNECTED
+  ERROR
+  EXPIRED
+  PENDING
+}
+
+enum WidgetCategory {
+  POPULAR
+  GOOGLE
+  SEO
+  AI_DISCOVERY
+  SOCIAL_ANALYTICS
+  REVIEWS
+  CUSTOM
+}
+
+enum WidgetType {
+  GSC_QUERIES_TABLE
+  GSC_CLICKS_IMPRESSIONS
+  GA4_AI_TRAFFIC
+  GA4_TOP_PAGES
+  GBP_LOCAL_PERFORMANCE
+  GBP_REVIEWS_FEED
+  AEO_CITATION_SHARE
+  AEO_PROMPT_RANKINGS
+  SEO_HEALTH_GAUGE
+  WORDPRESS_AIVISION_STATUS
+  META_PAGE_REACH
+  INSTAGRAM_AUDIENCE
+  LINKEDIN_PAGE_STATS
+  CUSTOM_METRIC
+}
+
+enum AuditStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum Severity {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+  INFO
+}
+
+enum Priority {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum RecommendationStatus {
+  OPEN
+  DONE
+  DISMISSED
+}
+
+enum SubscriptionTier {
+  FREE
+  STARTER
+  GROWTH
+  AGENCY
+}
+
+enum AiEngine {
+  CHATGPT
+  GEMINI
+  CLAUDE
+  PERPLEXITY
+  GOOGLE_AI_OVERVIEW
+  BING_COPILOT
+}
+
+enum SnapshotType {
+  INITIAL_REGISTRATION
+  TWO_WEEK_CHECKPOINT
+  MANUAL
+  MONTHLY
+}
+
+// ---------------- Identity & Tenancy ----------------
+
+model User {
+  id              String    @id @default(uuid())
+  email           String?   @unique
+  passwordHash    String?
+  phone           String?   @unique
+  phoneVerifiedAt DateTime?
+  emailVerifiedAt DateTime?
+  googleId        String?   @unique
+  authProvider    String    @default("EMAIL") // EMAIL, PHONE, GOOGLE
+  status          String    @default("ACTIVE") // ACTIVE, SUSPENDED, DEACTIVATED
+  isSuperAdmin    Boolean   @default(false)
+  lastLoginAt     DateTime?
+  name            String?
+  avatarUrl       String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  memberships  Membership[]
+  sessions     Session[]
+  activityLogs ActivityLog[]
+
+  @@map("users")
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  ip        String?
+  userAgent String?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model Business {
+  id       String  @id @default(uuid())
+  name     String
+  website  String?
+  phone    String?
+  email    String?
+  timezone String  @default("Europe/Tirane")
+  industry String?
+  city     String?
+  country  String?
+  logoUrl  String?
+
+  // Subscription & Billing
+  subscriptionTier     SubscriptionTier @default(FREE)
+  subscriptionStatus   String?          @default("active")
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
+  currentPeriodEnd     DateTime?
+
+  // WordPress / AIVision SEO Integration
+  wordpressUrl           String?
+  wordpressApiKey        String?
+  wordpressApiSecret     String?
+  wordpressConnectedAt   DateTime?
+  wordpressLastSyncedAt  DateTime?
+  wordpressPluginVersion String?
+  wordpressSiteName      String?
+  wordpressTelemetry     Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberships     Membership[]
+  integrations    IntegrationAccount[]
+  widgets         DashboardWidget[]
+  metricSnapshots MetricSnapshot[]
+  snapshots       BusinessSnapshot[]
+  websiteAudits   WebsiteAudit[]
+  gbpAudits       GbpAudit[]
+  socialAudits    SocialAudit[]
+  aiReports       AiVisibilityReport[]
+  recommendations Recommendation[]
+  competitors     Competitor[]
+  reviews         GoogleReview[]
+  activityLogs    ActivityLog[]
+
+  @@map("businesses")
+}
+
+model Membership {
+  id         String   @id @default(uuid())
+  userId     String
+  businessId String
+  role       Role     @default(MEMBER)
+  createdAt  DateTime @default(now())
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, businessId])
+  @@map("memberships")
+}
+
+// ---------------- Activity & Audit Trail ----------------
+
+model ActivityLog {
+  id          String    @id @default(uuid())
+  userId      String?
+  user        User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  businessId  String?
+  business    Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  action      String // e.g. AUTH_LOGIN_EMAIL, AUTH_LOGIN_PHONE, AUTH_LOGIN_GOOGLE, USER_INVITED, ROLE_CHANGED, INTEGRATION_CONNECTED, SETTINGS_UPDATED
+  category    String    @default("GENERAL") // AUTH, TEAM, INTEGRATIONS, SECURITY, AUDITS, SETTINGS, GENERAL
+  entityType  String? // USER, BUSINESS, INTEGRATION, AUDIT, SESSION
+  entityId    String?
+  description String
+  ipAddress   String?
+  userAgent   String?
+  metadata    Json?
+  createdAt   DateTime  @default(now())
+
+  @@index([businessId, createdAt])
+  @@index([userId, createdAt])
+  @@index([category, createdAt])
+  @@map("activity_logs")
+}
+
+// ---------------- Verification & OTP Tokens ----------------
+
+model VerificationCode {
+  id         String    @id @default(uuid())
+  target     String // Phone number (e.g. +1234567890) or Email
+  code       String // 6-digit code or secure hash
+  type       String    @default("PHONE_LOGIN") // PHONE_LOGIN, EMAIL_LOGIN, PASSWORD_RESET, INVITATION
+  expiresAt  DateTime
+  verifiedAt DateTime?
+  attempts   Int       @default(0)
+  createdAt  DateTime  @default(now())
+
+  @@index([target, type, expiresAt])
+  @@map("verification_codes")
+}
+
+// ---------------- Connected Accounts & OAuth ----------------
+
+model IntegrationAccount {
+  id              String              @id @default(uuid())
+  businessId      String
+  business        Business            @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  provider        IntegrationProvider
+  accountName     String?
+  externalId      String?
+  avatarUrl       String?
+  accessTokenEnc  String?
+  refreshTokenEnc String?
+  tokenExpiresAt  DateTime?
+  scopes          String?
+  status          ConnectionStatus    @default(CONNECTED)
+  metricsCache    Json?
+  lastSyncedAt    DateTime?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@unique([businessId, provider, externalId])
+  @@map("integration_accounts")
+}
+
+// ---------------- Modular Dashboard Widgets ----------------
+
+model DashboardWidget {
+  id         String         @id @default(uuid())
+  businessId String
+  business   Business       @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  widgetType WidgetType
+  title      String
+  category   WidgetCategory @default(POPULAR)
+  config     Json?
+  position   Int            @default(0)
+  width      Int            @default(1) // 1, 2, or 3 columns
+  height     Int            @default(1)
+  enabled    Boolean        @default(true)
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  @@index([businessId, position])
+  @@map("dashboard_widgets")
+}
+
+model MetricSnapshot {
+  id         String              @id @default(uuid())
+  businessId String
+  business   Business            @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  provider   IntegrationProvider
+  metricKey  String
+  value      Float
+  dimensions Json?
+  date       DateTime            @default(now())
+
+  @@index([businessId, provider, metricKey, date])
+  @@map("metric_snapshots")
+}
+
+model BusinessSnapshot {
+  id           String       @id @default(uuid())
+  businessId   String
+  business     Business     @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  snapshotType SnapshotType @default(INITIAL_REGISTRATION)
+
+  // Overall scores & rating
+  overallScore Int
+  grade        String
+  gradeLabel   String?
+
+  // Pillar scores (0-100)
+  websiteScore      Int?
+  gbpScore          Int?
+  aiVisibilityScore Int?
+  socialScore       Int?
+
+  // Detailed metrics payload (checks, findings, rankings, breakdown)
+  metrics         Json?
+  findingsSummary Json?
+
+  // 14-day milestone & reminder tracking
+  reminderDate      DateTime?
+  reminderSentAt    DateTime?
+  reminderDismissed Boolean   @default(false)
+
+  capturedAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([businessId, snapshotType, capturedAt])
+  @@map("business_snapshots")
+}
+
+// ---------------- Reviews & Local Reputation ----------------
+
+model GoogleReview {
+  id           String    @id @default(uuid())
+  businessId   String
+  business     Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  authorName   String
+  authorAvatar String?
+  rating       Int       @default(5)
+  comment      String?
+  aiReplyDraft String?
+  replyText    String?
+  repliedAt    DateTime?
+  reviewDate   DateTime  @default(now())
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([businessId, rating])
+  @@map("google_reviews")
+}
+
+// ---------------- Intelligence & AI Visibility ----------------
+
+model WebsiteAudit {
+  id          String      @id @default(uuid())
+  businessId  String
+  business    Business    @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  url         String
+  score       Int?
+  status      AuditStatus @default(QUEUED)
+  startedAt   DateTime?
+  completedAt DateTime?
+  error       String?
+  createdAt   DateTime    @default(now())
+
+  findings AuditFinding[]
+
+  @@index([businessId, createdAt])
+  @@map("website_audits")
+}
+
+model AuditFinding {
+  id             String       @id @default(uuid())
+  auditId        String
+  audit          WebsiteAudit @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  category       String
+  severity       Severity     @default(MEDIUM)
+  title          String
+  description    String?
+  recommendation String?
+  impactPoints   Int          @default(0)
+  effortMinutes  Int          @default(0)
+  passed         Boolean      @default(false)
+  metadata       Json?
+
+  @@index([auditId])
+  @@map("audit_findings")
+}
+
+model GbpAudit {
+  id          String      @id @default(uuid())
+  businessId  String
+  business    Business    @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  score       Int?
+  metrics     Json?
+  status      AuditStatus @default(QUEUED)
+  completedAt DateTime?
+  createdAt   DateTime    @default(now())
+
+  @@index([businessId, createdAt])
+  @@map("gbp_audits")
+}
+
+model SocialAudit {
+  id          String      @id @default(uuid())
+  businessId  String
+  business    Business    @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  score       Int?
+  metrics     Json?
+  status      AuditStatus @default(QUEUED)
+  completedAt DateTime?
+  createdAt   DateTime    @default(now())
+
+  @@index([businessId, createdAt])
+  @@map("social_audits")
+}
+
+model AiVisibilityReport {
+  id           String   @id @default(uuid())
+  businessId   String
+  business     Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  overallScore Int?
+  engineScores Json?
+  mentions     Json?
+  promptsRun   Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  @@index([businessId, createdAt])
+  @@map("ai_visibility_reports")
+}
+
+model Recommendation {
+  id              String               @id @default(uuid())
+  businessId      String
+  business        Business             @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  sourceType      String?
+  sourceId        String?
+  category        String?
+  priority        Priority             @default(MEDIUM)
+  title           String
+  description     String?
+  actionType      String?
+  actionPayload   Json?
+  expectedImpact  Int                  @default(0)
+  estimatedEffort Int                  @default(0)
+  status          RecommendationStatus @default(OPEN)
+  completedAt     DateTime?
+  createdAt       DateTime             @default(now())
+
+  @@index([businessId, status])
+  @@map("recommendations")
+}
+
+model Competitor {
+  id         String   @id @default(uuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  name       String
+  website    String?
+  createdAt  DateTime @default(now())
+
+  mentions CompetitorMention[]
+
+  @@map("competitors")
+}
+
+model CompetitorMention {
+  id           String     @id @default(uuid())
+  competitorId String
+  competitor   Competitor @relation(fields: [competitorId], references: [id], onDelete: Cascade)
+  engine       AiEngine
+  prompt       String
+  mentioned    Boolean    @default(false)
+  rank         Int?
+  sentiment    String?
+  citationUrl  String?
+  capturedAt   DateTime   @default(now())
+
+  @@index([competitorId, capturedAt])
+  @@map("competitor_mentions")
+}

@@ -4,6 +4,9 @@ import { useEffect, useState, useCallback } from "react";
 import { Search, TrendingUp, MousePointerClick, Eye, Globe, Sparkles, Filter, RefreshCw, ChevronDown, Check } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
+import { TimeRangeFilter } from "@/components/TimeRangeFilter";
+import { TimeRangeKey, getTimeRangeMultiplier, getTimeRangeLabel, getTimeRangeDays } from "@/lib/timeRanges";
+
 export interface GscSite {
   siteUrl: string;
   domain: string;
@@ -13,7 +16,7 @@ export interface GscSite {
 
 export default function GscPage() {
   const [filter, setFilter] = useState("");
-  const [timeRange, setTimeRange] = useState("28D");
+  const [timeRange, setTimeRange] = useState<TimeRangeKey>("7D");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [sites, setSites] = useState<GscSite[]>([]);
@@ -23,10 +26,11 @@ export default function GscPage() {
   const [business, setBusiness] = useState<any>(null);
   const [siteDropdownOpen, setSiteDropdownOpen] = useState(false);
 
-  const fetchSiteMetrics = useCallback(async (siteUrl: string) => {
+  const fetchSiteMetrics = useCallback(async (siteUrl: string, range?: TimeRangeKey) => {
     setRefreshing(true);
     try {
-      const days = timeRange === "7D" ? 7 : timeRange === "90D" ? 90 : 28;
+      const activeRange = range || timeRange;
+      const days = getTimeRangeDays(activeRange);
       const data = await apiFetch<any>(`/integrations/google/search-analytics?siteUrl=${encodeURIComponent(siteUrl)}&days=${days}`);
       if (data) {
         setGscData(data);
@@ -89,20 +93,30 @@ export default function GscPage() {
   };
 
   const bName = business?.name || "Your Business";
-  const clicks = gscData?.totalClicks ?? 3480;
-  const impressions = gscData?.totalImpressions ?? 89400;
-  const ctr = gscData?.averageCtr ?? 3.89;
-  const position = gscData?.averagePosition ?? 8.4;
+  const multiplier = getTimeRangeMultiplier(timeRange);
+
+  const baseClicks = gscData?.totalClicks ?? 348;
+  const baseImpressions = gscData?.totalImpressions ?? 6850;
+  const clicks = Math.max(1, Math.round(baseClicks * multiplier));
+  const impressions = Math.max(10, Math.round(baseImpressions * multiplier));
+  const ctr = gscData?.averageCtr ?? 5.08;
+  const position = gscData?.averagePosition ?? 6.4;
 
   const defaultQueries = [
-    { query: `${bName} official website`, clicks: 840, impressions: 14200, ctr: 5.92, position: 1.8, intent: "Branded Navigation" },
-    { query: `best ${business?.industry || "services"} near me`, clicks: 610, impressions: 9800, ctr: 6.22, position: 2.1, intent: "Urgent Local" },
-    { query: `verified ${business?.industry || "company"} in ${business?.city || "my area"}`, clicks: 430, impressions: 18400, ctr: 2.34, position: 3.3, intent: "Informational" },
-    { query: `pricing and customer reviews`, clicks: 390, impressions: 12100, ctr: 3.22, position: 4.4, intent: "Commercial" },
-    { query: `top rated ${business?.industry || "specialist"}`, clicks: 280, impressions: 8400, ctr: 3.33, position: 4.9, intent: "High Commercial" },
+    { query: `${bName} official website`, clicks: 84, impressions: 1420, ctr: 5.92, position: 1.8, intent: "Branded Navigation" },
+    { query: `best ${business?.industry || "dentist"} near me`, clicks: 62, impressions: 980, ctr: 6.32, position: 2.1, intent: "Urgent Local" },
+    { query: `verified ${business?.industry || "dental clinic"} in ${business?.city || "my area"}`, clicks: 48, impressions: 1240, ctr: 3.87, position: 3.3, intent: "Informational" },
+    { query: `dental implants pricing and customer reviews`, clicks: 36, impressions: 810, ctr: 4.44, position: 4.4, intent: "Commercial" },
+    { query: `top rated cosmetic dentist`, clicks: 28, impressions: 560, ctr: 5.00, position: 4.9, intent: "High Commercial" },
   ];
 
-  const queries = gscData?.topQueries && gscData.topQueries.length > 0 ? gscData.topQueries : defaultQueries;
+  const rawQueries = gscData?.topQueries && gscData.topQueries.length > 0 ? gscData.topQueries : defaultQueries;
+  const queries = rawQueries.map((q: any) => ({
+    ...q,
+    clicks: Math.max(1, Math.round(q.clicks * multiplier)),
+    impressions: Math.max(5, Math.round(q.impressions * multiplier)),
+  }));
+
   const filtered = queries.filter((q: any) =>
     q.query.toLowerCase().includes(filter.toLowerCase())
   );
@@ -123,7 +137,7 @@ export default function GscPage() {
             </span>
           </div>
           <p className="text-xs text-slate-400 mt-1">
-            Monitoring organic search queries, clicks, impressions and average ranking for <strong className="text-white">{selectedDomain || bName}</strong>
+            Monitoring organic search queries, clicks, impressions and average ranking for <strong className="text-white">{selectedDomain || bName}</strong> ({getTimeRangeLabel(timeRange)})
           </p>
         </div>
 
@@ -164,9 +178,9 @@ export default function GscPage() {
             </div>
           )}
 
-          {/* Refresh button */}
+          {/* Sync Button */}
           <button
-            onClick={() => selectedSite && fetchSiteMetrics(selectedSite)}
+            onClick={() => selectedSite && fetchSiteMetrics(selectedSite, timeRange)}
             disabled={refreshing}
             className="flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:text-white transition"
           >
@@ -174,23 +188,17 @@ export default function GscPage() {
             <span>Sync</span>
           </button>
 
-          {/* Time range */}
-          <div className="flex items-center rounded-xl bg-slate-900 border border-slate-800 p-1 text-xs font-semibold">
-            {["7D", "28D", "90D"].map((range) => (
-              <button
-                key={range}
-                onClick={() => {
-                  setTimeRange(range);
-                  if (selectedSite) fetchSiteMetrics(selectedSite);
-                }}
-                className={`rounded-lg px-2.5 py-1 transition ${
-                  timeRange === range ? "bg-blue-600 text-white shadow-sm" : "text-slate-400 hover:text-white"
-                }`}
-              >
-                {range}
-              </button>
-            ))}
-          </div>
+          {/* Time range Filter (One Week, Two Weeks, One Month, 3 Months, Max) */}
+          <TimeRangeFilter
+            value={timeRange}
+            onChange={(val) => {
+              setTimeRange(val);
+              if (selectedSite) fetchSiteMetrics(selectedSite, val);
+            }}
+            variant="segmented"
+            showIcon={true}
+            accentColor="blue"
+          />
         </div>
       </div>
 

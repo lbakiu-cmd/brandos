@@ -85,6 +85,35 @@ export class WordpressController {
   }
 
   /**
+   * Get Suggested & Live WordPress Categories for the Business
+   */
+  @Get("categories")
+  @UseGuards(AuthGuard)
+  async getCategories(@Req() req: any) {
+    const biz = await this.business.get(req.user.id);
+    return this.wordpress.getCategories(biz.id);
+  }
+
+  /**
+   * AI Blog Article Generator tailored to selected business categories
+   */
+  @Post("generate-article")
+  @UseGuards(AuthGuard)
+  async generateArticle(
+    @Req() req: any,
+    @Body()
+    body: {
+      categories: string[];
+      topic?: string;
+      tone?: string;
+      focusKeyword?: string;
+    }
+  ) {
+    const biz = await this.business.get(req.user.id);
+    return this.wordpress.generateArticle(biz.id, body);
+  }
+
+  /**
    * Copilot Auto-Publisher: Send post to WordPress
    */
   @Post("publish")
@@ -100,7 +129,7 @@ export class WordpressController {
       meta_description?: string;
       focus_keyword?: string;
       schemas?: any[];
-      categories?: number[];
+      categories?: (number | string)[];
       tags?: string[];
     }
   ) {

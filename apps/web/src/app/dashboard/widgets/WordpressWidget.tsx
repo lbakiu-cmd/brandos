@@ -1,16 +1,26 @@
 "use client";
 
 import { Plug, RefreshCw } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { TimeRangeFilter } from "@/components/TimeRangeFilter";
+import { TimeRangeKey, getTimeRangeLabel } from "@/lib/timeRanges";
 
 interface WordpressWidgetProps {
   data?: any;
   onRemove?: () => void;
+  initialTimeRange?: TimeRangeKey;
 }
 
-export function WordpressWidget({ data, onRemove }: WordpressWidgetProps) {
+export function WordpressWidget({ data, onRemove, initialTimeRange = "7D" }: WordpressWidgetProps) {
+  const [timeRange, setTimeRange] = useState<TimeRangeKey>(initialTimeRange);
   const [syncing, setSyncing] = useState(false);
   const [syncSuccess, setSyncSuccess] = useState(false);
+
+  useEffect(() => {
+    if (initialTimeRange) {
+      setTimeRange(initialTimeRange);
+    }
+  }, [initialTimeRange]);
 
   const siteUrl = data?.siteUrl || "https://yourdomain.com";
   const pluginVersion = data?.pluginVersion || "1.4.1";
@@ -31,26 +41,36 @@ export function WordpressWidget({ data, onRemove }: WordpressWidgetProps) {
   return (
     <div className="flex flex-col h-full rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-xl backdrop-blur">
       {/* Header */}
-      <div className="flex items-center justify-between pb-4 border-b border-slate-800/80">
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+      <div className="flex items-center justify-between pb-4 border-b border-slate-800/80 gap-2">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
             <Plug className="h-4 w-4" />
           </div>
-          <div>
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
-              WordPress AIVision SEO Engine
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-semibold border border-emerald-500/30">
+          <div className="min-w-0">
+            <h3 className="text-sm font-bold text-white flex items-center gap-2 truncate">
+              WordPress AIVision Engine
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-semibold border border-emerald-500/30 shrink-0">
                 Connected
               </span>
             </h3>
-            <p className="text-xs text-slate-400">{siteUrl} (v{pluginVersion})</p>
+            <p className="text-xs text-slate-400 truncate">{siteUrl} (v{pluginVersion})</p>
           </div>
         </div>
-        {onRemove && (
-          <button onClick={onRemove} className="text-xs text-slate-500 hover:text-red-400 transition">
-            Remove
-          </button>
-        )}
+
+        <div className="flex items-center gap-2 shrink-0">
+          <TimeRangeFilter
+            value={timeRange}
+            onChange={setTimeRange}
+            variant="compact"
+            accentColor="indigo"
+          />
+
+          {onRemove && (
+            <button onClick={onRemove} className="text-xs text-slate-500 hover:text-red-400 transition ml-1">
+              Remove
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Scores */}
@@ -77,7 +97,7 @@ export function WordpressWidget({ data, onRemove }: WordpressWidgetProps) {
       {/* Action Bar */}
       <div className="mt-auto flex items-center justify-between rounded-xl bg-slate-950/40 border border-slate-800/60 p-3">
         <div className="text-xs text-slate-300">
-          <span className="font-semibold text-white">{postsCount} Articles</span> Synced with AIVision Engine
+          <span className="font-semibold text-white">{postsCount} Articles</span> Synced ({getTimeRangeLabel(timeRange)})
         </div>
         <button
           onClick={handleTriggerSync}

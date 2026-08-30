@@ -13,6 +13,61 @@ import {
   type SocialCheck,
 } from "@brandos/audit-engine";
 
+async function upsertRecommendation(data: {
+  businessId: string;
+  sourceType: string;
+  sourceId: string;
+  category: string;
+  priority: "HIGH" | "MEDIUM" | "LOW";
+  title: string;
+  description: string;
+  actionType?: string | null;
+  actionPayload?: any;
+  expectedImpact: number;
+  estimatedEffort: number;
+}) {
+  const existing = await prisma.recommendation.findFirst({
+    where: {
+      businessId: data.businessId,
+      title: data.title,
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  if (existing) {
+    return prisma.recommendation.update({
+      where: { id: existing.id },
+      data: {
+        sourceId: data.sourceId,
+        category: data.category,
+        priority: data.priority as any,
+        description: data.description,
+        actionType: data.actionType ?? existing.actionType,
+        actionPayload: data.actionPayload ?? existing.actionPayload,
+        expectedImpact: data.expectedImpact,
+        estimatedEffort: data.estimatedEffort,
+      },
+    });
+  }
+
+  return prisma.recommendation.create({
+    data: {
+      businessId: data.businessId,
+      sourceType: data.sourceType,
+      sourceId: data.sourceId,
+      category: data.category,
+      priority: data.priority as any,
+      title: data.title,
+      description: data.description,
+      actionType: data.actionType,
+      actionPayload: data.actionPayload,
+      expectedImpact: data.expectedImpact,
+      estimatedEffort: data.estimatedEffort,
+      status: "OPEN",
+    },
+  });
+}
+
 export async function runWebsiteAudit(auditId: string) {
   const audit = await prisma.websiteAudit.findUnique({
     where: { id: auditId },
@@ -26,8 +81,19 @@ export async function runWebsiteAudit(auditId: string) {
   });
 
   try {
-    const html = (await fetchHtmlSafe(audit.url)) || `<html><head><title>${audit.business.name}</title></head><body><h1>${audit.business.name}</h1></body></html>`;
-    const result = evaluateWebsiteHtml(audit.url, html, undefined, undefined, audit.business.industry);
+    const [html, robotsTxt, llmsTxt] = await Promise.all([
+      fetchHtmlSafe(audit.url),
+      fetchHtmlSafe(new URL("/robots.txt", audit.url).toString()),
+      fetchHtmlSafe(new URL("/llms.txt", audit.url).toString()),
+    ]);
+    const cleanHtml = html || `<html><head><title>${audit.business.name}</title></head><body><h1>${audit.business.name}</h1></body></html>`;
+    const result = evaluateWebsiteHtml(
+      audit.url,
+      cleanHtml,
+      robotsTxt ?? undefined,
+      llmsTxt ?? undefined,
+      audit.business.industry
+    );
 
     await prisma.websiteAudit.update({
       where: { id: auditId },
@@ -38,7 +104,7 @@ export async function runWebsiteAudit(auditId: string) {
       },
     });
 
-    // Create findings
+    // Create findings & recommendations
     for (const f of result.checks) {
       await prisma.auditFinding.create({
         data: {
@@ -54,7 +120,7 @@ export async function runWebsiteAudit(auditId: string) {
         },
       });
 
-      // Auto create recommendations with 1-click code fixes for critical failed checks
+      // Auto create/update recommendations with 1-click code fixes for failed checks
       if (!f.passed) {
         let actionType: string | null = null;
         let actionPayload: any = null;
@@ -73,20 +139,30 @@ export async function runWebsiteAudit(auditId: string) {
           actionPayload = fix;
         }
 
-        await prisma.recommendation.create({
-          data: {
+        await upsertRecommendation({
+          businessId: audit.businessId,
+          sourceType: "WEBSITE_AUDIT",
+          sourceId: audit.id,
+          category: f.category,
+          priority: f.severity === "CRITICAL" ? "HIGH" : f.severity === "HIGH" ? "HIGH" : "MEDIUM",
+          title: f.title,
+          description: f.description + (f.recommendation ? " Action: " + f.recommendation : ""),
+          actionType,
+          actionPayload,
+          expectedImpact: f.impact,
+          estimatedEffort: 15,
+        });
+      } else {
+        // Auto-resolve when check passes
+        await prisma.recommendation.updateMany({
+          where: {
             businessId: audit.businessId,
-            sourceType: "WEBSITE_AUDIT",
-            sourceId: audit.id,
-            category: f.category,
-            priority: f.severity === "CRITICAL" ? "HIGH" : f.severity === "HIGH" ? "HIGH" : "MEDIUM",
             title: f.title,
-            description: f.description + (f.recommendation ? " Action: " + f.recommendation : ""),
-            actionType,
-            actionPayload,
-            expectedImpact: f.impact,
-            estimatedEffort: 15,
             status: "OPEN",
+          },
+          data: {
+            status: "DONE",
+            completedAt: new Date(),
           },
         });
       }
@@ -127,19 +203,16 @@ export async function runGbpAudit(gbpAuditId: string) {
 
     const failed = checks.filter((c: GbpCheck) => !c.passed);
     for (const f of failed) {
-      await prisma.recommendation.create({
-        data: {
-          businessId: biz.id,
-          sourceType: "GBP_AUDIT",
-          sourceId: gbpAuditId,
-          category: "Google Business",
-          priority: f.score >= 20 ? "HIGH" : "MEDIUM",
-          title: f.title,
-          description: f.description,
-          expectedImpact: f.score,
-          estimatedEffort: 15,
-          status: "OPEN",
-        },
+      await upsertRecommendation({
+        businessId: biz.id,
+        sourceType: "GBP_AUDIT",
+        sourceId: gbpAuditId,
+        category: "Google Business",
+        priority: f.score >= 20 ? "HIGH" : "MEDIUM",
+        title: f.title,
+        description: f.description,
+        expectedImpact: f.score,
+        estimatedEffort: 15,
       });
     }
 
@@ -188,21 +261,18 @@ export async function runSocialAudit(socialAuditId: string) {
         actionPayload = fix;
       }
 
-      await prisma.recommendation.create({
-        data: {
-          businessId: biz.id,
-          sourceType: "SOCIAL_AUDIT",
-          sourceId: socialAuditId,
-          category: "Social Presence",
-          priority: f.score >= 20 ? "HIGH" : "MEDIUM",
-          title: f.title,
-          description: f.description,
-          actionType,
-          actionPayload,
-          expectedImpact: f.score,
-          estimatedEffort: 10,
-          status: "OPEN",
-        },
+      await upsertRecommendation({
+        businessId: biz.id,
+        sourceType: "SOCIAL_AUDIT",
+        sourceId: socialAuditId,
+        category: "Social Presence",
+        priority: f.score >= 20 ? "HIGH" : "MEDIUM",
+        title: f.title,
+        description: f.description,
+        actionType,
+        actionPayload,
+        expectedImpact: f.score,
+        estimatedEffort: 10,
       });
     }
 

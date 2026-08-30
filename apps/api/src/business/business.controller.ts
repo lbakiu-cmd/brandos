@@ -29,4 +29,30 @@ export class BusinessController {
   update(@Req() req: any, @Body() body: any) {
     return this.business.update(req.user.id, body);
   }
+
+  // ---------------- Snapshot & 2-Week Comparison Endpoints ----------------
+
+  @Get("snapshot/comparison")
+  @UseGuards(AuthGuard)
+  getComparison(@Req() req: any) {
+    return this.business.getComparison(req.user.id);
+  }
+
+  @Post("snapshot/send-reminder-email")
+  @UseGuards(AuthGuard)
+  sendReminderEmail(@Req() req: any) {
+    return this.business.sendReminderEmail(req.user.id);
+  }
+
+  @Post("snapshot/dismiss-reminder")
+  @UseGuards(AuthGuard)
+  dismissReminder(@Req() req: any) {
+    return this.business.dismissReminder(req.user.id);
+  }
+
+  @Post("snapshot/checkpoint")
+  @UseGuards(AuthGuard)
+  saveCheckpoint(@Req() req: any, @Body() body: any) {
+    return this.business.saveCheckpoint(req.user.id, body?.type);
+  }
 }

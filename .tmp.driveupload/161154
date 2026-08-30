@@ -1,0 +1,74 @@
+{
+  "lastValidatedTimestamp": 1787930186508,
+  "projects": {
+    "C:\\dev\\brandos": {
+      "name": "brandos"
+    },
+    "C:\\dev\\brandos\\apps\\api": {
+      "name": "@brandos/api",
+      "version": "0.1.0"
+    },
+    "C:\\dev\\brandos\\apps\\web": {
+      "name": "@brandos/web",
+      "version": "0.1.0"
+    },
+    "C:\\dev\\brandos\\apps\\worker": {
+      "name": "@brandos/worker",
+      "version": "0.1.0"
+    },
+    "C:\\dev\\brandos\\packages\\ai": {
+      "name": "@brandos/ai",
+      "version": "0.1.0"
+    },
+    "C:\\dev\\brandos\\packages\\audit-engine": {
+      "name": "@brandos/audit-engine",
+      "version": "0.1.0"
+    },
+    "C:\\dev\\brandos\\packages\\config": {
+      "name": "@brandos/config",
+      "version": "0.1.0"
+    },
+    "C:\\dev\\brandos\\packages\\database": {
+      "name": "@brandos/database",
+      "version": "0.1.0"
+    },
+    "C:\\dev\\brandos\\packages\\integrations": {
+      "name": "@brandos/integrations",
+      "version": "0.1.0"
+    },
+    "C:\\dev\\brandos\\packages\\shared": {
+      "name": "@brandos/shared",
+      "version": "0.1.0"
+    },
+    "C:\\dev\\brandos\\packages\\ui": {
+      "name": "@brandos/ui",
+      "version": "0.1.0"
+    }
+  },
+  "pnpmfileExists": false,
+  "settings": {
+    "autoInstallPeers": true,
+    "catalogs": {},
+    "dedupeDirectDeps": false,
+    "dedupeInjectedDeps": true,
+    "dedupePeerDependents": true,
+    "dev": true,
+    "excludeLinksFromLockfile": false,
+    "hoistPattern": [
+      "*"
+    ],
+    "hoistWorkspacePackages": true,
+    "injectWorkspacePackages": false,
+    "linkWorkspacePackages": false,
+    "nodeLinker": "isolated",
+    "optional": true,
+    "preferWorkspacePackages": false,
+    "production": true,
+    "publicHoistPattern": [],
+    "workspacePackagePatterns": [
+      "apps/*",
+      "packages/*"
+    ]
+  },
+  "filteredInstall": true
+}

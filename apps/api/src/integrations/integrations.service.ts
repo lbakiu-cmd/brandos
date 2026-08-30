@@ -360,21 +360,21 @@ export class IntegrationsService {
         return {
           businessName: bName,
           siteUrl: bSite,
-          totalClicks: 3480,
+          totalClicks: 348,
           clicksGrowth: 14.2,
-          totalImpressions: 89400,
+          totalImpressions: 6850,
           impressionsGrowth: 22.8,
-          averageCtr: 3.89,
-          averagePosition: 8.4,
+          averageCtr: 5.08,
+          averagePosition: 6.4,
           topQueries: keywords,
           historicalTrend: [
-            { date: "Day 1", clicks: 95, impressions: 2700 },
-            { date: "Day 5", clicks: 112, impressions: 3100 },
-            { date: "Day 10", clicks: 128, impressions: 3400 },
-            { date: "Day 15", clicks: 140, impressions: 3900 },
-            { date: "Day 20", clicks: 165, impressions: 4200 },
-            { date: "Day 25", clicks: 180, impressions: 4600 },
-            { date: "Day 28", clicks: 210, impressions: 5100 },
+            { date: "Day 1", clicks: 10, impressions: 210 },
+            { date: "Day 5", clicks: 12, impressions: 240 },
+            { date: "Day 10", clicks: 14, impressions: 270 },
+            { date: "Day 15", clicks: 15, impressions: 310 },
+            { date: "Day 20", clicks: 18, impressions: 340 },
+            { date: "Day 25", clicks: 20, impressions: 380 },
+            { date: "Day 28", clicks: 24, impressions: 420 },
           ],
         };
 
@@ -382,17 +382,19 @@ export class IntegrationsService {
         return {
           businessName: bName,
           siteUrl: bSite,
-          totalUsers: 14280,
+          totalUsers: 1420,
           usersGrowth: 18.4,
-          sessions: 19400,
+          sessions: 1850,
           engagementRate: 68.4,
-          aiReferralSessions: 2340,
-          aiReferralShare: 12.1,
+          aiReferralSessions: 145,
+          aiReferralShare: 7.8,
+          socialReferralSessions: 240,
+          socialReferralShare: 13.0,
           aiEngines: [
-            { engine: "ChatGPT (chatgpt.com)", sessions: 1180, growth: 42.1, avgTime: "2m 45s", goalConvRate: 8.4 },
-            { engine: "Perplexity AI", sessions: 640, growth: 58.6, avgTime: "3m 12s", goalConvRate: 11.2 },
-            { engine: "Google Gemini / AI Overview", sessions: 390, growth: 24.3, avgTime: "1m 55s", goalConvRate: 6.8 },
-            { engine: "Claude.ai", sessions: 130, growth: 19.5, avgTime: "2m 10s", goalConvRate: 7.5 },
+            { engine: "ChatGPT (chatgpt.com)", sessions: 72, growth: 42.1, avgTime: "2m 45s", goalConvRate: 8.4 },
+            { engine: "Perplexity AI", sessions: 38, growth: 58.6, avgTime: "3m 12s", goalConvRate: 11.2 },
+            { engine: "Google Gemini / AI Overview", sessions: 24, growth: 24.3, avgTime: "1m 55s", goalConvRate: 6.8 },
+            { engine: "Claude.ai", sessions: 11, growth: 19.5, avgTime: "2m 10s", goalConvRate: 7.5 },
           ],
           topLandingPages: landingPages,
         };
@@ -401,46 +403,46 @@ export class IntegrationsService {
         return {
           businessName: bName,
           city: bCity,
-          totalInteractions: 3120,
+          totalInteractions: 375,
           growth: 16.5,
-          searchViews: 14800,
-          mapsViews: 9800,
-          callClicks: 430,
-          directionRequests: 680,
-          websiteClicks: 1190,
+          searchViews: 1480,
+          mapsViews: 980,
+          callClicks: 45,
+          directionRequests: 68,
+          websiteClicks: 120,
           averageRating: 4.9,
-          totalReviews: 142,
+          totalReviews: 86,
           recentReviews: reviewSnippets,
         };
 
       case IntegrationProvider.FACEBOOK_PAGE:
         return {
           businessName: bName,
-          totalFans: 8940,
-          pageReach: 38200,
-          postEngagement: 4120,
+          totalFans: 890,
+          pageReach: 3820,
+          postEngagement: 412,
           engagementRate: 4.8,
-          impressions: 54100,
+          impressions: 5410,
         };
 
       case IntegrationProvider.INSTAGRAM_INSIGHTS:
         return {
           businessName: bName,
-          followers: 12400,
-          profileVisits: 3840,
-          reach: 48200,
-          impressions: 78900,
+          followers: 1240,
+          profileVisits: 384,
+          reach: 4820,
+          impressions: 7890,
           topAudienceCity: bCity,
-          avgLikesPerPost: 342,
+          avgLikesPerPost: 42,
         };
 
       case IntegrationProvider.LINKEDIN_COMPANY:
         return {
           businessName: bName,
-          followers: 3420,
-          visitorImpressions: 14200,
+          followers: 340,
+          visitorImpressions: 1420,
           clickThroughRate: 5.2,
-          newFollowers30d: 280,
+          newFollowers30d: 28,
         };
 
       default:

@@ -1,6 +1,8 @@
 import { Module } from "@nestjs/common";
 import { AppController } from "./app.controller";
 import { AuthModule } from "./auth/auth.module";
+import { ActivityModule } from "./activity/activity.module";
+import { UsersModule } from "./users/users.module";
 import { IntegrationsModule } from "./integrations/integrations.module";
 import { WidgetsModule } from "./widgets/widgets.module";
 import { AuditsModule } from "./audits/audits.module";
@@ -18,6 +20,8 @@ import { MailModule } from "./mail/mail.module";
   controllers: [AppController],
   imports: [
     AuthModule,
+    ActivityModule,
+    UsersModule,
     MailModule,
     IntegrationsModule,
     OAuthModule,

@@ -1,0 +1,26 @@
+export interface WebsiteCheck {
+    category: "TECHNICAL" | "AI_READINESS" | "AEO_ANSWER_ENGINE" | "GEO_GENERATIVE_ENGINE" | "LOCAL_SIGNALS" | "CONTENT";
+    severity: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "INFO";
+    title: string;
+    description: string;
+    recommendation: string;
+    passed: boolean;
+    impact: number;
+    fixType?: "CODE_SNIPPET" | "LLMS_TXT" | "ROBOTS_TXT" | "FAQ_SCHEMA" | "AEO_SNIPPET" | "GEO_DATA_POINTS";
+}
+export type BusinessVertical = "DENTAL_MEDICAL" | "HOME_SERVICES" | "RESTAURANT_FOOD" | "LEGAL_FINANCIAL" | "REAL_ESTATE" | "BEAUTY_WELLNESS" | "AUTOMOTIVE" | "GENERAL";
+export declare const AI_CRAWLER_BOTS: string[];
+export interface RobotsRecord {
+    userAgents: string[];
+    allows: string[];
+    disallows: string[];
+}
+export declare function parseRobotsTxt(robotsTxt: string): RobotsRecord[];
+export declare function isBotBlocked(robotsTxt: string | undefined | null, botName: string): boolean;
+export declare function detectBusinessVertical(html: string, industryHint?: string | null): BusinessVertical;
+export declare function fetchHtmlSafe(url: string): Promise<string | null>;
+export declare function evaluateWebsiteHtml(url: string, html: string, robotsTxt?: string, llmsTxt?: string, industryHint?: string | null): {
+    score: number;
+    vertical: BusinessVertical;
+    checks: WebsiteCheck[];
+};

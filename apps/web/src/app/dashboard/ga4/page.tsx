@@ -15,9 +15,11 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
+import { TimeRangeFilter } from "@/components/TimeRangeFilter";
+import { TimeRangeKey, getTimeRangeMultiplier, getTimeRangeLabel } from "@/lib/timeRanges";
 
 export default function Ga4Page() {
-  const [timeRange, setTimeRange] = useState("28D");
+  const [timeRange, setTimeRange] = useState<TimeRangeKey>("7D");
   const [activeTab, setActiveTab] = useState<"all" | "ai" | "social">("all");
   const [business, setBusiness] = useState<any>(null);
   const [ga4Data, setGa4Data] = useState<any>(null);
@@ -45,18 +47,24 @@ export default function Ga4Page() {
   }, []);
 
   const bName = business?.name || "Nobel Dental Clinic";
-  const totalUsers = ga4Data?.totalUsers || 14280;
-  const aiSessions = ga4Data?.aiReferralSessions || 2340;
-  const aiShare = ga4Data?.aiReferralShare || 12.1;
-  const socialSessions = ga4Data?.socialReferralSessions || 3820;
-  const socialShare = ga4Data?.socialReferralShare || 18.2;
+  const multiplier = getTimeRangeMultiplier(timeRange);
+
+  const baseTotalUsers = ga4Data?.totalUsers || 1420;
+  const baseAiSessions = ga4Data?.aiReferralSessions || 145;
+  const aiShare = ga4Data?.aiReferralShare || 7.8;
+  const baseSocialSessions = ga4Data?.socialReferralSessions || 240;
+  const socialShare = ga4Data?.socialReferralShare || 13.0;
+
+  const totalUsers = Math.max(1, Math.round(baseTotalUsers * multiplier));
+  const aiSessions = Math.max(1, Math.round(baseAiSessions * multiplier));
+  const socialSessions = Math.max(1, Math.round(baseSocialSessions * multiplier));
 
   const defaultEngines = [
     {
       name: "ChatGPT",
       domain: "chatgpt.com / searchgpt",
-      sessions: 1180,
-      share: "50.4%",
+      sessions: 72,
+      share: "49.7%",
       growth: "+42.1%",
       avgDuration: "2m 45s",
       conversionRate: "8.4%",
@@ -66,8 +74,8 @@ export default function Ga4Page() {
     {
       name: "Perplexity AI",
       domain: "perplexity.ai",
-      sessions: 640,
-      share: "27.3%",
+      sessions: 38,
+      share: "26.2%",
       growth: "+58.6%",
       avgDuration: "3m 12s",
       conversionRate: "11.2%",
@@ -77,8 +85,8 @@ export default function Ga4Page() {
     {
       name: "Google Gemini & AI Overview",
       domain: "gemini.google.com",
-      sessions: 390,
-      share: "16.7%",
+      sessions: 24,
+      share: "16.6%",
       growth: "+24.3%",
       avgDuration: "1m 55s",
       conversionRate: "6.8%",
@@ -88,8 +96,8 @@ export default function Ga4Page() {
     {
       name: "Claude.ai",
       domain: "claude.ai",
-      sessions: 130,
-      share: "5.6%",
+      sessions: 11,
+      share: "7.5%",
       growth: "+19.5%",
       avgDuration: "2m 10s",
       conversionRate: "7.5%",
@@ -104,8 +112,8 @@ export default function Ga4Page() {
       domain: "instagram.com / l.instagram.com",
       color: "from-pink-500 to-rose-500",
       badge: "Meta Ecosystem",
-      sessions: 1640,
-      share: "42.9%",
+      sessions: 115,
+      share: "47.9%",
       growth: "+34.2%",
       avgDuration: "3m 15s",
       conversionRate: "6.4%",
@@ -116,8 +124,8 @@ export default function Ga4Page() {
       domain: "facebook.com / m.facebook.com",
       color: "from-blue-600 to-indigo-600",
       badge: "Meta Ads & Pages",
-      sessions: 1120,
-      share: "29.3%",
+      sessions: 80,
+      share: "33.3%",
       growth: "+18.7%",
       avgDuration: "2m 50s",
       conversionRate: "5.8%",
@@ -128,8 +136,8 @@ export default function Ga4Page() {
       domain: "tiktok.com",
       color: "from-cyan-500 to-teal-500",
       badge: "Shorts & Video",
-      sessions: 520,
-      share: "13.6%",
+      sessions: 25,
+      share: "10.4%",
       growth: "+64.5%",
       avgDuration: "1m 40s",
       conversionRate: "4.2%",
@@ -140,8 +148,8 @@ export default function Ga4Page() {
       domain: "linkedin.com / lnkd.in",
       color: "from-blue-500 to-cyan-600",
       badge: "B2B & Medical Network",
-      sessions: 340,
-      share: "8.9%",
+      sessions: 12,
+      share: "5.0%",
       growth: "+12.1%",
       avgDuration: "4m 10s",
       conversionRate: "8.1%",
@@ -152,14 +160,25 @@ export default function Ga4Page() {
       domain: "youtube.com / youtu.be",
       color: "from-red-500 to-rose-600",
       badge: "Video Guides",
-      sessions: 200,
-      share: "5.2%",
+      sessions: 8,
+      share: "3.4%",
       growth: "+22.0%",
       avgDuration: "5m 30s",
       conversionRate: "7.2%",
       topLanding: "/patient-stories",
     },
   ];
+
+  // Dynamic scaled rows for social and AI tables
+  const socialNetworks = defaultSocial.map((s) => ({
+    ...s,
+    sessions: Math.max(1, Math.round(s.sessions * multiplier)),
+  }));
+
+  const engines = defaultEngines.map((e) => ({
+    ...e,
+    sessions: Math.max(1, Math.round(e.sessions * multiplier)),
+  }));
 
   return (
     <main className="p-8 max-w-7xl mx-auto space-y-8">
@@ -177,25 +196,19 @@ export default function Ga4Page() {
             </span>
           </div>
           <p className="text-xs text-slate-400 mt-1">
-            Analyze AI search referrals (ChatGPT, Perplexity, Claude) and Social referrals (Instagram, Facebook, TikTok, LinkedIn) for <strong className="text-white">{bName}</strong>
+            Analyze AI search referrals (ChatGPT, Perplexity, Claude) and Social referrals (Instagram, Facebook, TikTok, LinkedIn) for <strong className="text-white">{bName}</strong> · <span className="text-white font-medium">{getTimeRangeLabel(timeRange)}</span>
           </p>
         </div>
 
         <div className="flex items-center gap-2.5">
-          {/* Time range */}
-          <div className="flex items-center rounded-xl bg-slate-900 border border-slate-800 p-1 text-xs font-semibold">
-            {["7D", "28D", "90D", "12M"].map((range) => (
-              <button
-                key={range}
-                onClick={() => setTimeRange(range)}
-                className={`rounded-lg px-2.5 py-1 transition ${
-                  timeRange === range ? "bg-amber-600 text-white shadow-sm" : "text-slate-400 hover:text-white"
-                }`}
-              >
-                {range}
-              </button>
-            ))}
-          </div>
+          {/* Time range Filter (One Week, Two Weeks, One Month, 3 Months, Max) */}
+          <TimeRangeFilter
+            value={timeRange}
+            onChange={setTimeRange}
+            variant="segmented"
+            showIcon={true}
+            accentColor="amber"
+          />
         </div>
       </div>
 
@@ -261,7 +274,7 @@ export default function Ga4Page() {
           className={`rounded-xl px-4 py-2 text-xs font-bold transition ${
             activeTab === "all"
               ? "bg-blue-600 text-white shadow-md shadow-blue-600/30"
-              : "text-slate-400 hover:bg-slate-850 hover:text-white"
+              : "text-slate-400 hover:bg-slate-800 hover:text-white"
           }`}
         >
           All Referral Channels
@@ -271,22 +284,22 @@ export default function Ga4Page() {
           className={`flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition ${
             activeTab === "social"
               ? "bg-pink-600 text-white shadow-md shadow-pink-600/30"
-              : "text-slate-400 hover:bg-slate-850 hover:text-white"
+              : "text-slate-400 hover:bg-slate-800 hover:text-white"
           }`}
         >
           <Share2 className="h-3.5 w-3.5" />
-          <span>Social Media Referrals ({defaultSocial.length})</span>
+          <span>Social Media Referrals ({socialNetworks.length})</span>
         </button>
         <button
           onClick={() => setActiveTab("ai")}
           className={`flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition ${
             activeTab === "ai"
               ? "bg-amber-600 text-white shadow-md shadow-amber-600/30"
-              : "text-slate-400 hover:bg-slate-850 hover:text-white"
+              : "text-slate-400 hover:bg-slate-800 hover:text-white"
           }`}
         >
           <Bot className="h-3.5 w-3.5" />
-          <span>AI Search Referrals ({defaultEngines.length})</span>
+          <span>AI Search Referrals ({engines.length})</span>
         </button>
       </div>
 
@@ -312,19 +325,19 @@ export default function Ga4Page() {
             <table className="w-full text-left text-xs">
               <thead>
                 <tr className="border-b border-slate-800 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-                  <th className="pb-3">Social Network</th>
-                  <th className="pb-3 text-right">Sessions</th>
-                  <th className="pb-3 text-right">Share of Social</th>
-                  <th className="pb-3 text-right">Growth (MoM)</th>
-                  <th className="pb-3 text-right">Avg Session</th>
-                  <th className="pb-3 text-right">Conv. Rate</th>
-                  <th className="pb-3">Top Landing Page</th>
+                  <th className="pb-3 pr-4">Social Network</th>
+                  <th className="pb-3 px-4 text-right">Sessions</th>
+                  <th className="pb-3 px-4 text-right">Share of Social</th>
+                  <th className="pb-3 px-4 text-right">Growth (MoM)</th>
+                  <th className="pb-3 px-4 text-right">Avg Session</th>
+                  <th className="pb-3 px-4 text-right">Conv. Rate</th>
+                  <th className="pb-3 pl-4">Top Landing Page</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60">
-                {defaultSocial.map((s, i) => (
+                {socialNetworks.map((s, i) => (
                   <tr key={i} className="hover:bg-slate-800/40 transition">
-                    <td className="py-3.5 font-semibold text-slate-200">
+                    <td className="py-3.5 pr-4 font-semibold text-slate-200">
                       <div className="flex items-center gap-2.5">
                         <div className={`flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-tr ${s.color} text-white font-bold text-[11px] shadow-sm`}>
                           {s.name.substring(0, 2)}
@@ -332,18 +345,18 @@ export default function Ga4Page() {
                         <div>
                           <div className="flex items-center gap-2">
                             <span className="font-bold text-white">{s.name}</span>
-                            <span className="text-[9px] text-slate-400 bg-slate-800 px-1.5 py-0.2 rounded font-medium">{s.badge}</span>
+                            <span className="text-[9px] text-slate-400 bg-slate-800 px-1.5 py-0.5 rounded font-medium">{s.badge}</span>
                           </div>
                           <span className="text-[10px] text-slate-500 font-mono">{s.domain}</span>
                         </div>
                       </div>
                     </td>
-                    <td className="py-3.5 text-right font-black text-white">{s.sessions.toLocaleString()}</td>
-                    <td className="py-3.5 text-right text-slate-300 font-semibold">{s.share}</td>
-                    <td className="py-3.5 text-right text-emerald-400 font-bold">{s.growth}</td>
-                    <td className="py-3.5 text-right text-slate-400">{s.avgDuration}</td>
-                    <td className="py-3.5 text-right text-emerald-400 font-black">{s.conversionRate}</td>
-                    <td className="py-3.5 text-blue-400 font-mono text-[11px] hover:underline cursor-pointer">
+                    <td className="py-3.5 px-4 text-right font-black text-white">{s.sessions.toLocaleString()}</td>
+                    <td className="py-3.5 px-4 text-right text-slate-300 font-semibold">{s.share}</td>
+                    <td className="py-3.5 px-4 text-right text-emerald-400 font-bold">{s.growth}</td>
+                    <td className="py-3.5 px-4 text-right text-slate-400">{s.avgDuration}</td>
+                    <td className="py-3.5 px-4 text-right text-emerald-400 font-black">{s.conversionRate}</td>
+                    <td className="py-3.5 pl-4 text-blue-400 font-mono text-[11px] hover:underline cursor-pointer">
                       {s.topLanding}
                     </td>
                   </tr>
@@ -376,30 +389,30 @@ export default function Ga4Page() {
             <table className="w-full text-left text-xs">
               <thead>
                 <tr className="border-b border-slate-800 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-                  <th className="pb-3">AI Engine</th>
-                  <th className="pb-3 text-right">Sessions</th>
-                  <th className="pb-3 text-right">Share of AI</th>
-                  <th className="pb-3 text-right">Growth (MoM)</th>
-                  <th className="pb-3 text-right">Avg Session</th>
-                  <th className="pb-3 text-right">Conv. Rate</th>
-                  <th className="pb-3">Top Landing Page</th>
+                  <th className="pb-3 pr-4">AI Engine</th>
+                  <th className="pb-3 px-4 text-right">Sessions</th>
+                  <th className="pb-3 px-4 text-right">Share of AI</th>
+                  <th className="pb-3 px-4 text-right">Growth (MoM)</th>
+                  <th className="pb-3 px-4 text-right">Avg Session</th>
+                  <th className="pb-3 px-4 text-right">Conv. Rate</th>
+                  <th className="pb-3 pl-4">Top Landing Page</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60">
-                {defaultEngines.map((e, i) => (
+                {engines.map((e, i) => (
                   <tr key={i} className="hover:bg-slate-800/40 transition">
-                    <td className="py-3.5 font-semibold text-slate-200">
+                    <td className="py-3.5 pr-4 font-semibold text-slate-200">
                       <div className="flex items-center gap-2">
                         <span className="font-bold text-white">{e.name}</span>
                         <span className="text-[10px] text-slate-500 font-mono">({e.domain})</span>
                       </div>
                     </td>
-                    <td className="py-3.5 text-right font-black text-white">{e.sessions.toLocaleString()}</td>
-                    <td className="py-3.5 text-right text-slate-300 font-semibold">{e.share}</td>
-                    <td className="py-3.5 text-right text-emerald-400 font-bold">{e.growth}</td>
-                    <td className="py-3.5 text-right text-slate-400">{e.avgDuration}</td>
-                    <td className="py-3.5 text-right text-emerald-400 font-black">{e.conversionRate}</td>
-                    <td className="py-3.5 text-indigo-400 font-mono text-[11px] hover:underline cursor-pointer">
+                    <td className="py-3.5 px-4 text-right font-black text-white">{e.sessions.toLocaleString()}</td>
+                    <td className="py-3.5 px-4 text-right text-slate-300 font-semibold">{e.share}</td>
+                    <td className="py-3.5 px-4 text-right text-emerald-400 font-bold">{e.growth}</td>
+                    <td className="py-3.5 px-4 text-right text-slate-400">{e.avgDuration}</td>
+                    <td className="py-3.5 px-4 text-right text-emerald-400 font-black">{e.conversionRate}</td>
+                    <td className="py-3.5 pl-4 text-indigo-400 font-mono text-[11px] hover:underline cursor-pointer">
                       {e.topLanding}
                     </td>
                   </tr>

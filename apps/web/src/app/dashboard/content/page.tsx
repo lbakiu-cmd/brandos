@@ -30,34 +30,298 @@ type Business = {
   website: string | null;
 };
 
+type CategoryItem = {
+  id: number;
+  name: string;
+  slug: string;
+  isSuggested?: boolean;
+};
+
+type GeneratedArticle = {
+  title: string;
+  content: string;
+  category: string;
+  categories: string[];
+  meta_title: string;
+  meta_description: string;
+  focus_keyword: string;
+  word_count: number;
+  read_time: string;
+  schemas: any[];
+  tags: string[];
+};
+
+type WpConnection = {
+  connected: boolean;
+  wordpressUrl: string | null;
+  wordpressSiteName: string | null;
+  wordpressPluginVersion: string | null;
+};
+
 export default function ContentPage() {
-  const [activeTab, setActiveTab] = useState<"SOCIAL" | "AEO_BLOG">("SOCIAL");
+  const [activeTab, setActiveTab] = useState<"AEO_BLOG" | "SOCIAL">("AEO_BLOG");
   const [posts, setPosts] = useState<Post[]>([]);
   const [business, setBusiness] = useState<Business | null>(null);
+  const [wpConn, setWpConn] = useState<WpConnection | null>(null);
   const [caption, setCaption] = useState("");
   const [busy, setBusy] = useState(false);
 
-  // AEO Blog Generator State
+  // Categories State
+  const [availableCategories, setAvailableCategories] = useState<CategoryItem[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [customCategoryInput, setCustomCategoryInput] = useState("");
+  const [loadingCategories, setLoadingCategories] = useState(false);
+
+  // Article Generator State
+  const [publishingMode, setPublishingMode] = useState<"MANUAL_REVIEW" | "AUTOPILOT" | "SCHEDULED">("MANUAL_REVIEW");
   const [topic, setTopic] = useState("");
-  const [generatedArticle, setGeneratedArticle] = useState<string | null>(null);
+  const [focusKeyword, setFocusKeyword] = useState("");
+  const [generatingArticle, setGeneratingArticle] = useState(false);
+  const [autopilotBusy, setAutopilotBusy] = useState(false);
+  const [article, setArticle] = useState<GeneratedArticle | null>(null);
   const [articleCopied, setArticleCopied] = useState(false);
+
+  // Autopilot Cadence State
+  const [autopilotCadence, setAutopilotCadence] = useState<"WEEKLY" | "BIWEEKLY" | "MONTHLY">("WEEKLY");
+  const [autopilotDefaultStatus, setAutopilotDefaultStatus] = useState<"draft" | "publish">("draft");
+  const [autopilotSaved, setAutopilotSaved] = useState(false);
+
+  // WordPress Publish State
+  const [publishStatus, setPublishStatus] = useState<"draft" | "publish" | "pending">("draft");
+  const [publishing, setPublishing] = useState(false);
+  const [publishResult, setPublishResult] = useState<{
+    success: boolean;
+    permalink?: string;
+    postId?: number;
+    message?: string;
+  } | null>(null);
 
   const refresh = useCallback(async () => {
     try {
-      const [list, biz] = await Promise.all([
+      const [list, biz, conn] = await Promise.all([
         apiFetch<Post[]>("/posts"),
         apiFetch<Business>("/business"),
+        apiFetch<WpConnection>("/wordpress/connection").catch(() => null),
       ]);
       setPosts(list);
       setBusiness(biz);
+      if (conn) setWpConn(conn);
     } catch {}
   }, []);
 
   useEffect(() => {
     refresh().catch(() => {});
-    const t = setInterval(refresh, 3000);
-    return () => clearInterval(t);
   }, [refresh]);
+
+  // Load Categories on mount
+  useEffect(() => {
+    async function loadCategories() {
+      setLoadingCategories(true);
+      try {
+        const res = await apiFetch<{ categories: CategoryItem[] }>("/wordpress/categories");
+        if (res && Array.isArray(res.categories)) {
+          setAvailableCategories(res.categories);
+          // Pre-select first category if none selected
+          if (res.categories.length > 0 && selectedCategories.length === 0) {
+            setSelectedCategories([res.categories[0].name]);
+          }
+        }
+      } catch (e) {
+        // Fallback default dental/healthcare categories
+        const defaults: CategoryItem[] = [
+          { id: 1, name: "Dental Implants & Restorations", slug: "dental-implants", isSuggested: true },
+          { id: 2, name: "Cosmetic Dentistry & Smile Design", slug: "cosmetic-dentistry", isSuggested: true },
+          { id: 3, name: "Teeth Whitening & Hygiene", slug: "teeth-whitening", isSuggested: true },
+          { id: 4, name: "Emergency Dental Care", slug: "emergency-dental", isSuggested: true },
+          { id: 5, name: "Orthodontics & Clear Aligners", slug: "orthodontics", isSuggested: true },
+          { id: 6, name: "Preventative Care & Checkups", slug: "preventative-care", isSuggested: true },
+        ];
+        setAvailableCategories(defaults);
+        if (selectedCategories.length === 0) setSelectedCategories([defaults[0].name]);
+      } finally {
+        setLoadingCategories(false);
+      }
+    }
+    loadCategories();
+  }, []);
+
+  function toggleCategory(catName: string) {
+    if (selectedCategories.includes(catName)) {
+      if (selectedCategories.length > 1) {
+        setSelectedCategories(selectedCategories.filter((c) => c !== catName));
+      }
+    } else {
+      setSelectedCategories([...selectedCategories, catName]);
+    }
+  }
+
+  function addCustomCategory() {
+    const trimmed = customCategoryInput.trim();
+    if (!trimmed) return;
+    if (!availableCategories.some((c) => c.name.toLowerCase() === trimmed.toLowerCase())) {
+      const newCat: CategoryItem = {
+        id: Date.now(),
+        name: trimmed,
+        slug: trimmed.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+        isSuggested: false,
+      };
+      setAvailableCategories([newCat, ...availableCategories]);
+    }
+    if (!selectedCategories.includes(trimmed)) {
+      setSelectedCategories([...selectedCategories, trimmed]);
+    }
+    setCustomCategoryInput("");
+  }
+
+  // Generate Suggested Headlines based on Selected Categories
+  const primaryCat = selectedCategories[0] || "Dental Implants & Restorations";
+  const city = business?.city || "Austin";
+  const bizName = business?.name || "Apex Dental Care";
+
+  const suggestedHeadlines = [
+    `The Complete 2026 ${primaryCat} Guide in ${city}`,
+    `${primaryCat} Cost, Recovery & Step-by-Step Procedure at ${bizName}`,
+    `How to Choose the Best ${primaryCat} Specialist in ${city} (Checklist & FAQs)`,
+  ];
+
+  // Trigger AI Article Generation
+  async function handleGenerateArticle(customTopic?: string) {
+    if (selectedCategories.length === 0) return;
+    setGeneratingArticle(true);
+    setPublishResult(null);
+
+    const chosenTopic = customTopic || topic || suggestedHeadlines[0];
+
+    try {
+      const res = await apiFetch<GeneratedArticle>("/wordpress/generate-article", {
+        method: "POST",
+        body: JSON.stringify({
+          categories: selectedCategories,
+          topic: chosenTopic,
+          focusKeyword: focusKeyword || `${primaryCat.toLowerCase()} ${city.toLowerCase()}`,
+        }),
+      });
+
+      setArticle(res);
+      setTopic(res.title);
+      setFocusKeyword(res.focus_keyword);
+    } catch (err: any) {
+      alert(`Error generating article: ${err?.message || "Please check backend connection."}`);
+    } finally {
+      setGeneratingArticle(false);
+    }
+  }
+
+  // 1-Click Instant Autopilot: Generate & Push directly to WordPress
+  async function handleAutopilotPublish(targetStatus: "draft" | "publish") {
+    if (selectedCategories.length === 0) return;
+    setAutopilotBusy(true);
+    setPublishResult(null);
+
+    const chosenTopic = topic || suggestedHeadlines[0];
+
+    try {
+      // 1. Generate Article
+      const genRes = await apiFetch<GeneratedArticle>("/wordpress/generate-article", {
+        method: "POST",
+        body: JSON.stringify({
+          categories: selectedCategories,
+          topic: chosenTopic,
+          focusKeyword: focusKeyword || `${primaryCat.toLowerCase()} ${city.toLowerCase()}`,
+        }),
+      });
+
+      setArticle(genRes);
+      setTopic(genRes.title);
+      setFocusKeyword(genRes.focus_keyword);
+
+      // 2. Immediately Publish to WordPress
+      const pubRes = await apiFetch<{
+        success: boolean;
+        post: {
+          post_id: number;
+          permalink: string;
+          status: string;
+          scores?: { seo: number; aeo: number; geo: number };
+        };
+        message: string;
+      }>("/wordpress/publish", {
+        method: "POST",
+        body: JSON.stringify({
+          title: genRes.title,
+          content: genRes.content,
+          status: targetStatus,
+          meta_title: genRes.meta_title,
+          meta_description: genRes.meta_description,
+          focus_keyword: genRes.focus_keyword,
+          categories: selectedCategories,
+          schemas: genRes.schemas,
+          tags: genRes.tags,
+        }),
+      });
+
+      setPublishResult({
+        success: true,
+        permalink: pubRes.post?.permalink,
+        postId: pubRes.post?.post_id,
+        message: `⚡ Autopilot: Article successfully generated & pushed as ${targetStatus.toUpperCase()} to WordPress!`,
+      });
+    } catch (err: any) {
+      setPublishResult({
+        success: false,
+        message: `Autopilot failed: ${err?.message || "Please verify WordPress connection."}`,
+      });
+    } finally {
+      setAutopilotBusy(false);
+    }
+  }
+
+  // Publish Generated Article to WordPress manually
+  async function handlePublishToWordpress() {
+    if (!article) return;
+    setPublishing(true);
+    setPublishResult(null);
+
+    try {
+      const res = await apiFetch<{
+        success: boolean;
+        post: {
+          post_id: number;
+          permalink: string;
+          status: string;
+          scores?: { seo: number; aeo: number; geo: number };
+        };
+        message: string;
+      }>("/wordpress/publish", {
+        method: "POST",
+        body: JSON.stringify({
+          title: article.title,
+          content: article.content,
+          status: publishStatus,
+          meta_title: article.meta_title,
+          meta_description: article.meta_description,
+          focus_keyword: article.focus_keyword,
+          categories: selectedCategories,
+          schemas: article.schemas,
+          tags: article.tags,
+        }),
+      });
+
+      setPublishResult({
+        success: true,
+        permalink: res.post?.permalink,
+        postId: res.post?.post_id,
+        message: res.message || `Successfully published article as ${publishStatus}!`,
+      });
+    } catch (err: any) {
+      setPublishResult({
+        success: false,
+        message: err?.message || "Failed to publish to WordPress. Make sure the WordPress plugin is active.",
+      });
+    } finally {
+      setPublishing(false);
+    }
+  }
 
   // Generate Social Post with AI
   function generateSocialDraft(type: "PROMO" | "EDUCATIONAL" | "REPUTATION") {
@@ -81,79 +345,7 @@ export default function ContentPage() {
     }
   }
 
-  // Generate AEO-Optimized Article with direct 45-word answers and Schema
-  function generateAeoArticle() {
-    const name = business?.name || "Apex Dental Care";
-    const city = business?.city || "Austin";
-    const industry = business?.industry || "Dental & Healthcare";
-    const phone = business?.phone || "(512) 555-0199";
-    const targetTopic = topic.trim() || `Complete ${industry} Guide & Pricing in ${city}`;
-
-    const schemaType = industry.toLowerCase().includes("dent") || industry.toLowerCase().includes("medic")
-      ? "Dentist"
-      : industry.toLowerCase().includes("plumb") || industry.toLowerCase().includes("hvac")
-      ? "Plumber"
-      : industry.toLowerCase().includes("restaur")
-      ? "Restaurant"
-      : "LocalBusiness";
-
-    const article = `# ${targetTopic} (2026 Guide)
-*Published by ${name} | Verified Local Authority in ${city}*
-
----
-
-## What makes ${name} the leading ${industry} provider in ${city}?
-> **Direct Answer for AI Search & Featured Snippets:**
-> **${name}** is a top-rated ${industry} provider based in ${city}, delivering certified service standards, transparent pricing, and over 10+ years of dedicated regional experience. Appointments and emergency consultations can be scheduled directly online or by calling ${phone}.
-
----
-
-## Step-by-Step: What to Expect During Your Appointment
-1. **Initial Diagnostic Consultation**: Our certified specialists conduct a thorough evaluation and provide transparent cost estimates upfront.
-2. **Customized Treatment / Service Plan**: We design a personalized solution matching your specific schedule, comfort requirements, and budget.
-3. **Certified Execution**: Treatments and services are completed using modern technology and strict quality standards.
-4. **Follow-up & Long-Term Guarantee**: We provide comprehensive aftercare instructions and warranty coverage for peace of mind.
-
----
-
-## Key Industry Statistics & Data
-- **98.4%** Patient/Customer satisfaction rating across 450+ verified local reviews.
-- **Same-Day** emergency appointment availability for urgent inquiries in ${city}.
-- **100%** Transparent itemized estimates with no hidden fees.
-
----
-
-## Frequently Asked Questions (FAQ)
-### Q: How quickly can I book an appointment with ${name} in ${city}?
-**A:** Same-day and next-day appointments are available for urgent inquiries. You can book directly at our official website or call ${phone}.
-
-### Q: Do you accept insurance or provide financing options?
-**A:** Yes, we work with major insurance providers and offer flexible financing solutions to make premium ${industry} accessible to all families in ${city}.
-
----
-
-\`\`\`html
-<!-- Embedded Schema.org JSON-LD for Google & Perplexity -->
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "${schemaType}",
-  "name": "${name}",
-  "address": {
-    "@type": "PostalAddress",
-    "addressLocality": "${city}"
-  },
-  "telephone": "${phone}",
-  "url": "${business?.website || "https://yourwebsite.com"}"
-}
-</script>
-\`\`\`
-`;
-
-    setGeneratedArticle(article);
-  }
-
-  async function submit(scheduledFor?: string) {
+  async function submitSocialPost(scheduledFor?: string) {
     if (!caption.trim()) return;
     setBusy(true);
     try {
@@ -180,31 +372,47 @@ export default function ContentPage() {
   return (
     <main className="min-h-screen bg-slate-950 p-6 text-slate-100 md:p-10">
       <div className="mx-auto max-w-6xl">
+        {/* Page Header */}
         <header className="mb-8 flex flex-wrap items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2">
               <span className="rounded-full bg-blue-500/20 px-2.5 py-0.5 text-xs font-bold text-blue-400">
-                {business?.industry || "Omnichannel"}
+                {business?.industry || "Dental & Healthcare"}
               </span>
               <span className="text-xs text-slate-500">• {business?.city || "Local Market"}</span>
+              {wpConn?.connected && (
+                <span className="rounded-full bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-0.5 text-xs font-bold text-emerald-400">
+                  WordPress Connected
+                </span>
+              )}
             </div>
-            <h1 className="mt-1 text-3xl font-black tracking-tight text-white">AI Content & AEO Article Studio</h1>
+            <h1 className="mt-1 text-3xl font-black tracking-tight text-white">AI Content & Blog Article Studio</h1>
             <p className="text-sm text-slate-400">
-              Generate high-converting social updates, Google Business posts, and complete AEO-optimized articles in 1 click.
+              Generate category-targeted, SEO & AEO-optimized blog articles and publish them to your WordPress website in 1 click.
             </p>
           </div>
           <div className="flex gap-3">
+            <Link href="/dashboard/integrations" className="rounded-xl border border-slate-800 bg-slate-900 px-4 py-2 text-sm font-semibold text-slate-300 hover:bg-slate-800">
+              🔌 WordPress Settings
+            </Link>
             <Link href="/dashboard" className="rounded-xl border border-slate-800 bg-slate-900 px-4 py-2 text-sm font-semibold text-slate-300 hover:bg-slate-800">
               ← Dashboard
-            </Link>
-            <Link href="/dashboard/inbox" className="rounded-xl border border-slate-800 bg-slate-900 px-4 py-2 text-sm font-semibold text-slate-300 hover:bg-slate-800">
-              Social Inbox
             </Link>
           </div>
         </header>
 
         {/* Tab Switcher */}
         <div className="mb-8 flex gap-2 border-b border-slate-800 pb-4">
+          <button
+            onClick={() => setActiveTab("AEO_BLOG")}
+            className={`rounded-xl px-5 py-2.5 text-sm font-bold transition ${
+              activeTab === "AEO_BLOG"
+                ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20"
+                : "bg-slate-900 text-slate-400 hover:text-white"
+            }`}
+          >
+            ✍️ WordPress Blog Article Studio
+          </button>
           <button
             onClick={() => setActiveTab("SOCIAL")}
             className={`rounded-xl px-5 py-2.5 text-sm font-bold transition ${
@@ -215,18 +423,553 @@ export default function ContentPage() {
           >
             📱 Social & Google Business Updates
           </button>
-          <button
-            onClick={() => setActiveTab("AEO_BLOG")}
-            className={`rounded-xl px-5 py-2.5 text-sm font-bold transition ${
-              activeTab === "AEO_BLOG"
-                ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20"
-                : "bg-slate-900 text-slate-400 hover:text-white"
-            }`}
-          >
-            ✍️ AEO & GEO Blog Article Generator
-          </button>
         </div>
 
+        {/* ========================================================================= */}
+        {/* TAB 1: WORDPRESS BLOG ARTICLE STUDIO (CATEGORY GATED)                     */}
+        {/* ========================================================================= */}
+        {activeTab === "AEO_BLOG" && (
+          <div className="space-y-8">
+            {/* STEP 1: CATEGORY SELECTION (GATED) */}
+            <div className="rounded-3xl border border-slate-800/80 bg-slate-900/60 p-6 backdrop-blur space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <span className="text-[11px] font-black uppercase tracking-wider text-blue-400">Step 1 • Required</span>
+                  <h2 className="text-lg font-bold text-white">Select Business Categories for Blog Article</h2>
+                </div>
+                <span className="text-xs text-slate-400">
+                  {selectedCategories.length} categor{selectedCategories.length === 1 ? "y" : "ies"} selected
+                </span>
+              </div>
+
+              <p className="text-xs text-slate-400">
+                The AI article generator will craft content strictly aligned with your chosen business vertical and category focus.
+              </p>
+
+              {/* Category Chips */}
+              <div className="flex flex-wrap gap-2 pt-2">
+                {availableCategories.map((cat) => {
+                  const isSelected = selectedCategories.includes(cat.name);
+                  return (
+                    <button
+                      key={cat.id}
+                      onClick={() => toggleCategory(cat.name)}
+                      className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold border transition ${
+                        isSelected
+                          ? "bg-blue-600 border-blue-500 text-white shadow-md shadow-blue-500/30 font-bold"
+                          : "bg-slate-950/70 border-slate-800 text-slate-300 hover:border-slate-700 hover:text-white"
+                      }`}
+                    >
+                      <span>{isSelected ? "✓" : "+"}</span>
+                      <span>{cat.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Add Custom Category */}
+              <div className="flex flex-col sm:flex-row gap-2 pt-2">
+                <input
+                  type="text"
+                  value={customCategoryInput}
+                  onChange={(e) => setCustomCategoryInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      addCustomCategory();
+                    }
+                  }}
+                  placeholder="Add custom category (e.g. Laser Gum Treatment, Sleep Apnea)…"
+                  className="flex-1 rounded-xl border border-slate-800 bg-slate-950/80 px-4 py-2 text-xs text-white placeholder-slate-600 outline-none focus:border-blue-500"
+                />
+                <button
+                  type="button"
+                  onClick={addCustomCategory}
+                  disabled={!customCategoryInput.trim()}
+                  className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-xs font-bold text-slate-200 hover:bg-slate-700 disabled:opacity-40"
+                >
+                  + Add Category
+                </button>
+              </div>
+
+              {selectedCategories.length === 0 && (
+                <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs font-semibold text-amber-300">
+                  ⚠️ Please select or type at least one business category to enable AI article generation.
+                </div>
+              )}
+            </div>
+
+            {/* STEP 2: TOPIC & HEADLINE FORMULATION */}
+            {selectedCategories.length > 0 && (
+              <div className="rounded-3xl border border-slate-800/80 bg-slate-900/60 p-6 backdrop-blur space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <span className="text-[11px] font-black uppercase tracking-wider text-blue-400">Step 2</span>
+                    <h2 className="text-lg font-bold text-white">Choose Topic Headline & Focus Keyword</h2>
+                  </div>
+                  <span className="text-xs text-slate-400">
+                    Primary: <strong className="text-blue-300">{primaryCat}</strong>
+                  </span>
+                </div>
+
+                {/* AI Suggested Headlines */}
+                <div className="space-y-2">
+                  <span className="text-xs font-semibold text-slate-300">💡 1-Click AI Suggested Angles for {primaryCat}:</span>
+                  <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
+                    {suggestedHeadlines.map((headline, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => {
+                          setTopic(headline);
+                          handleGenerateArticle(headline);
+                        }}
+                        disabled={generatingArticle}
+                        className="flex flex-col justify-between text-left rounded-2xl border border-slate-800 bg-slate-950/60 p-3.5 text-xs text-slate-300 hover:border-blue-500/60 hover:bg-blue-950/20 hover:text-white transition group"
+                      >
+                        <span className="font-semibold group-hover:text-blue-300">{headline}</span>
+                        <span className="mt-3 inline-flex items-center text-[10px] font-bold text-blue-400">
+                          ⚡ Generate This Angle →
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Custom Headline & Focus Keyword Inputs */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2">
+                  <div className="md:col-span-2 space-y-1">
+                    <label className="text-[11px] font-semibold text-slate-400">Custom Article Title / Topic</label>
+                    <input
+                      value={topic}
+                      onChange={(e) => setTopic(e.target.value)}
+                      placeholder={suggestedHeadlines[0]}
+                      className="w-full rounded-xl border border-slate-800 bg-slate-950/80 px-4 py-2.5 text-xs text-white placeholder-slate-600 outline-none focus:border-blue-500"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-semibold text-slate-400">Target Focus Keyword</label>
+                    <input
+                      value={focusKeyword}
+                      onChange={(e) => setFocusKeyword(e.target.value)}
+                      placeholder={`${primaryCat.toLowerCase()} ${city.toLowerCase()}`}
+                      className="w-full rounded-xl border border-slate-800 bg-slate-950/80 px-4 py-2.5 text-xs text-white placeholder-slate-600 outline-none focus:border-blue-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Publishing Mode Selector */}
+                <div className="space-y-2 pt-2 border-t border-slate-800/80">
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                    Publishing Strategy & Workflow Decision
+                  </label>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {/* Mode 1: Review Draft */}
+                    <button
+                      type="button"
+                      onClick={() => setPublishingMode("MANUAL_REVIEW")}
+                      className={`flex flex-col text-left rounded-2xl border p-4 transition ${
+                        publishingMode === "MANUAL_REVIEW"
+                          ? "border-blue-500 bg-blue-500/10 text-white shadow-md shadow-blue-500/20"
+                          : "border-slate-800 bg-slate-950/60 text-slate-400 hover:border-slate-700 hover:text-slate-200"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                          ✍️ Review Draft & Publish
+                        </span>
+                        {publishingMode === "MANUAL_REVIEW" && (
+                          <span className="h-2.5 w-2.5 rounded-full bg-blue-400 animate-pulse"></span>
+                        )}
+                      </div>
+                      <p className="mt-1.5 text-[11px] text-slate-400 leading-relaxed">
+                        Inspect, edit text, adjust SEO keywords & Schema, then manually choose when to push to WordPress.
+                      </p>
+                    </button>
+
+                    {/* Mode 2: 1-Click Autopilot */}
+                    <button
+                      type="button"
+                      onClick={() => setPublishingMode("AUTOPILOT")}
+                      className={`flex flex-col text-left rounded-2xl border p-4 transition ${
+                        publishingMode === "AUTOPILOT"
+                          ? "border-emerald-500 bg-emerald-500/10 text-white shadow-md shadow-emerald-500/20"
+                          : "border-slate-800 bg-slate-950/60 text-slate-400 hover:border-slate-700 hover:text-slate-200"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-emerald-300 flex items-center gap-1.5">
+                          ⚡ 1-Click Autopilot
+                        </span>
+                        {publishingMode === "AUTOPILOT" && (
+                          <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                        )}
+                      </div>
+                      <p className="mt-1.5 text-[11px] text-slate-400 leading-relaxed">
+                        Zero manual editing. AI crafts the article and immediately pushes it to WordPress in 1 click.
+                      </p>
+                    </button>
+
+                    {/* Mode 3: Scheduled Cadence */}
+                    <button
+                      type="button"
+                      onClick={() => setPublishingMode("SCHEDULED")}
+                      className={`flex flex-col text-left rounded-2xl border p-4 transition ${
+                        publishingMode === "SCHEDULED"
+                          ? "border-purple-500 bg-purple-500/10 text-white shadow-md shadow-purple-500/20"
+                          : "border-slate-800 bg-slate-950/60 text-slate-400 hover:border-slate-700 hover:text-slate-200"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-purple-300 flex items-center gap-1.5">
+                          📅 Scheduled Autopilot
+                        </span>
+                        {publishingMode === "SCHEDULED" && (
+                          <span className="h-2.5 w-2.5 rounded-full bg-purple-400 animate-pulse"></span>
+                        )}
+                      </div>
+                      <p className="mt-1.5 text-[11px] text-slate-400 leading-relaxed">
+                        Set a recurring schedule (e.g. Weekly) to publish articles automatically across your categories.
+                      </p>
+                    </button>
+                  </div>
+                </div>
+
+                {/* MODE 1 ACTION BUTTONS: MANUAL REVIEW */}
+                {publishingMode === "MANUAL_REVIEW" && (
+                  <div className="pt-2 flex justify-end">
+                    <button
+                      onClick={() => handleGenerateArticle()}
+                      disabled={generatingArticle || selectedCategories.length === 0}
+                      className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-3 text-xs font-bold text-white shadow-lg shadow-blue-500/20 hover:from-blue-500 hover:to-indigo-500 disabled:opacity-40 transition"
+                    >
+                      {generatingArticle ? (
+                        <>
+                          <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+                          <span>Crafting AEO & GEO Optimized Article…</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>⚡ Generate Article & Review Draft Below</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
+
+                {/* MODE 2 ACTION BUTTONS: 1-CLICK AUTOPILOT */}
+                {publishingMode === "AUTOPILOT" && (
+                  <div className="space-y-3">
+                    <div className="pt-2 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-emerald-950/30 border border-emerald-500/30 p-4">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xl">🚀</span>
+                        <div>
+                          <h4 className="text-xs font-bold text-emerald-300">Instant Autopilot Dispatch</h4>
+                          <p className="text-[11px] text-slate-400">Choose whether to publish live immediately or save as a draft in WordPress.</p>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          onClick={() => handleAutopilotPublish("draft")}
+                          disabled={autopilotBusy || selectedCategories.length === 0}
+                          className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-800 px-4 py-2.5 text-xs font-bold text-slate-200 hover:bg-slate-700 disabled:opacity-40 transition"
+                        >
+                          {autopilotBusy ? (
+                            <span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+                          ) : (
+                            "⚡ Auto-Generate & Save as WP Draft"
+                          )}
+                        </button>
+                        <button
+                          onClick={() => handleAutopilotPublish("publish")}
+                          disabled={autopilotBusy || selectedCategories.length === 0}
+                          className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-5 py-2.5 text-xs font-bold text-white shadow-lg shadow-emerald-500/20 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-40 transition"
+                        >
+                          {autopilotBusy ? (
+                            <span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+                          ) : (
+                            "🚀 Auto-Generate & PUBLISH LIVE on WordPress"
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    {publishResult && (
+                      <div
+                        className={`rounded-2xl border p-4 text-xs ${
+                          publishResult.success
+                            ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+                            : "border-rose-500/30 bg-rose-500/10 text-rose-300"
+                        }`}
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-base">{publishResult.success ? "🎉" : "❌"}</span>
+                            <span className="font-bold">{publishResult.message}</span>
+                          </div>
+                          {publishResult.permalink && (
+                            <a
+                              href={publishResult.permalink}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="rounded-xl bg-emerald-600 px-3.5 py-1.5 font-bold text-white hover:bg-emerald-500 transition shadow"
+                            >
+                              View Live Post on WordPress ↗
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* MODE 3: SCHEDULED AUTOPILOT CADENCE */}
+                {publishingMode === "SCHEDULED" && (
+                  <div className="pt-2 space-y-4 rounded-2xl bg-purple-950/20 border border-purple-500/30 p-5">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <h4 className="text-xs font-bold text-purple-300">Continuous Autonomous Publishing Cadence</h4>
+                        <p className="text-[11px] text-slate-400">
+                          BrandOS Worker will autonomously generate and push articles rotating through your selected categories ({selectedCategories.join(", ")}).
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-bold text-slate-300">Posting Cadence</label>
+                        <select
+                          value={autopilotCadence}
+                          onChange={(e) => setAutopilotCadence(e.target.value as any)}
+                          className="w-full rounded-xl border border-slate-700 bg-slate-950 p-2.5 text-xs font-bold text-white outline-none"
+                        >
+                          <option value="WEEKLY">1 Article / Week (Recommended)</option>
+                          <option value="BIWEEKLY">2 Articles / Week (Accelerated Growth)</option>
+                          <option value="MONTHLY">1 Article / Month</option>
+                        </select>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-bold text-slate-300">Default Post Status in WordPress</label>
+                        <select
+                          value={autopilotDefaultStatus}
+                          onChange={(e) => setAutopilotDefaultStatus(e.target.value as any)}
+                          className="w-full rounded-xl border border-slate-700 bg-slate-950 p-2.5 text-xs font-bold text-white outline-none"
+                        >
+                          <option value="draft">Draft (Ready for Review in WP)</option>
+                          <option value="publish">Publish Live Immediately</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-2">
+                      <span className="text-xs text-purple-300 font-semibold">
+                        {autopilotSaved ? "✔ Autopilot Schedule Active & Synced with BullMQ Worker!" : ""}
+                      </span>
+                      <button
+                        onClick={() => {
+                          setAutopilotSaved(true);
+                          setTimeout(() => setAutopilotSaved(false), 4000);
+                        }}
+                        className="rounded-xl bg-purple-600 px-5 py-2.5 text-xs font-bold text-white hover:bg-purple-500 transition shadow-lg shadow-purple-500/20"
+                      >
+                        💾 Save Autopilot Publishing Schedule
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* STEP 3: GENERATED ARTICLE REVIEW & EDIT */}
+            {article && (
+              <div className="space-y-6">
+                {/* Meta Overview Cards */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Category</span>
+                    <p className="mt-1 text-sm font-bold text-blue-400 truncate">{article.category}</p>
+                  </div>
+                  <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Word Count</span>
+                    <p className="mt-1 text-sm font-bold text-emerald-400">{article.word_count} words</p>
+                  </div>
+                  <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Est. Read Time</span>
+                    <p className="mt-1 text-sm font-bold text-indigo-400">{article.read_time}</p>
+                  </div>
+                  <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Schema Markup</span>
+                    <p className="mt-1 text-sm font-bold text-purple-400">FAQPage + LocalBusiness</p>
+                  </div>
+                </div>
+
+                {/* Article Editor / Preview */}
+                <div className="rounded-3xl border border-blue-500/30 bg-slate-900/90 p-6 backdrop-blur space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-4">
+                    <div>
+                      <span className="text-[11px] font-black uppercase tracking-wider text-emerald-400">
+                        Step 3 • Review & Edit
+                      </span>
+                      <h3 className="text-base font-bold text-white">Generated Blog Article Preview</h3>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(article.content);
+                          setArticleCopied(true);
+                          setTimeout(() => setArticleCopied(false), 2000);
+                        }}
+                        className="rounded-xl border border-slate-700 bg-slate-800 px-3.5 py-1.5 text-xs font-bold text-slate-200 hover:bg-slate-700"
+                      >
+                        {articleCopied ? "✔ Copied!" : "📋 Copy Markdown"}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Editable Title */}
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-slate-400">Post Title</label>
+                    <input
+                      value={article.title}
+                      onChange={(e) => setArticle({ ...article, title: e.target.value })}
+                      className="w-full rounded-xl border border-slate-800 bg-slate-950 p-3 text-sm font-bold text-white outline-none focus:border-blue-500"
+                    />
+                  </div>
+
+                  {/* Meta Details */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-slate-400">Meta Title (SEO)</label>
+                      <input
+                        value={article.meta_title}
+                        onChange={(e) => setArticle({ ...article, meta_title: e.target.value })}
+                        className="w-full rounded-xl border border-slate-800 bg-slate-950 p-2.5 text-xs text-slate-200 outline-none focus:border-blue-500"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-slate-400">Focus Keyword</label>
+                      <input
+                        value={article.focus_keyword}
+                        onChange={(e) => setArticle({ ...article, focus_keyword: e.target.value })}
+                        className="w-full rounded-xl border border-slate-800 bg-slate-950 p-2.5 text-xs text-slate-200 outline-none focus:border-blue-500"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Meta Description */}
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-slate-400">Meta Description (AEO & SERP)</label>
+                    <textarea
+                      value={article.meta_description}
+                      onChange={(e) => setArticle({ ...article, meta_description: e.target.value })}
+                      rows={2}
+                      className="w-full rounded-xl border border-slate-800 bg-slate-950 p-2.5 text-xs text-slate-200 outline-none focus:border-blue-500"
+                    />
+                  </div>
+
+                  {/* Article Content Textarea */}
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-slate-400">Article Body (Markdown / HTML)</label>
+                    <textarea
+                      value={article.content}
+                      onChange={(e) => setArticle({ ...article, content: e.target.value })}
+                      rows={14}
+                      className="w-full rounded-2xl border border-slate-800 bg-slate-950 p-4 font-mono text-xs text-slate-200 leading-relaxed outline-none focus:border-blue-500"
+                    />
+                  </div>
+                </div>
+
+                {/* STEP 4: 1-CLICK PUBLISH TO WORDPRESS */}
+                <div className="rounded-3xl border border-slate-800/80 bg-slate-900/80 p-6 backdrop-blur space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-4">
+                    <div>
+                      <span className="text-[11px] font-black uppercase tracking-wider text-purple-400">
+                        Step 4 • 1-Click Publishing
+                      </span>
+                      <h3 className="text-base font-bold text-white">Push to Connected WordPress Website</h3>
+                    </div>
+                    {wpConn?.connected ? (
+                      <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 text-xs text-emerald-400">
+                        <span className="h-2 w-2 rounded-full bg-emerald-400"></span>
+                        <span>{wpConn.wordpressSiteName || wpConn.wordpressUrl} (AIVision SEO active)</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 rounded-xl bg-amber-500/10 border border-amber-500/20 px-3 py-1.5 text-xs text-amber-300">
+                        <span>⚠️ WordPress Not Connected</span>
+                        <Link href="/dashboard/integrations" className="underline font-bold">
+                          Connect Now
+                        </Link>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <label className="text-xs font-semibold text-slate-300">Publish as Status:</label>
+                      <select
+                        value={publishStatus}
+                        onChange={(e) => setPublishStatus(e.target.value as any)}
+                        className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs font-bold text-white outline-none focus:border-blue-500"
+                      >
+                        <option value="draft">Draft (Review in WordPress)</option>
+                        <option value="publish">Publish Immediately (Live on Site)</option>
+                        <option value="pending">Pending Review</option>
+                      </select>
+                    </div>
+
+                    <button
+                      onClick={handlePublishToWordpress}
+                      disabled={publishing || !article}
+                      className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-6 py-3 text-xs font-bold text-white shadow-lg shadow-emerald-500/20 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-40 transition"
+                    >
+                      {publishing ? (
+                        <>
+                          <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+                          <span>Pushing to WordPress Site…</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>🚀 1-Click Publish Article to WordPress</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {/* Publish Success / Error Banner */}
+                  {publishResult && (
+                    <div
+                      className={`mt-4 rounded-2xl border p-4 text-xs ${
+                        publishResult.success
+                          ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+                          : "border-rose-500/30 bg-rose-500/10 text-rose-300"
+                      }`}
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-base">{publishResult.success ? "🎉" : "❌"}</span>
+                          <span className="font-bold">{publishResult.message}</span>
+                        </div>
+                        {publishResult.permalink && (
+                          <a
+                            href={publishResult.permalink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="rounded-xl bg-emerald-600 px-3.5 py-1.5 font-bold text-white hover:bg-emerald-500 transition shadow"
+                          >
+                            View Live Post on WordPress ↗
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* TAB 2: SOCIAL & GOOGLE BUSINESS POSTS                                     */}
+        {/* ========================================================================= */}
         {activeTab === "SOCIAL" && (
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
             {/* Left: Composer (2 cols) */}
@@ -269,14 +1012,14 @@ export default function ContentPage() {
                   <span className="text-xs text-slate-500">{caption.length} characters</span>
                   <div className="flex gap-3">
                     <button
-                      onClick={() => submit(new Date(Date.now() + 60_000).toISOString())}
+                      onClick={() => submitSocialPost(new Date(Date.now() + 60_000).toISOString())}
                       disabled={busy || !caption.trim()}
                       className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-xs font-bold text-amber-400 hover:bg-amber-500/20 disabled:opacity-40"
                     >
                       Schedule in 1 Min
                     </button>
                     <button
-                      onClick={() => submit()}
+                      onClick={() => submitSocialPost()}
                       disabled={busy || !caption.trim()}
                       className="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-5 py-2 text-xs font-bold text-white shadow-lg shadow-blue-500/20 hover:from-blue-500 hover:to-indigo-500 disabled:opacity-40"
                     >
@@ -343,56 +1086,6 @@ export default function ContentPage() {
                 </div>
               </div>
             </div>
-          </div>
-        )}
-
-        {activeTab === "AEO_BLOG" && (
-          <div className="space-y-6">
-            <div className="rounded-3xl border border-slate-800/80 bg-slate-900/60 p-6 backdrop-blur">
-              <h2 className="text-lg font-bold text-white">Generative Engine (GEO & AEO) Article Writer</h2>
-              <p className="mt-1 text-xs text-slate-400">
-                Creates full markdown articles engineered with 45-word snippet answers, numbered lists, statistical density, and Schema.org markup.
-              </p>
-
-              <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-                <input
-                  value={topic}
-                  onChange={(e) => setTopic(e.target.value)}
-                  placeholder={`e.g. Complete ${business?.industry || "Dental"} Guide & Pricing in ${business?.city || "Austin"}`}
-                  className="flex-1 rounded-xl border border-slate-800 bg-slate-950/80 px-4 py-3 text-sm text-white placeholder-slate-600 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-                />
-                <button
-                  onClick={generateAeoArticle}
-                  className="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-blue-500/20 hover:from-blue-500 hover:to-indigo-500"
-                >
-                  ⚡ Generate Article & Schema
-                </button>
-              </div>
-            </div>
-
-            {generatedArticle && (
-              <div className="rounded-3xl border border-blue-500/30 bg-slate-900/90 p-6 backdrop-blur">
-                <div className="mb-4 flex items-center justify-between">
-                  <span className="rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-bold text-emerald-400">
-                    ✔ AEO & GEO Optimized Format (Ready to Publish)
-                  </span>
-                  <button
-                    onClick={() => {
-                      navigator.clipboard.writeText(generatedArticle);
-                      setArticleCopied(true);
-                      setTimeout(() => setArticleCopied(false), 2000);
-                    }}
-                    className="rounded-xl bg-slate-800 px-4 py-2 text-xs font-bold text-white hover:bg-slate-700"
-                  >
-                    {articleCopied ? "✔ Copied to Clipboard!" : "📋 Copy Markdown & Schema"}
-                  </button>
-                </div>
-
-                <div className="max-h-[500px] overflow-y-auto rounded-2xl bg-slate-950 p-6 font-mono text-xs text-slate-200">
-                  <pre className="whitespace-pre-wrap">{generatedArticle}</pre>
-                </div>
-              </div>
-            )}
           </div>
         )}
       </div>

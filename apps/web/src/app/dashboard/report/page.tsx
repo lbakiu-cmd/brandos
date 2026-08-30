@@ -200,11 +200,18 @@ Your Growth Team
           </p>
 
           <div className="space-y-3">
-            {data.recommendations.map((rec, i) => (
-              <div
-                key={rec.id}
-                className="flex items-start justify-between rounded-xl border border-slate-800 bg-slate-950 p-4 print:border-slate-300 print:bg-white"
-              >
+            {data.recommendations
+              .reduce<typeof data.recommendations>((acc, current) => {
+                if (!acc.find((r) => r.title.toLowerCase().trim() === current.title.toLowerCase().trim())) {
+                  acc.push(current);
+                }
+                return acc;
+              }, [])
+              .map((rec, i) => (
+                <div
+                  key={rec.id}
+                  className="flex items-start justify-between rounded-xl border border-slate-800 bg-slate-950 p-4 print:border-slate-300 print:bg-white"
+                >
                 <div className="flex items-start gap-3">
                   <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-600/20 text-xs font-bold text-blue-400 print:bg-blue-100 print:text-blue-700">
                     {i + 1}

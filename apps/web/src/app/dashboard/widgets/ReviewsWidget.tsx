@@ -1,21 +1,33 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Star, Sparkles, Check, Send, ThumbsUp } from "lucide-react";
+import { Star, Sparkles, Check, Send } from "lucide-react";
+import { TimeRangeFilter } from "@/components/TimeRangeFilter";
+import { TimeRangeKey, getTimeRangeLabel } from "@/lib/timeRanges";
 
 interface ReviewsWidgetProps {
   data?: any;
   onRemove?: () => void;
+  initialTimeRange?: TimeRangeKey;
 }
 
-export function ReviewsWidget({ data, onRemove }: ReviewsWidgetProps) {
+export function ReviewsWidget({ data, onRemove, initialTimeRange = "7D" }: ReviewsWidgetProps) {
+  const [timeRange, setTimeRange] = useState<TimeRangeKey>(initialTimeRange);
+
+  useEffect(() => {
+    if (initialTimeRange) {
+      setTimeRange(initialTimeRange);
+    }
+  }, [initialTimeRange]);
+
   const bName = data?.businessName || "Your Business";
-  const defaultReviews = [
+  const allReviews = [
     {
       id: "1",
       author: "Alex P.",
       rating: 5,
       time: "2 days ago",
+      daysAgo: 2,
       comment: `Outstanding service from ${bName}! Staff was remarkably professional and fast.`,
       replied: true,
       reply: `Thank you Alex! We are thrilled to provide you with top quality service.`,
@@ -24,7 +36,8 @@ export function ReviewsWidget({ data, onRemove }: ReviewsWidgetProps) {
       id: "2",
       author: "Maria G.",
       rating: 5,
-      time: "4 days ago",
+      time: "5 days ago",
+      daysAgo: 5,
       comment: `The online booking and communication were super quick. Highly recommend ${bName}.`,
       replied: true,
       reply: `Thanks Maria! We appreciate your trust in our team.`,
@@ -33,21 +46,46 @@ export function ReviewsWidget({ data, onRemove }: ReviewsWidgetProps) {
       id: "3",
       author: "Chris D.",
       rating: 4,
-      time: "1 week ago",
+      time: "10 days ago",
+      daysAgo: 10,
       comment: `Great experience overall, high quality results and smooth process.`,
       replied: false,
       aiDraft: `Hi Chris, thank you for your wonderful review! We appreciate your feedback and look forward to serving you again.`,
     },
+    {
+      id: "4",
+      author: "David K.",
+      rating: 5,
+      time: "3 weeks ago",
+      daysAgo: 21,
+      comment: `Top tier support and execution. Will definitely use again for our business needs.`,
+      replied: true,
+      reply: `Thank you David! Glad we could exceed your expectations.`,
+    },
+    {
+      id: "5",
+      author: "Elena R.",
+      rating: 5,
+      time: "2 months ago",
+      daysAgo: 60,
+      comment: `Very reliable and transparent throughout the entire project.`,
+      replied: true,
+      reply: `Thanks Elena! We value your partnership.`,
+    },
   ];
 
-  const [reviews, setReviews] = useState<any[]>(data?.recentReviews || defaultReviews);
-  const [answeringId, setAnsweringId] = useState<string | null>(null);
+  const maxDays =
+    timeRange === "7D" ? 7 : timeRange === "14D" ? 14 : timeRange === "1M" ? 30 : timeRange === "3M" ? 90 : 365;
+
+  const rawReviews = (data?.recentReviews && data.recentReviews.length > 0) ? data.recentReviews : allReviews;
+  const filteredReviews = rawReviews.filter((r: any) => (r.daysAgo !== undefined ? r.daysAgo <= maxDays : true));
+  const displayedReviews = filteredReviews.length > 0 ? filteredReviews : rawReviews.slice(0, 2);
+
+  const [reviews, setReviews] = useState<any[]>(displayedReviews);
 
   useEffect(() => {
-    if (data?.recentReviews && data.recentReviews.length > 0) {
-      setReviews(data.recentReviews);
-    }
-  }, [data?.recentReviews]);
+    setReviews(displayedReviews);
+  }, [timeRange, data?.recentReviews]);
 
   const handleSendReply = (id: string, replyText: string) => {
     setReviews((prev: any[]) =>
@@ -55,32 +93,43 @@ export function ReviewsWidget({ data, onRemove }: ReviewsWidgetProps) {
         r.id === id ? { ...r, replied: true, reply: replyText, aiDraft: undefined } : r
       )
     );
-    setAnsweringId(null);
   };
 
   return (
     <div className="flex flex-col h-full rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-xl backdrop-blur">
       {/* Header */}
-      <div className="flex items-center justify-between pb-4 border-b border-slate-800/80">
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20">
+      <div className="flex items-center justify-between pb-4 border-b border-slate-800/80 gap-2">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20">
             <Star className="h-4 w-4 fill-amber-400" />
           </div>
-          <div>
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+          <div className="min-w-0">
+            <h3 className="text-sm font-bold text-white flex items-center gap-2 truncate">
               Google Reviews & AI Reply
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-semibold border border-emerald-500/30">
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-semibold border border-emerald-500/30 shrink-0">
                 Live Auto-Responder
               </span>
             </h3>
-            <p className="text-xs text-slate-400">Manage reputation & 1-click AI approvals</p>
+            <p className="text-xs text-slate-400 truncate">
+              Showing reviews for <span className="text-slate-300 font-medium">{getTimeRangeLabel(timeRange)}</span>
+            </p>
           </div>
         </div>
-        {onRemove && (
-          <button onClick={onRemove} className="text-xs text-slate-500 hover:text-red-400 transition">
-            Remove
-          </button>
-        )}
+
+        <div className="flex items-center gap-2 shrink-0">
+          <TimeRangeFilter
+            value={timeRange}
+            onChange={setTimeRange}
+            variant="compact"
+            accentColor="amber"
+          />
+
+          {onRemove && (
+            <button onClick={onRemove} className="text-xs text-slate-500 hover:text-red-400 transition ml-1">
+              Remove
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Review List */}

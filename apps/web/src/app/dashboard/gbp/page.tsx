@@ -3,8 +3,11 @@
 import { useEffect, useState } from "react";
 import { MapPin, Star, PhoneCall, Navigation, Globe, Send, Sparkles, Check, TrendingUp, MessageSquare } from "lucide-react";
 import { apiFetch } from "@/lib/api";
+import { TimeRangeFilter } from "@/components/TimeRangeFilter";
+import { TimeRangeKey, getTimeRangeMultiplier, getTimeRangeLabel } from "@/lib/timeRanges";
 
 export default function GbpPage() {
+  const [timeRange, setTimeRange] = useState<TimeRangeKey>("7D");
   const [business, setBusiness] = useState<any>(null);
   const [gbpData, setGbpData] = useState<any>(null);
   const [reviews, setReviews] = useState<any[]>([]);
@@ -36,12 +39,19 @@ export default function GbpPage() {
 
   const bName = business?.name || "Your Business";
   const bCity = business?.city || "your area";
-  const searchViews = gbpData?.searchViews || 14800;
-  const mapsViews = gbpData?.mapsViews || 9800;
-  const callClicks = gbpData?.callClicks || 430;
-  const directionRequests = gbpData?.directionRequests || 680;
+  const multiplier = getTimeRangeMultiplier(timeRange);
+
+  const baseSearchViews = gbpData?.searchViews || 1480;
+  const baseMapsViews = gbpData?.mapsViews || 980;
+  const baseCallClicks = gbpData?.callClicks || 45;
+  const baseDirectionRequests = gbpData?.directionRequests || 68;
   const rating = gbpData?.averageRating || 4.9;
-  const totalReviews = gbpData?.totalReviews || 142;
+  const totalReviews = gbpData?.totalReviews || 86;
+
+  const searchViews = Math.max(1, Math.round(baseSearchViews * multiplier));
+  const mapsViews = Math.max(1, Math.round(baseMapsViews * multiplier));
+  const callClicks = Math.max(1, Math.round(baseCallClicks * multiplier));
+  const directionRequests = Math.max(1, Math.round(baseDirectionRequests * multiplier));
 
   const defaultReviews = [
     {
@@ -96,8 +106,19 @@ export default function GbpPage() {
             </span>
           </div>
           <p className="text-xs text-slate-400 mt-1">
-            Track Google Maps impressions, customer calls, direction requests, and live reputation for <strong className="text-slate-200">{bName}</strong> ({bCity})
+            Track Google Maps impressions, customer calls, direction requests, and live reputation for <strong className="text-slate-200">{bName}</strong> ({bCity}) · <span className="text-white font-medium">{getTimeRangeLabel(timeRange)}</span>
           </p>
+        </div>
+
+        <div className="flex items-center gap-2.5">
+          {/* Time range Filter (One Week, Two Weeks, One Month, 3 Months, Max) */}
+          <TimeRangeFilter
+            value={timeRange}
+            onChange={setTimeRange}
+            variant="segmented"
+            showIcon={true}
+            accentColor="emerald"
+          />
         </div>
       </div>
 

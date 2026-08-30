@@ -4,6 +4,8 @@ import { prisma, RecommendationStatus } from "@brandos/database";
 import {
   calculateCompositeBrandScore,
   evaluateWebsiteHtml,
+  evaluateGoogleBusinessProfile,
+  evaluateSocialPresence,
   fetchHtmlSafe,
   generateRobotsTxtFix,
   generateLlmsTxt,
@@ -14,6 +16,87 @@ function redisConnection() {
   const url = process.env.REDIS_URL || "redis://localhost:6379";
   const parsed = new URL(url);
   return { host: parsed.hostname, port: Number(parsed.port) || 6379 };
+}
+
+export function deduplicateAndPurgeRecommendations(recs: any[]): any[] {
+  const seenTitles = new Set<string>();
+  const unique: any[] = [];
+  const duplicateIds: string[] = [];
+
+  for (const r of recs) {
+    const key = (r.title || "").toLowerCase().trim();
+    if (!seenTitles.has(key)) {
+      seenTitles.add(key);
+      unique.push(r);
+    } else {
+      duplicateIds.push(r.id);
+    }
+  }
+
+  if (duplicateIds.length > 0) {
+    prisma.recommendation
+      .deleteMany({
+        where: { id: { in: duplicateIds } },
+      })
+      .catch(() => {});
+  }
+
+  return unique;
+}
+
+export async function upsertAuditRecommendation(data: {
+  businessId: string;
+  sourceType: string;
+  sourceId: string;
+  category: string;
+  priority: "HIGH" | "MEDIUM" | "LOW";
+  title: string;
+  description: string;
+  actionType?: string | null;
+  actionPayload?: any;
+  expectedImpact: number;
+  estimatedEffort: number;
+}) {
+  const existing = await prisma.recommendation.findFirst({
+    where: {
+      businessId: data.businessId,
+      title: data.title,
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  if (existing) {
+    return prisma.recommendation.update({
+      where: { id: existing.id },
+      data: {
+        sourceId: data.sourceId,
+        category: data.category,
+        priority: data.priority as any,
+        description: data.description,
+        actionType: data.actionType ?? existing.actionType,
+        actionPayload: data.actionPayload ?? existing.actionPayload,
+        expectedImpact: data.expectedImpact,
+        estimatedEffort: data.estimatedEffort,
+      },
+    });
+  }
+
+  return prisma.recommendation.create({
+    data: {
+      businessId: data.businessId,
+      sourceType: data.sourceType,
+      sourceId: data.sourceId,
+      category: data.category,
+      priority: data.priority as any,
+      title: data.title,
+      description: data.description,
+      actionType: data.actionType,
+      actionPayload: data.actionPayload,
+      expectedImpact: data.expectedImpact,
+      estimatedEffort: data.estimatedEffort,
+      status: "OPEN",
+    },
+  });
 }
 
 @Injectable()
@@ -190,7 +273,7 @@ export class AuditsService {
       },
     });
 
-    // Save findings
+    // Save findings & recommendations
     for (const f of evaluation.checks) {
       await prisma.auditFinding.create({
         data: {
@@ -206,7 +289,7 @@ export class AuditsService {
         },
       });
 
-      // Create actionable recommendation fixes
+      // Create or update actionable recommendation fixes
       if (!f.passed) {
         let actionType: string | null = null;
         let actionPayload: any = null;
@@ -225,20 +308,30 @@ export class AuditsService {
           actionPayload = fix;
         }
 
-        await prisma.recommendation.create({
-          data: {
+        await upsertAuditRecommendation({
+          businessId: membership.businessId,
+          sourceType: "WEBSITE_AUDIT",
+          sourceId: audit.id,
+          category: f.category,
+          priority: f.severity === "CRITICAL" ? "HIGH" : f.severity === "HIGH" ? "HIGH" : "MEDIUM",
+          title: f.title,
+          description: f.description + (f.recommendation ? " Action: " + f.recommendation : ""),
+          actionType,
+          actionPayload,
+          expectedImpact: f.impact,
+          estimatedEffort: 15,
+        });
+      } else {
+        // If the check passed, auto-resolve any open recommendation for this title
+        await prisma.recommendation.updateMany({
+          where: {
             businessId: membership.businessId,
-            sourceType: "WEBSITE_AUDIT",
-            sourceId: audit.id,
-            category: f.category,
-            priority: f.severity === "CRITICAL" ? "HIGH" : f.severity === "HIGH" ? "HIGH" : "MEDIUM",
             title: f.title,
-            description: f.description + (f.recommendation ? " Action: " + f.recommendation : ""),
-            actionType,
-            actionPayload,
-            expectedImpact: f.impact,
-            estimatedEffort: 15,
             status: "OPEN",
+          },
+          data: {
+            status: "DONE",
+            completedAt: new Date(),
           },
         });
       }
@@ -267,37 +360,68 @@ export class AuditsService {
 
     // 2. Google Business Profile Audit
     const gbpAudit = await prisma.gbpAudit.create({
-      data: { businessId, score: 82, status: "COMPLETED" },
+      data: { businessId, status: "RUNNING" },
     });
-    results.gbpAudit = gbpAudit;
+    const gbpResult = evaluateGoogleBusinessProfile({
+      businessName: biz.name,
+      website: biz.website || undefined,
+      phone: biz.phone || undefined,
+      city: biz.city || undefined,
+      category: biz.industry || undefined,
+    });
+    await prisma.gbpAudit.update({
+      where: { id: gbpAudit.id },
+      data: {
+        score: gbpResult.score,
+        metrics: gbpResult.metrics as any,
+        status: "COMPLETED",
+        completedAt: new Date(),
+      },
+    });
+    for (const f of gbpResult.checks.filter((c) => !c.passed)) {
+      await upsertAuditRecommendation({
+        businessId,
+        sourceType: "GBP_AUDIT",
+        sourceId: gbpAudit.id,
+        category: "Google Business",
+        priority: f.score >= 20 ? "HIGH" : "MEDIUM",
+        title: f.title,
+        description: f.description,
+        expectedImpact: f.score,
+        estimatedEffort: 15,
+      });
+    }
 
-    // 3. Social Media Audit
+    // 3. Social Presence Audit
     const socialAudit = await prisma.socialAudit.create({
-      data: { businessId, score: 76, status: "COMPLETED" },
+      data: { businessId, status: "RUNNING" },
     });
-    results.socialAudit = socialAudit;
-
-    // 4. AI Search Visibility Report
-    const aiReport = await prisma.aiVisibilityReport.create({
-      data: { businessId, overallScore: results.websiteAudit?.score || 79 },
+    const socialResult = evaluateSocialPresence({
+      connectedPlatforms: [],
+      scheduledPostCount: 0,
+      recentPostCount: 0,
     });
-    results.aiReport = aiReport;
+    await prisma.socialAudit.update({
+      where: { id: socialAudit.id },
+      data: {
+        score: socialResult.score,
+        metrics: socialResult.metrics as any,
+        status: "COMPLETED",
+        completedAt: new Date(),
+      },
+    });
 
-    return {
-      message: "Omnichannel audit completed successfully.",
-      businessId,
-      ...results,
-    };
+    return { success: true, results };
   }
 
   async getOverview(userId: string) {
     const memberships = await prisma.membership.findMany({
       where: { userId },
-      include: { business: true },
+      select: { businessId: true },
     });
     const businessIds = memberships.map((m) => m.businessId);
 
-    const [latestWeb, latestGbp, latestSocial, latestAi, recommendations, firstBiz] = await Promise.all([
+    const [latestWeb, latestGbp, latestSocial, latestAi, rawRecommendations, firstBiz] = await Promise.all([
       prisma.websiteAudit.findFirst({
         where: { businessId: { in: businessIds }, status: "COMPLETED" },
         include: { findings: true },
@@ -345,6 +469,8 @@ export class AuditsService {
       aiVisibilityScore,
     });
 
+    const recommendations = deduplicateAndPurgeRecommendations(rawRecommendations);
+
     return {
       composite,
       latestWeb,
@@ -375,10 +501,12 @@ export class AuditsService {
     const membership = await prisma.membership.findFirst({ where: { userId } });
     if (!membership) throw new NotFoundException("No business found.");
 
-    return prisma.recommendation.findMany({
+    const raw = await prisma.recommendation.findMany({
       where: { businessId: membership.businessId },
-      orderBy: [{ priority: "asc" }, { createdAt: "desc" }],
+      orderBy: [{ status: "asc" }, { priority: "asc" }, { createdAt: "desc" }],
     });
+
+    return deduplicateAndPurgeRecommendations(raw);
   }
 
   async updateRecommendationStatus(id: string, status: any, userId: string) {

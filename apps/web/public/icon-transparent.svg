@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="eyeStrokeGradT" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="45%" stop-color="#3b82f6" />
+      <stop offset="80%" stop-color="#6366f1" />
+      <stop offset="100%" stop-color="#818cf8" />
+    </linearGradient>
+    <radialGradient id="irisGlowT" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.6" />
+      <stop offset="50%" stop-color="#2563eb" stop-opacity="0.2" />
+      <stop offset="100%" stop-color="#0284c7" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="pupilGradT" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#a5f3fc" />
+      <stop offset="40%" stop-color="#38bdf8" />
+      <stop offset="100%" stop-color="#2563eb" />
+    </linearGradient>
+  </defs>
+
+  <circle cx="256" cy="256" r="150" fill="url(#irisGlowT)" />
+
+  <!-- Upper Eyelid -->
+  <path d="M 64 256 C 120 128, 392 128, 448 256" 
+        fill="none" 
+        stroke="url(#eyeStrokeGradT)" 
+        stroke-width="40" 
+        stroke-linecap="round" 
+        stroke-linejoin="round" />
+
+  <!-- Lower Eyelid -->
+  <path d="M 64 256 C 120 384, 392 384, 448 256" 
+        fill="none" 
+        stroke="url(#eyeStrokeGradT)" 
+        stroke-width="40" 
+        stroke-linecap="round" 
+        stroke-linejoin="round" />
+
+  <!-- Iris Ring -->
+  <circle cx="256" cy="256" r="96" fill="#090d16" stroke="url(#pupilGradT)" stroke-width="16" />
+  
+  <!-- Dashed Ring -->
+  <circle cx="256" cy="256" r="68" fill="none" stroke="#38bdf8" stroke-width="6" stroke-dasharray="16 10" opacity="0.9" />
+
+  <!-- Pupil -->
+  <circle cx="256" cy="256" r="42" fill="url(#pupilGradT)" />
+
+  <!-- Center AI Spark -->
+  <path d="M 256 226 Q 256 256 226 256 Q 256 256 256 286 Q 256 256 286 256 Q 256 256 256 226 Z" fill="#ffffff" />
+  <circle cx="256" cy="256" r="7" fill="#ffffff" />
+</svg>

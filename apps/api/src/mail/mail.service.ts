@@ -266,4 +266,77 @@ export class MailService {
     `;
     return this.sendMail({ to, subject, html });
   }
+
+  /**
+   * 5. Two-Week Online Presence Milestone & Comparison Reminder
+   */
+  async sendTwoWeekComparisonReminder(
+    to: string,
+    name: string,
+    businessName: string,
+    initialScore: number,
+    currentScore: number,
+    resolvedCount: number = 0,
+    comparisonUrl: string = "https://brandoseye.com/dashboard"
+  ) {
+    const delta = currentScore - initialScore;
+    const deltaPrefix = delta > 0 ? `+${delta}` : `${delta}`;
+    const deltaColor = delta >= 0 ? "#10b981" : "#ef4444";
+    const subject = `🎉 2-Week Milestone: See how ${businessName}'s Online Presence Grew (${initialScore} ➔ ${currentScore})`;
+
+    const html = `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; background-color: #020617; color: #f8fafc; border-radius: 16px; border: 1px solid #1e293b; overflow: hidden;">
+        <div style="background: linear-gradient(135deg, #1e1b4b, #2563eb); padding: 32px; text-align: center;">
+          <div style="display: inline-block; padding: 6px 14px; background: rgba(255,255,255,0.15); border-radius: 999px; font-size: 12px; font-weight: 700; color: #e0e7ff; margin-bottom: 12px;">
+            🏆 14-DAY GROWTH MILESTONE
+          </div>
+          <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 800;">Your 2-Week Comparison Is Ready</h1>
+          <p style="color: #cbd5e1; margin: 8px 0 0 0; font-size: 14px;">Baseline vs Today's Online Presence for ${businessName}</p>
+        </div>
+        <div style="padding: 32px;">
+          <p style="font-size: 15px; line-height: 1.6; color: #cbd5e1;">Hi ${name},</p>
+          <p style="font-size: 14px; line-height: 1.6; color: #94a3b8;">
+            It's been two weeks since you registered <strong>${businessName}</strong> on BrandOS Eye. We recorded your initial baseline snapshot on Day 1, and your online presence metrics have evolved!
+          </p>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 24px 0;">
+            <div style="background: #0f172a; padding: 20px; border-radius: 12px; border: 1px solid #334155; text-align: center;">
+              <span style="color: #94a3b8; font-size: 12px; font-weight: 600; text-transform: uppercase;">Day 1 Baseline</span>
+              <p style="font-size: 36px; font-weight: 900; color: #94a3b8; margin: 8px 0 0 0;">${initialScore}<span style="font-size: 14px; font-weight: 400; color: #64748b;"> /100</span></p>
+            </div>
+            <div style="background: #0f172a; padding: 20px; border-radius: 12px; border: 1px solid #2563eb; text-align: center; position: relative;">
+              <span style="color: #38bdf8; font-size: 12px; font-weight: 600; text-transform: uppercase;">Current Presence</span>
+              <p style="font-size: 36px; font-weight: 900; color: ${deltaColor}; margin: 8px 0 0 0;">${currentScore}<span style="font-size: 14px; font-weight: 400; color: #64748b;"> /100</span></p>
+              <span style="display: inline-block; margin-top: 4px; font-size: 12px; font-weight: 700; color: ${deltaColor}; background: rgba(16, 185, 129, 0.1); padding: 2px 8px; border-radius: 6px;">
+                ${deltaPrefix} pts Change
+              </span>
+            </div>
+          </div>
+
+          ${
+            resolvedCount > 0
+              ? `
+          <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 10px; padding: 14px 18px; margin-bottom: 24px;">
+            <p style="margin: 0; font-size: 13px; color: #34d399;">
+              ✅ <strong>${resolvedCount} optimization issues resolved</strong> since Day 1 (including Schema structured data & AI visibility improvements).
+            </p>
+          </div>
+          `
+              : ""
+          }
+
+          <div style="text-align: center; margin: 28px 0;">
+            <a href="${comparisonUrl}" style="background-color: #2563eb; color: #ffffff; padding: 14px 28px; border-radius: 10px; font-weight: 700; text-decoration: none; display: inline-block; font-size: 14px;">
+              View Full Side-by-Side Comparison →
+            </a>
+          </div>
+
+          <p style="font-size: 12px; color: #64748b; margin-top: 28px; border-top: 1px solid #1e293b; padding-top: 16px;">
+            Want to run a new deep audit? Access your <a href="https://brandoseye.com/dashboard/audit" style="color: #38bdf8;">Website Health Checkup</a> at any time.
+          </p>
+        </div>
+      </div>
+    `;
+    return this.sendMail({ to, subject, html });
+  }
 }

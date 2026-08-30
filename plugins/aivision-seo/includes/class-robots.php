@@ -45,6 +45,7 @@ class AIVision_Robots {
         'GPTBot', 'ChatGPT-User', 'OAI-SearchBot', 'ClaudeBot', 'Claude-Web',
         'anthropic-ai', 'PerplexityBot', 'Google-Extended', 'Applebot-Extended',
         'Meta-ExternalAgent', 'FacebookBot', 'Bytespider', 'Amazonbot', 'cohere-ai',
+        'Diffbot', 'CCBot',
         'facebookexternalhit', 'Twitterbot', 'LinkedInBot', 'Pinterestbot'
     ];
 

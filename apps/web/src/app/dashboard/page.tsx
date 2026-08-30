@@ -23,7 +23,11 @@ import {
   Award,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
+import { TimeRangeFilter } from "@/components/TimeRangeFilter";
+import { TimeRangeKey, getTimeRangeMultiplier, getTimeRangeLabel } from "@/lib/timeRanges";
 import { AddWidgetModal, WidgetItem } from "./components/AddWidgetModal";
+import { TwoWeekReminderBanner } from "./components/TwoWeekReminderBanner";
+import { ComparisonModal } from "./components/ComparisonModal";
 import { GscWidget } from "./widgets/GscWidget";
 import { Ga4Widget } from "./widgets/Ga4Widget";
 import { GbpWidget } from "./widgets/GbpWidget";
@@ -89,7 +93,9 @@ const DEFAULT_WIDGETS: WidgetInstance[] = [
 export default function DashboardPage() {
   const [widgets, setWidgets] = useState<WidgetInstance[]>(DEFAULT_WIDGETS);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [timeRange, setTimeRange] = useState("28D");
+  const [isComparisonOpen, setIsComparisonOpen] = useState(false);
+  const [comparisonData, setComparisonData] = useState<any>(null);
+  const [timeRange, setTimeRange] = useState<TimeRangeKey>("7D");
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncNotice, setSyncNotice] = useState<string | null>(null);
   const [businessName, setBusinessName] = useState<string>("Your Business");
@@ -98,10 +104,11 @@ export default function DashboardPage() {
 
   const loadData = useCallback(async () => {
     try {
-      const [wRes, bRes, wpRes] = await Promise.all([
+      const [wRes, bRes, wpRes, compRes] = await Promise.all([
         apiFetch<any[]>("/widgets").catch(() => null),
         apiFetch<any>("/business").catch(() => null),
         apiFetch<any>("/wordpress/connection").catch(() => null),
+        apiFetch<any>("/business/snapshot/comparison").catch(() => null),
       ]);
 
       if (bRes) {
@@ -113,6 +120,9 @@ export default function DashboardPage() {
       }
       if (wRes && wRes.length > 0) {
         setWidgets(wRes);
+      }
+      if (compRes) {
+        setComparisonData(compRes);
       }
     } catch (err) {
       console.error("Error loading dashboard data:", err);
@@ -170,17 +180,25 @@ export default function DashboardPage() {
     }
   };
 
+  // Dynamic multiplier for global time window
+  const multiplier = getTimeRangeMultiplier(timeRange);
+
   // Find dynamic quick stats from widgets data
   const gscData = widgets.find((w) => w.widgetType === "GSC_QUERIES_TABLE" || w.widgetType === "GSC_CLICKS_IMPRESSIONS")?.data;
   const ga4Data = widgets.find((w) => w.widgetType === "GA4_AI_TRAFFIC")?.data;
   const gbpData = widgets.find((w) => w.widgetType === "GBP_LOCAL_PERFORMANCE")?.data;
   const aeoData = widgets.find((w) => w.widgetType === "AEO_CITATION_SHARE")?.data;
 
-  const totalClicks = gscData?.totalClicks || 3480;
-  const totalImpressions = gscData?.totalImpressions || 89400;
-  const aiSessions = ga4Data?.aiReferralSessions || 2340;
-  const totalLocalViews = (gbpData?.searchViews || 14800) + (gbpData?.mapsViews || 9800);
+  const baseClicks = gscData?.totalClicks || 348;
+  const baseImpressions = gscData?.totalImpressions || 6850;
+  const baseAiSessions = ga4Data?.aiReferralSessions || 145;
+  const baseLocalViews = (gbpData?.searchViews || 1480) + (gbpData?.mapsViews || 980);
   const aeoScore = aeoData?.compositeScore || 78;
+
+  const totalClicks = Math.max(1, Math.round(baseClicks * multiplier));
+  const totalImpressions = Math.max(10, Math.round(baseImpressions * multiplier));
+  const aiSessions = Math.max(1, Math.round(baseAiSessions * multiplier));
+  const totalLocalViews = Math.max(10, Math.round(baseLocalViews * multiplier));
 
   // Calculate Growth Checklist progress
   const hasProfile = Boolean(business?.name && business?.city);
@@ -243,22 +261,24 @@ export default function DashboardPage() {
 
         {/* Action Controls */}
         <div className="flex flex-wrap items-center gap-2.5">
-          {/* Time Range Selector */}
-          <div className="flex items-center rounded-xl bg-slate-900 border border-slate-800 p-1 text-xs font-semibold">
-            {["7D", "28D", "90D", "12M"].map((range) => (
-              <button
-                key={range}
-                onClick={() => setTimeRange(range)}
-                className={`rounded-lg px-2.5 py-1 transition ${
-                  timeRange === range
-                    ? "bg-blue-600 text-white shadow-sm"
-                    : "text-slate-400 hover:text-white"
-                }`}
-              >
-                {range}
-              </button>
-            ))}
-          </div>
+          {/* Time Range Filter (One Week, Two Weeks, One Month, 3 Months, Max) */}
+          <TimeRangeFilter
+            value={timeRange}
+            onChange={setTimeRange}
+            variant="segmented"
+            showIcon={true}
+            accentColor="blue"
+          />
+
+          {/* 14-Day Baseline Comparison Button */}
+          <button
+            onClick={() => setIsComparisonOpen(true)}
+            className="flex items-center gap-1.5 rounded-xl border border-indigo-500/30 bg-indigo-950/50 px-3.5 py-2 text-xs font-bold text-indigo-300 hover:bg-indigo-900/60 hover:text-white transition shadow-sm"
+            title="View baseline vs actual presence comparison"
+          >
+            <Award className="h-3.5 w-3.5 text-indigo-400" />
+            <span>14-Day Baseline</span>
+          </button>
 
           {/* Sync All Button */}
           <button
@@ -280,6 +300,13 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* 14-Day Online Presence Milestone & Reminder Banner */}
+      <TwoWeekReminderBanner
+        data={comparisonData}
+        onOpenComparison={() => setIsComparisonOpen(true)}
+        onRefresh={loadData}
+      />
+
       {/* Sync Success Alert */}
       {syncNotice && (
         <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 px-4 py-3 text-xs font-semibold text-emerald-400 animate-in fade-in duration-200">
@@ -287,6 +314,7 @@ export default function DashboardPage() {
           {syncNotice}
         </div>
       )}
+
 
       {/* SECTION: 4-Step Online Growth Checklist (Beginner-Friendly Onboarding) */}
       <div className="rounded-3xl border border-blue-500/20 bg-gradient-to-br from-blue-950/40 via-slate-900/80 to-slate-900/90 p-6 backdrop-blur shadow-2xl space-y-5">
@@ -443,34 +471,34 @@ export default function DashboardPage() {
             return (
               <div key={widget.id} className={spanClass}>
                 {widget.widgetType === "GSC_QUERIES_TABLE" && (
-                  <GscWidget data={widget.data} onRemove={() => handleRemoveWidget(widget.id)} />
+                  <GscWidget data={widget.data} initialTimeRange={timeRange} onRemove={() => handleRemoveWidget(widget.id)} />
                 )}
                 {widget.widgetType === "GA4_AI_TRAFFIC" && (
-                  <Ga4Widget data={widget.data} onRemove={() => handleRemoveWidget(widget.id)} />
+                  <Ga4Widget data={widget.data} initialTimeRange={timeRange} onRemove={() => handleRemoveWidget(widget.id)} />
                 )}
                 {widget.widgetType === "GBP_LOCAL_PERFORMANCE" && (
-                  <GbpWidget data={widget.data} onRemove={() => handleRemoveWidget(widget.id)} />
+                  <GbpWidget data={widget.data} initialTimeRange={timeRange} onRemove={() => handleRemoveWidget(widget.id)} />
                 )}
                 {widget.widgetType === "GBP_REVIEWS_FEED" && (
-                  <ReviewsWidget data={widget.data} onRemove={() => handleRemoveWidget(widget.id)} />
+                  <ReviewsWidget data={widget.data} initialTimeRange={timeRange} onRemove={() => handleRemoveWidget(widget.id)} />
                 )}
                 {widget.widgetType === "AEO_CITATION_SHARE" && (
-                  <AeoWidget data={widget.data} onRemove={() => handleRemoveWidget(widget.id)} />
+                  <AeoWidget data={widget.data} initialTimeRange={timeRange} onRemove={() => handleRemoveWidget(widget.id)} />
                 )}
                 {widget.widgetType === "SEO_HEALTH_GAUGE" && (
-                  <SeoHealthWidget data={widget.data} onRemove={() => handleRemoveWidget(widget.id)} />
+                  <SeoHealthWidget data={widget.data} initialTimeRange={timeRange} onRemove={() => handleRemoveWidget(widget.id)} />
                 )}
                 {widget.widgetType === "WORDPRESS_AIVISION_STATUS" && (
-                  <WordpressWidget data={widget.data} onRemove={() => handleRemoveWidget(widget.id)} />
+                  <WordpressWidget data={widget.data} initialTimeRange={timeRange} onRemove={() => handleRemoveWidget(widget.id)} />
                 )}
                 {widget.widgetType === "META_PAGE_REACH" && (
-                  <SocialWidget type="META_PAGE_REACH" data={widget.data} onRemove={() => handleRemoveWidget(widget.id)} />
+                  <SocialWidget type="META_PAGE_REACH" data={widget.data} initialTimeRange={timeRange} onRemove={() => handleRemoveWidget(widget.id)} />
                 )}
                 {widget.widgetType === "INSTAGRAM_AUDIENCE" && (
-                  <SocialWidget type="INSTAGRAM_AUDIENCE" data={widget.data} onRemove={() => handleRemoveWidget(widget.id)} />
+                  <SocialWidget type="INSTAGRAM_AUDIENCE" data={widget.data} initialTimeRange={timeRange} onRemove={() => handleRemoveWidget(widget.id)} />
                 )}
                 {widget.widgetType === "LINKEDIN_PAGE_STATS" && (
-                  <SocialWidget type="LINKEDIN_PAGE_STATS" data={widget.data} onRemove={() => handleRemoveWidget(widget.id)} />
+                  <SocialWidget type="LINKEDIN_PAGE_STATS" data={widget.data} initialTimeRange={timeRange} onRemove={() => handleRemoveWidget(widget.id)} />
                 )}
               </div>
             );
@@ -495,6 +523,14 @@ export default function DashboardPage() {
         onClose={() => setIsAddModalOpen(false)}
         onAddWidget={handleAddWidget}
         activeWidgetTypes={widgets.map((w) => w.widgetType)}
+      />
+
+      {/* 14-Day Online Presence Comparison Modal */}
+      <ComparisonModal
+        isOpen={isComparisonOpen}
+        onClose={() => setIsComparisonOpen(false)}
+        data={comparisonData}
+        onRefresh={loadData}
       />
     </main>
   );

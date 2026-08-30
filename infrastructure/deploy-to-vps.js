@@ -220,6 +220,20 @@ module.exports = {
         PORT: 3000,
       },
     },
+    {
+      name: "brandos-worker",
+      cwd: "/opt/brandos/apps/worker",
+      script: "dist/index.js",
+      instances: 1,
+      autorestart: true,
+      watch: false,
+      max_memory_restart: "500M",
+      env: {
+        NODE_ENV: "production",
+        DATABASE_URL: "postgresql://brandos:brandos_password@localhost:5432/brandos?schema=public",
+        REDIS_URL: "redis://localhost:6379",
+      },
+    },
   ],
 };
 EOF`
