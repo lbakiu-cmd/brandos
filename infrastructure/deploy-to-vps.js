@@ -163,7 +163,14 @@ cp /opt/brandos/.env /opt/brandos/apps/api/.env
     console.log("\n🗄️ Generating Prisma client & pushing schema to PostgreSQL database...");
     await runRemoteCommand(
       conn,
-      "cd /opt/brandos && pnpm db:generate && pnpm db:push"
+      "cd /opt/brandos && pnpm db:generate && pnpm --filter @brandos/database exec prisma db push --accept-data-loss"
+    );
+
+    // Step 10b: Seed Super Admin user in database if needed
+    console.log("\n👑 Ensuring Super Admin credentials exist in production database...");
+    await runRemoteCommand(
+      conn,
+      "cd /opt/brandos/apps/api && npx ts-node src/seed-superadmin.ts || true"
     );
 
     // Step 11: Build API, Web, and shared packages
