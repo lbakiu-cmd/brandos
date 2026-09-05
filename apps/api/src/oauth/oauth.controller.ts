@@ -125,7 +125,9 @@ export class OAuthController {
     @Req() req: any,
     @Res() res: any
   ) {
-    const frontendBase = process.env.FRONTEND_URL || "https://brandoseye.com";
+    const host = req.headers["x-forwarded-host"] || req.headers["host"];
+    const proto = req.headers["x-forwarded-proto"] || "https";
+    const frontendBase = host ? `${proto}://${host}` : (process.env.FRONTEND_URL || "https://onlinepresence.space");
 
     if (error || !code) {
       this.logger.warn(`Google OAuth error or cancellation: ${error}`);
@@ -160,10 +162,12 @@ export class OAuthController {
           userAgent: (req.headers["user-agent"] as string) || "Unknown Device",
         };
 
+        const host = req.headers["x-forwarded-host"] || req.headers["host"];
+        const proto = req.headers["x-forwarded-proto"] || "https";
         const redirectUri =
           process.env.GOOGLE_AUTH_REDIRECT_URI ||
           process.env.GOOGLE_REDIRECT_URI ||
-          "https://brandoseye.com/api/oauth/google/callback";
+          (host ? `${proto}://${host}/api/oauth/google/callback` : "https://onlinepresence.space/api/oauth/google/callback");
 
         const result = await this.authService.loginWithGoogle(
           { code, redirectUri },
@@ -327,9 +331,12 @@ export class OAuthController {
     @Query("code") code: string,
     @Query("state") state: string,
     @Query("error") error: string,
+    @Req() req: any,
     @Res() res: any
   ) {
-    const frontendBase = process.env.FRONTEND_URL || "https://brandoseye.com";
+    const host = req.headers?.["x-forwarded-host"] || req.headers?.["host"];
+    const proto = req.headers?.["x-forwarded-proto"] || "https";
+    const frontendBase = host ? `${proto}://${host}` : (process.env.FRONTEND_URL || "https://onlinepresence.space");
 
     if (error || !code) {
       this.logger.warn(`Meta OAuth error or cancellation: ${error}`);
@@ -411,12 +418,12 @@ export class OAuthController {
       google: {
         configured: Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
         clientId: process.env.GOOGLE_CLIENT_ID ? `${process.env.GOOGLE_CLIENT_ID.slice(0, 12)}...` : "",
-        redirectUri: process.env.GOOGLE_REDIRECT_URI || "https://brandoseye.com/api/oauth/google/callback",
+        redirectUri: process.env.GOOGLE_REDIRECT_URI || "https://onlinepresence.space/api/oauth/google/callback",
       },
       meta: {
         configured: Boolean(process.env.META_APP_ID && process.env.META_APP_SECRET),
         appId: process.env.META_APP_ID ? `${process.env.META_APP_ID.slice(0, 6)}...` : "",
-        redirectUri: process.env.META_REDIRECT_URI || "https://brandoseye.com/api/oauth/meta/callback",
+        redirectUri: process.env.META_REDIRECT_URI || "https://onlinepresence.space/api/oauth/meta/callback",
       },
     };
   }

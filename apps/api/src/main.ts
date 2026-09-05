@@ -64,7 +64,13 @@ async function bootstrap() {
   app.useGlobalFilters(new AllExceptionsFilter());
 
   app.enableCors({
-    origin: ["http://localhost:3000"],
+    origin: [
+      "http://localhost:3000",
+      "https://onlinepresence.space",
+      "https://www.onlinepresence.space",
+      "https://brandoseye.com",
+      "https://www.brandoseye.com",
+    ],
     credentials: true,
   });
 

@@ -52,7 +52,7 @@ export default function TermsOfServicePage() {
             <h2 className="text-xl font-bold text-white mb-3">1. Agreement to Terms</h2>
             <p>
               By accessing or using <strong>BrandOS Eye</strong> (&quot;the Platform&quot;), available at{" "}
-              <a href="https://brandoseye.com" className="text-blue-400 underline">https://brandoseye.com</a>, you agree to be bound by these Terms of Service (&quot;Terms&quot;) and our Privacy Policy. If you do not agree to these Terms, please do not use our Platform.
+              <a href="https://onlinepresence.space" className="text-blue-400 underline">https://onlinepresence.space</a>, you agree to be bound by these Terms of Service (&quot;Terms&quot;) and our Privacy Policy. If you do not agree to these Terms, please do not use our Platform.
             </p>
           </section>
 
@@ -68,7 +68,7 @@ export default function TermsOfServicePage() {
             <ul className="list-disc pl-5 space-y-2 text-slate-300">
               <li>You must provide accurate, current, and complete information during registration.</li>
               <li>You are responsible for maintaining the confidentiality of your login credentials and for all activities that occur under your account.</li>
-              <li>You agree to notify us immediately at <a href="mailto:support@brandoseye.com" className="text-blue-400 underline">support@brandoseye.com</a> of any unauthorized use of your account.</li>
+              <li>You agree to notify us immediately at <a href="mailto:support@onlinepresence.space" className="text-blue-400 underline">support@onlinepresence.space</a> of any unauthorized use of your account.</li>
             </ul>
           </section>
 
@@ -116,8 +116,8 @@ export default function TermsOfServicePage() {
             </p>
             <div className="mt-4 rounded-xl border border-slate-700 bg-slate-950 p-4 font-mono text-xs text-blue-300">
               <p><strong>BrandOS Eye Legal & Support</strong></p>
-              <p>Email: <a href="mailto:support@brandoseye.com" className="underline text-white">support@brandoseye.com</a></p>
-              <p>Website: <a href="https://brandoseye.com" className="underline text-white">https://brandoseye.com</a></p>
+              <p>Email: <a href="mailto:support@onlinepresence.space" className="underline text-white">support@onlinepresence.space</a></p>
+              <p>Website: <a href="https://onlinepresence.space" className="underline text-white">https://onlinepresence.space</a></p>
             </div>
           </section>
         </div>

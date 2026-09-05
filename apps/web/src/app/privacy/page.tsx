@@ -52,7 +52,7 @@ export default function PrivacyPolicyPage() {
             <h2 className="text-xl font-bold text-white mb-3">1. Introduction</h2>
             <p>
               Welcome to <strong>BrandOS Eye</strong> (&quot;BrandOS&quot;, &quot;we&quot;, &quot;our&quot;, or &quot;us&quot;), operated at{" "}
-              <a href="https://brandoseye.com" className="text-blue-400 underline">https://brandoseye.com</a>. We are committed to safeguarding your privacy and ensuring you have a transparent, secure experience when using our AI search visibility, SEO audit, and omnichannel growth platform.
+              <a href="https://onlinepresence.space" className="text-blue-400 underline">https://onlinepresence.space</a>. We are committed to safeguarding your privacy and ensuring you have a transparent, secure experience when using our AI search visibility, SEO audit, and omnichannel growth platform.
             </p>
             <p className="mt-3">
               This Privacy Policy explains what personal data and business information we collect, how we use and protect it, and your rights regarding your information.
@@ -160,8 +160,8 @@ export default function PrivacyPolicyPage() {
             </p>
             <div className="mt-4 rounded-xl border border-slate-700 bg-slate-950 p-4 font-mono text-xs text-blue-300">
               <p><strong>BrandOS Eye Privacy & Security</strong></p>
-              <p>Email: <a href="mailto:support@brandoseye.com" className="underline text-white">support@brandoseye.com</a></p>
-              <p>Website: <a href="https://brandoseye.com" className="underline text-white">https://brandoseye.com</a></p>
+              <p>Email: <a href="mailto:support@onlinepresence.space" className="underline text-white">support@onlinepresence.space</a></p>
+              <p>Website: <a href="https://onlinepresence.space" className="underline text-white">https://onlinepresence.space</a></p>
             </div>
           </section>
         </div>

@@ -59,7 +59,7 @@ export default function AdminVpsPage() {
                 </span>
               </h1>
               <p className="text-xs text-slate-400 mt-0.5">
-                High-frequency hardware telemetry, rolling CPU/RAM waveforms, and microservices status for <strong className="text-white">169.58.227.157</strong> (brandoseye.com)
+                High-frequency hardware telemetry, rolling CPU/RAM waveforms, and microservices status for <strong className="text-white">169.58.227.157</strong> (onlinepresence.space)
               </p>
             </div>
           </div>
@@ -73,7 +73,7 @@ export default function AdminVpsPage() {
             <span>Control Center</span>
           </Link>
           <a
-            href="https://brandoseye.com"
+            href="https://onlinepresence.space"
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-lg shadow-purple-600/30 hover:from-purple-500 hover:to-indigo-500 transition"
