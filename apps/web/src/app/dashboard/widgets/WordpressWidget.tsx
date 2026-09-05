@@ -93,13 +93,13 @@ export function WordpressWidget({ data, onRemove, initialTimeRange = "7D" }: Wor
       {/* Header */}
       <div className="flex items-center justify-between pb-4 border-b border-slate-800/80 gap-2">
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-            <Plug className="h-4 w-4" />
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+            <Plug className="h-4.5 w-4.5" />
           </div>
           <div className="min-w-0">
-            <h3 className="text-sm font-bold text-white flex items-center gap-2 truncate">
+            <h3 className="text-sm sm:text-base font-bold text-white flex items-center gap-2 truncate">
               WordPress AIVision Engine
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-semibold border border-emerald-500/30 shrink-0">
+              <span className="text-xs px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-semibold border border-emerald-500/30 shrink-0">
                 Connected
               </span>
             </h3>
@@ -124,37 +124,37 @@ export function WordpressWidget({ data, onRemove, initialTimeRange = "7D" }: Wor
       </div>
 
       {/* Scores */}
-      <div className="grid grid-cols-3 gap-3 py-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 py-4">
         <div className="rounded-xl bg-slate-950/60 p-3 border border-slate-800/60 text-center">
-          <p className="text-[11px] text-slate-400 font-medium">On-Page SEO</p>
-          <p className="text-xl font-black text-blue-400 mt-1">{seo > 0 ? `${seo}/100` : "—"}</p>
-          <span className="text-[10px] text-emerald-400 font-bold mt-0.5 block">Plugin Live</span>
+          <p className="text-xs text-slate-400 font-medium">On-Page SEO</p>
+          <p className="text-2xl font-bold text-blue-400 mt-1">{seo > 0 ? `${seo}/100` : "—"}</p>
+          <span className="text-xs text-emerald-400 font-semibold mt-0.5 block">Plugin Live</span>
         </div>
 
         <div className="rounded-xl bg-slate-950/60 p-3 border border-slate-800/60 text-center">
-          <p className="text-[11px] text-slate-400 font-medium">AEO / LLM Score</p>
-          <p className="text-xl font-black text-indigo-400 mt-1">{aeo > 0 ? `${aeo}/100` : "—"}</p>
-          <span className="text-[10px] text-emerald-400 font-bold mt-0.5 block">LLMs.txt Active</span>
+          <p className="text-xs text-slate-400 font-medium">AEO / LLM Score</p>
+          <p className="text-2xl font-bold text-indigo-400 mt-1">{aeo > 0 ? `${aeo}/100` : "—"}</p>
+          <span className="text-xs text-emerald-400 font-semibold mt-0.5 block">LLMs.txt Active</span>
         </div>
 
         <div className="rounded-xl bg-slate-950/60 p-3 border border-slate-800/60 text-center">
-          <p className="text-[11px] text-slate-400 font-medium">GEO Local Score</p>
-          <p className="text-xl font-black text-purple-400 mt-1">{geo > 0 ? `${geo}/100` : "—"}</p>
-          <span className="text-[10px] text-emerald-400 font-bold mt-0.5 block">Schema Active</span>
+          <p className="text-xs text-slate-400 font-medium">GEO Local Score</p>
+          <p className="text-2xl font-bold text-purple-400 mt-1">{geo > 0 ? `${geo}/100` : "—"}</p>
+          <span className="text-xs text-emerald-400 font-semibold mt-0.5 block">Schema Active</span>
         </div>
       </div>
 
       {/* Action Bar */}
-      <div className="mt-auto flex items-center justify-between rounded-xl bg-slate-950/40 border border-slate-800/60 p-3">
-        <div className="text-xs text-slate-300">
+      <div className="mt-auto flex flex-col sm:flex-row items-center justify-between gap-3 rounded-xl bg-slate-950/40 border border-slate-800/60 p-3.5">
+        <div className="text-xs sm:text-sm text-slate-300">
           <span className="font-semibold text-white">{postsCount} Articles</span> Synced ({getTimeRangeLabel(timeRange)})
         </div>
         <button
           onClick={handleTriggerSync}
           disabled={syncing}
-          className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500 shadow-md shadow-indigo-600/30 transition disabled:opacity-50"
+          className="w-full sm:w-auto flex items-center justify-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-2 text-xs sm:text-sm font-semibold text-white hover:bg-indigo-500 shadow-md shadow-indigo-600/30 transition disabled:opacity-50"
         >
-          <RefreshCw className={`h-3.5 w-3.5 ${syncing ? "animate-spin" : ""}`} />
+          <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
           <span>{syncSuccess ? "Telemetry Synced!" : syncing ? "Pushing..." : "Sync Telemetry"}</span>
         </button>
       </div>

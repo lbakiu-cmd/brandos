@@ -109,13 +109,13 @@ export function SocialWidget({ type, data, onRemove, initialTimeRange = "7D" }: 
       {/* Header */}
       <div className="flex items-center justify-between pb-4 border-b border-slate-800/80 gap-2">
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border ${iconColor}`}>
-            <IconComponent className="h-4 w-4" />
+          <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${iconColor}`}>
+            <IconComponent className="h-4.5 w-4.5" />
           </div>
           <div className="min-w-0">
-            <h3 className="text-sm font-bold text-white flex items-center gap-2 truncate">
+            <h3 className="text-sm sm:text-base font-bold text-white flex items-center gap-2 truncate">
               {title}
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 font-semibold border border-slate-700 shrink-0">
+              <span className="text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-semibold border border-slate-700 shrink-0">
                 {badge}
               </span>
             </h3>
@@ -142,20 +142,20 @@ export function SocialWidget({ type, data, onRemove, initialTimeRange = "7D" }: 
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-3 gap-3 py-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 py-4">
         {stats.map((s, idx) => (
           <div key={idx} className="rounded-xl bg-slate-950/60 p-3 border border-slate-800/60 text-center">
-            <p className="text-[11px] text-slate-400 font-medium">{s.label}</p>
-            <p className="text-lg font-black text-white mt-1">{s.value}</p>
-            <span className="text-[10px] text-emerald-400 font-bold flex items-center justify-center gap-0.5 mt-0.5">
-              <TrendingUp className="h-2.5 w-2.5" /> {s.growth}
+            <p className="text-xs text-slate-400 font-medium">{s.label}</p>
+            <p className="text-xl font-bold text-white mt-1">{s.value}</p>
+            <span className="text-xs text-emerald-400 font-semibold flex items-center justify-center gap-1 mt-0.5">
+              <TrendingUp className="h-3 w-3" /> {s.growth}
             </span>
           </div>
         ))}
       </div>
 
       {/* Small business tip */}
-      <div className="mt-auto pt-3 border-t border-slate-800/60 flex items-center gap-1.5 text-[11px] text-slate-400">
+      <div className="mt-auto pt-3 border-t border-slate-800/60 flex items-center gap-1.5 text-xs text-slate-400">
         <span>💡 Social signals contribute to local authority in AI citation models.</span>
       </div>
     </div>

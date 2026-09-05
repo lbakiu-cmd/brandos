@@ -79,13 +79,13 @@ export function SeoHealthWidget({ data, onRemove, initialTimeRange = "7D" }: Seo
       {/* Header */}
       <div className="flex items-center justify-between pb-4 border-b border-slate-800/80 gap-2">
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-            <ShieldCheck className="h-4 w-4" />
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            <ShieldCheck className="h-4.5 w-4.5" />
           </div>
           <div className="min-w-0">
-            <h3 className="text-sm font-bold text-white flex items-center gap-2 truncate">
+            <h3 className="text-sm sm:text-base font-bold text-white flex items-center gap-2 truncate">
               Website Health & Readiness
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-semibold border border-emerald-500/30 shrink-0">
+              <span className="text-xs px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-semibold border border-emerald-500/30 shrink-0">
                 Health Check
               </span>
             </h3>
@@ -114,55 +114,55 @@ export function SeoHealthWidget({ data, onRemove, initialTimeRange = "7D" }: Seo
       {/* Score and Web Vitals */}
       <div className="flex items-center justify-between py-4 border-b border-slate-800/60">
         <div>
-          <p className="text-xs text-slate-400">Website Health Score</p>
+          <p className="text-xs sm:text-sm text-slate-400 font-medium">Website Health Score</p>
           <div className="flex items-baseline gap-2 mt-1">
-            <span className="text-3xl font-black text-emerald-400">{score}</span>
-            <span className="text-sm font-bold text-slate-500">/ 100</span>
+            <span className="text-3xl font-bold text-emerald-400">{score}</span>
+            <span className="text-sm font-semibold text-slate-500">/ 100</span>
           </div>
-          <span className="text-[10px] text-emerald-400 font-bold mt-0.5 block">Audit Completed</span>
+          <span className="text-xs text-emerald-400 font-semibold mt-0.5 block">Audit Completed</span>
         </div>
 
-        <div className="space-y-1.5 text-right">
+        <div className="space-y-2 text-right">
           <div>
-            <span className="text-[10px] text-slate-500 block">Page Load Speed</span>
-            <span className="text-xs font-bold text-emerald-400">{lcp}</span>
+            <span className="text-xs text-slate-400 block">Page Load Speed</span>
+            <span className="text-sm font-bold text-emerald-400">{lcp}</span>
           </div>
           <div>
-            <span className="text-[10px] text-slate-500 block">Visual Stability</span>
-            <span className="text-xs font-bold text-emerald-400">{cls}</span>
+            <span className="text-xs text-slate-400 block">Visual Stability</span>
+            <span className="text-sm font-bold text-emerald-400">{cls}</span>
           </div>
         </div>
       </div>
 
       {/* Items Checklist */}
-      <div className="pt-3 flex-1 space-y-2 text-xs">
-        <div className="flex items-center justify-between rounded-lg bg-slate-950/60 p-2 border border-slate-800/40">
-          <div className="flex items-center gap-1.5 text-slate-300">
-            <FileText className="h-3.5 w-3.5 text-blue-400" />
+      <div className="pt-3 flex-1 space-y-2 text-xs sm:text-sm">
+        <div className="flex items-center justify-between rounded-xl bg-slate-950/60 p-2.5 border border-slate-800/40">
+          <div className="flex items-center gap-2 text-slate-200">
+            <FileText className="h-4 w-4 text-blue-400" />
             <span>AI Discovery Feeds (/llms.txt)</span>
           </div>
-          <span className="text-[10px] font-bold text-emerald-400 flex items-center gap-0.5">
-            <CheckCircle2 className="h-3 w-3" /> Ready
+          <span className="text-xs font-bold text-emerald-400 flex items-center gap-1">
+            <CheckCircle2 className="h-3.5 w-3.5" /> Ready
           </span>
         </div>
 
-        <div className="flex items-center justify-between rounded-lg bg-slate-950/60 p-2 border border-slate-800/40">
-          <div className="flex items-center gap-1.5 text-slate-300">
-            <Code2 className="h-3.5 w-3.5 text-indigo-400" />
+        <div className="flex items-center justify-between rounded-xl bg-slate-950/60 p-2.5 border border-slate-800/40">
+          <div className="flex items-center gap-2 text-slate-200">
+            <Code2 className="h-4 w-4 text-indigo-400" />
             <span>JSON-LD Schema Structured Data</span>
           </div>
-          <span className="text-[10px] font-bold text-emerald-400 flex items-center gap-0.5">
-            <CheckCircle2 className="h-3 w-3" /> Injected
+          <span className="text-xs font-bold text-emerald-400 flex items-center gap-1">
+            <CheckCircle2 className="h-3.5 w-3.5" /> Injected
           </span>
         </div>
 
-        <div className="flex items-center justify-between rounded-lg bg-slate-950/60 p-2 border border-slate-800/40">
-          <div className="flex items-center gap-1.5 text-slate-300">
-            <Cpu className="h-3.5 w-3.5 text-purple-400" />
+        <div className="flex items-center justify-between rounded-xl bg-slate-950/60 p-2.5 border border-slate-800/40">
+          <div className="flex items-center gap-2 text-slate-200">
+            <Cpu className="h-4 w-4 text-purple-400" />
             <span>AI Bot Crawl Permissions</span>
           </div>
-          <span className="text-[10px] font-bold text-emerald-400 flex items-center gap-0.5">
-            <CheckCircle2 className="h-3 w-3" /> Allowed
+          <span className="text-xs font-bold text-emerald-400 flex items-center gap-1">
+            <CheckCircle2 className="h-3.5 w-3.5" /> Allowed
           </span>
         </div>
       </div>

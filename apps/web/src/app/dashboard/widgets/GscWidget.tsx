@@ -110,17 +110,17 @@ export function GscWidget({ data, onRemove, initialTimeRange = "7D" }: GscWidget
       {/* Header */}
       <div className="flex items-center justify-between pb-3.5 border-b border-zinc-800/80 gap-2">
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700">
-            <Search className="h-4 w-4" />
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700">
+            <Search className="h-4.5 w-4.5" />
           </div>
           <div className="min-w-0">
-            <h3 className="text-xs font-semibold text-white flex items-center gap-2 truncate">
+            <h3 className="text-sm sm:text-base font-bold text-white flex items-center gap-2 truncate">
               Google Search Keywords
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-medium border border-zinc-200 dark:border-zinc-700 shrink-0">
+              <span className="text-xs px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-semibold border border-zinc-200 dark:border-zinc-700 shrink-0">
                 GSC Data
               </span>
             </h3>
-            <p className="text-[11px] text-zinc-400 truncate">
+            <p className="text-xs text-zinc-400 truncate">
               Keywords and clicks for <span className="text-zinc-300 font-medium">{getTimeRangeLabel(timeRange)}</span>
             </p>
           </div>
@@ -146,37 +146,37 @@ export function GscWidget({ data, onRemove, initialTimeRange = "7D" }: GscWidget
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-4 gap-2.5 py-3.5">
-        <div className="rounded-lg bg-zinc-950/70 p-3 border border-zinc-800/80">
-          <p className="text-[11px] text-zinc-400 font-medium flex items-center gap-1">
-            <MousePointerClick className="h-3 w-3 text-zinc-400" /> Website Visits
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 py-3.5">
+        <div className="rounded-xl bg-zinc-950/70 p-3 border border-zinc-800/80">
+          <p className="text-xs text-zinc-400 font-medium flex items-center gap-1.5">
+            <MousePointerClick className="h-3.5 w-3.5 text-zinc-400" /> Website Visits
           </p>
-          <p className="text-lg font-semibold text-white mt-1 tracking-tight">{clicks.toLocaleString()}</p>
-          <span className="text-[10px] text-emerald-400 font-medium flex items-center gap-0.5 mt-0.5">
-            <TrendingUp className="h-2.5 w-2.5" /> {visitGrowth}
+          <p className="text-xl font-bold text-white mt-1 tracking-tight">{clicks.toLocaleString()}</p>
+          <span className="text-xs text-emerald-400 font-semibold flex items-center gap-1 mt-0.5">
+            <TrendingUp className="h-3 w-3" /> {visitGrowth}
           </span>
         </div>
 
-        <div className="rounded-lg bg-zinc-950/70 p-3 border border-zinc-800/80">
-          <p className="text-[11px] text-zinc-400 font-medium flex items-center gap-1">
-            <Eye className="h-3 w-3 text-zinc-400" /> Impressions
+        <div className="rounded-xl bg-zinc-950/70 p-3 border border-zinc-800/80">
+          <p className="text-xs text-zinc-400 font-medium flex items-center gap-1.5">
+            <Eye className="h-3.5 w-3.5 text-zinc-400" /> Impressions
           </p>
-          <p className="text-lg font-semibold text-white mt-1 tracking-tight">{impressions.toLocaleString()}</p>
-          <span className="text-[10px] text-emerald-400 font-medium flex items-center gap-0.5 mt-0.5">
-            <TrendingUp className="h-2.5 w-2.5" /> {viewGrowth}
+          <p className="text-xl font-bold text-white mt-1 tracking-tight">{impressions.toLocaleString()}</p>
+          <span className="text-xs text-emerald-400 font-semibold flex items-center gap-1 mt-0.5">
+            <TrendingUp className="h-3 w-3" /> {viewGrowth}
           </span>
         </div>
 
-        <div className="rounded-lg bg-zinc-950/70 p-3 border border-zinc-800/80">
-          <p className="text-[11px] text-zinc-400 font-medium">Click Rate</p>
-          <p className="text-lg font-semibold text-white mt-1 tracking-tight">{ctr}%</p>
-          <span className="text-[10px] text-zinc-500 mt-0.5 block">Calculated CTR</span>
+        <div className="rounded-xl bg-zinc-950/70 p-3 border border-zinc-800/80">
+          <p className="text-xs text-zinc-400 font-medium">Click Rate</p>
+          <p className="text-xl font-bold text-white mt-1 tracking-tight">{ctr}%</p>
+          <span className="text-xs text-zinc-500 mt-0.5 block">Calculated CTR</span>
         </div>
 
-        <div className="rounded-lg bg-zinc-950/70 p-3 border border-zinc-800/80">
-          <p className="text-[11px] text-zinc-400 font-medium">Avg Position</p>
-          <p className="text-lg font-semibold text-white mt-1 tracking-tight">#{position || "—"}</p>
-          <span className="text-[10px] text-zinc-500 mt-0.5 block">Search Rank</span>
+        <div className="rounded-xl bg-zinc-950/70 p-3 border border-zinc-800/80">
+          <p className="text-xs text-zinc-400 font-medium">Avg Position</p>
+          <p className="text-xl font-bold text-white mt-1 tracking-tight">#{position || "—"}</p>
+          <span className="text-xs text-zinc-500 mt-0.5 block">Search Rank</span>
         </div>
       </div>
 
@@ -201,28 +201,28 @@ export function GscWidget({ data, onRemove, initialTimeRange = "7D" }: GscWidget
       {/* Top Queries Table */}
       <div className="flex-1 overflow-x-auto">
         {displayedQueries.length > 0 ? (
-          <table className="w-full text-left text-xs">
+          <table className="w-full text-left text-xs sm:text-sm">
             <thead>
-              <tr className="border-b border-slate-800/80 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
-                <th className="pb-2">Search Phrase</th>
-                <th className="pb-2 text-right">Visits</th>
-                <th className="pb-2 text-right">Google Views</th>
-                <th className="pb-2 text-right">Click Rate</th>
-                <th className="pb-2 text-right">Google Rank</th>
+              <tr className="border-b border-slate-800/80 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                <th className="pb-2.5">Search Phrase</th>
+                <th className="pb-2.5 text-right">Visits</th>
+                <th className="pb-2.5 text-right">Google Views</th>
+                <th className="pb-2.5 text-right">Click Rate</th>
+                <th className="pb-2.5 text-right">Google Rank</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/40">
               {displayedQueries.map((q: any, i: number) => (
                 <tr key={i} className="hover:bg-slate-800/30 transition">
                   <td className="py-2.5 font-medium text-slate-200 flex items-center gap-1.5">
-                    <span className="text-slate-500 font-mono text-[10px]">{i + 1}.</span>
+                    <span className="text-slate-500 font-mono text-xs">{i + 1}.</span>
                     {q.query}
                   </td>
                   <td className="py-2.5 text-right font-bold text-white">{q.clicks.toLocaleString()}</td>
                   <td className="py-2.5 text-right text-slate-400">{q.impressions.toLocaleString()}</td>
                   <td className="py-2.5 text-right text-blue-400 font-semibold">{q.ctr}%</td>
                   <td className="py-2.5 text-right">
-                    <span className="rounded-md bg-blue-500/10 px-2 py-0.5 text-[10px] font-bold text-blue-400 border border-blue-500/20">
+                    <span className="rounded-md bg-blue-500/10 px-2 py-0.5 text-xs font-bold text-blue-400 border border-blue-500/20">
                       #{q.position}
                     </span>
                   </td>
@@ -231,7 +231,7 @@ export function GscWidget({ data, onRemove, initialTimeRange = "7D" }: GscWidget
             </tbody>
           </table>
         ) : (
-          <div className="py-8 text-center text-xs text-slate-500">
+          <div className="py-8 text-center text-xs sm:text-sm text-slate-500">
             {selectedTier
               ? "No queries match the selected ranking bracket."
               : "No keywords recorded for this time range yet."}
@@ -240,7 +240,7 @@ export function GscWidget({ data, onRemove, initialTimeRange = "7D" }: GscWidget
       </div>
 
       {/* Small business tip */}
-      <div className="mt-3 pt-3 border-t border-slate-800/60 flex items-center gap-1.5 text-[11px] text-slate-400">
+      <div className="mt-3 pt-3 border-t border-slate-800/60 flex items-center gap-1.5 text-xs text-slate-400">
         <span>💡 <strong>Quick Win:</strong> Keywords ranked in the top 3 on Google capture over 60% of all customer calls.</span>
       </div>
     </div>

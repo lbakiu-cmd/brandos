@@ -131,17 +131,17 @@ export function TwoWeekReminderBanner({
             </div>
             <div>
               <div className="flex flex-wrap items-center gap-2">
-                <span className="rounded-full bg-amber-500/20 px-2.5 py-0.5 text-xs font-semibold tracking-wide text-amber-300 border border-amber-500/30">
+                <span className="rounded-full bg-amber-500/20 px-3 py-0.5 text-xs sm:text-sm font-semibold tracking-wide text-amber-300 border border-amber-500/30">
                   🎉 2-Week Milestone Reached
                 </span>
-                <span className="text-xs text-slate-400">
+                <span className="text-xs sm:text-sm text-slate-400">
                   Registered {milestone.daysSinceRegistration} days ago
                 </span>
               </div>
-              <h3 className="mt-1 text-base font-bold text-white">
+              <h3 className="mt-1 text-base sm:text-lg font-bold text-white">
                 Your 14-Day Online Presence Comparison is Ready
               </h3>
-              <p className="mt-0.5 text-xs text-slate-300">
+              <p className="mt-0.5 text-xs sm:text-sm text-slate-300">
                 Compare your Day 1 baseline score ({initialSnapshot.overallScore}/100) with your actual presence today ({currentPresence.overallScore}/100).
                 {delta !== 0 && (
                   <span className={`ml-1.5 font-semibold ${deltaPositive ? "text-emerald-400" : "text-rose-400"}`}>
@@ -161,24 +161,24 @@ export function TwoWeekReminderBanner({
             <button
               onClick={handleSendEmail}
               disabled={emailSending}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-700/80 bg-slate-800/80 px-3.5 py-2 text-xs font-medium text-slate-200 transition hover:bg-slate-700/80 hover:text-white disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-700/80 bg-slate-800/80 px-3.5 py-2 text-xs sm:text-sm font-medium text-slate-200 transition hover:bg-slate-700/80 hover:text-white disabled:opacity-50"
               title="Email me the 2-week comparison digest"
             >
-              <Mail className="h-3.5 w-3.5 text-blue-400" />
+              <Mail className="h-4 w-4 text-blue-400" />
               {emailSuccess ? "Email Sent!" : emailSending ? "Sending..." : "Email Digest"}
             </button>
 
             <button
               onClick={onOpenComparison}
-              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-lg shadow-blue-500/25 transition hover:from-blue-500 hover:to-indigo-500"
+              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-2 text-xs sm:text-sm font-semibold text-white shadow-lg shadow-blue-500/25 transition hover:from-blue-500 hover:to-indigo-500"
             >
               <span>Compare Baseline vs Now</span>
-              <ArrowRight className="h-3.5 w-3.5" />
+              <ArrowRight className="h-4 w-4" />
             </button>
 
             <button
               onClick={handleDismiss}
-              className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-800 hover:text-slate-200"
+              className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-800 hover:text-slate-200"
               title="Dismiss reminder"
             >
               <X className="h-4 w-4" />
@@ -191,22 +191,22 @@ export function TwoWeekReminderBanner({
 
   // 2. Milestone Pending (< 14 Days) — Progress Tracker Card
   return (
-    <div className="relative mb-6 overflow-hidden rounded-2xl border border-slate-800/90 bg-gradient-to-r from-slate-900/90 via-slate-900/60 to-indigo-950/40 p-4 shadow-lg backdrop-blur-xl transition-all">
+    <div className="relative mb-6 overflow-hidden rounded-2xl border border-slate-800/90 bg-gradient-to-r from-slate-900/90 via-slate-900/60 to-indigo-950/40 p-4 sm:p-5 shadow-lg backdrop-blur-xl transition-all">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-950 border border-indigo-500/30 text-indigo-400">
-            <Clock className="h-4 w-4 animate-pulse" />
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-950 border border-indigo-500/30 text-indigo-400">
+            <Clock className="h-5 w-5 animate-pulse" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-indigo-300">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs sm:text-sm font-bold text-indigo-300">
                 14-Day Growth Milestone: Day {milestone.daysSinceRegistration} of 14
               </span>
-              <span className="text-[11px] text-slate-400">
+              <span className="text-xs text-slate-400">
                 ({milestone.daysRemaining} {milestone.daysRemaining === 1 ? "day" : "days"} until official 2-week checkpoint)
               </span>
             </div>
-            <p className="text-xs text-slate-300">
+            <p className="text-xs sm:text-sm text-slate-300 mt-0.5">
               Registration baseline recorded at <strong className="text-white">{initialSnapshot.overallScore}/100</strong>. Live presence is currently at{" "}
               <strong className="text-blue-400">{currentPresence.overallScore}/100</strong> ({deltaPositive ? `+${delta}` : delta} pts).
             </p>
@@ -216,21 +216,21 @@ export function TwoWeekReminderBanner({
         <div className="flex items-center gap-3 md:shrink-0">
           {/* Progress gauge */}
           <div className="hidden sm:flex flex-col items-end gap-1">
-            <div className="h-2 w-32 overflow-hidden rounded-full bg-slate-800 border border-slate-700/60">
+            <div className="h-2 w-36 overflow-hidden rounded-full bg-slate-800 border border-slate-700/60">
               <div
                 className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 transition-all duration-500 rounded-full"
                 style={{ width: `${milestone.progressPercent}%` }}
               />
             </div>
-            <span className="text-[10px] text-slate-400">{milestone.progressPercent}% to milestone</span>
+            <span className="text-xs text-slate-400 font-medium">{milestone.progressPercent}% to milestone</span>
           </div>
 
           <button
             onClick={onOpenComparison}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-500/30 bg-indigo-950/60 px-3 py-1.5 text-xs font-medium text-indigo-200 transition hover:bg-indigo-900/60 hover:text-white"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-500/30 bg-indigo-950/60 px-3.5 py-2 text-xs sm:text-sm font-medium text-indigo-200 transition hover:bg-indigo-900/60 hover:text-white"
           >
             <span>Preview Baseline Diff</span>
-            <ArrowRight className="h-3 w-3" />
+            <ArrowRight className="h-3.5 w-3.5" />
           </button>
         </div>
       </div>

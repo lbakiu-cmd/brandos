@@ -160,17 +160,17 @@ export function AeoWidget({ data, onRemove, initialTimeRange = "7D" }: AeoWidget
       {/* Header */}
       <div className="flex items-center justify-between pb-3.5 border-b border-zinc-800/80 gap-2">
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700">
-            <Radar className="h-4 w-4" />
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700">
+            <Radar className="h-4.5 w-4.5" />
           </div>
           <div className="min-w-0">
-            <h3 className="text-xs font-semibold text-white flex items-center gap-2 truncate">
+            <h3 className="text-sm sm:text-base font-bold text-white flex items-center gap-2 truncate">
               Assistant Citation Share
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-medium border border-zinc-200 dark:border-zinc-700 shrink-0">
+              <span className="text-xs px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-semibold border border-zinc-200 dark:border-zinc-700 shrink-0">
                 AEO Benchmarks
               </span>
             </h3>
-            <p className="text-[11px] text-zinc-400 truncate">
+            <p className="text-xs text-zinc-400 truncate">
               Visibility for <span className="text-zinc-200 font-medium">{getTimeRangeLabel(timeRange)}</span>
             </p>
           </div>
@@ -193,26 +193,26 @@ export function AeoWidget({ data, onRemove, initialTimeRange = "7D" }: AeoWidget
       </div>
 
       {/* Main Score Gauge */}
-      <div className="flex items-center justify-between py-3.5 border-b border-zinc-800/60">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 py-3.5 border-b border-zinc-800/60">
         <div>
-          <p className="text-[11px] text-zinc-400 font-medium">Assistant Citation Score</p>
+          <p className="text-xs sm:text-sm text-zinc-400 font-medium">Assistant Citation Score</p>
           <div className="flex items-baseline gap-1.5 mt-1">
-            <span className="text-2xl font-semibold text-white tracking-tight">{compositeScore}</span>
-            <span className="text-xs font-medium text-zinc-500">/ 100</span>
+            <span className="text-3xl font-bold text-white tracking-tight">{compositeScore}</span>
+            <span className="text-sm font-medium text-zinc-500">/ 100</span>
           </div>
-          <span className="text-[10px] text-emerald-400 font-medium flex items-center gap-0.5 mt-0.5">
-            <TrendingUp className="h-2.5 w-2.5" /> +{currentGrowth.growth}% citation velocity
+          <span className="text-xs text-emerald-400 font-semibold flex items-center gap-1 mt-0.5">
+            <TrendingUp className="h-3 w-3" /> +{currentGrowth.growth}% citation velocity
           </span>
         </div>
 
-        <div className="flex flex-col gap-1.5 w-40">
+        <div className="flex flex-col gap-1.5 w-full sm:w-48">
           {engineShare.map((eng) => (
             <div key={eng.engine} className="space-y-0.5">
-              <div className="flex justify-between text-[10px] text-slate-400">
+              <div className="flex justify-between text-xs text-slate-300">
                 <span>{eng.engine}</span>
-                <span className="font-bold text-slate-200">{eng.share}% share</span>
+                <span className="font-bold text-white">{eng.share}% share</span>
               </div>
-              <div className="h-1.5 w-full rounded-full bg-slate-950 overflow-hidden">
+              <div className="h-2 w-full rounded-full bg-slate-950 overflow-hidden">
                 <div
                   className={`h-full rounded-full transition-all duration-500 ${eng.color}`}
                   style={{ width: `${eng.share}%` }}
@@ -224,26 +224,31 @@ export function AeoWidget({ data, onRemove, initialTimeRange = "7D" }: AeoWidget
       </div>
 
       {/* Recent Probes */}
-      <div className="pt-3 flex-1 space-y-2 text-xs">
+      <div className="pt-3 flex-1 space-y-2 text-xs sm:text-sm">
         <div className="flex items-center justify-between">
-          <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
             Recent LLM Prompts
           </p>
-          <span className="text-[10px] text-indigo-400 font-semibold bg-indigo-500/10 px-1.5 py-0.5 rounded border border-indigo-500/20">
+          <span className="text-xs text-indigo-400 font-semibold bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">
             {currentGrowth.citations} citations
           </span>
         </div>
         {probes.map((p, i) => (
-          <div key={i} className="flex items-center justify-between rounded-lg bg-slate-950/60 p-2 border border-slate-800/40 transition-all duration-300">
-            <span className="text-slate-300 truncate max-w-[175px]">&ldquo;{p.prompt}&rdquo;</span>
-            <div className="flex items-center gap-1.5 shrink-0">
-              <span className="text-[10px] text-slate-400 font-medium">{p.citations} cites</span>
-              <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
+          <div key={i} className="flex items-center justify-between rounded-xl bg-slate-950/60 p-2.5 border border-slate-800/40 transition-all duration-300 gap-2">
+            <span className="text-slate-200 truncate">&ldquo;{p.prompt}&rdquo;</span>
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-xs text-slate-400 font-medium">{p.citations} cites</span>
+              <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
                 {p.rank}
               </span>
             </div>
           </div>
         ))}
+      </div>
+
+      {/* Small business tip */}
+      <div className="mt-3 pt-3 border-t border-slate-800/60 flex items-center gap-1.5 text-xs text-slate-400">
+        <span>💡 <strong>AI Discovery:</strong> AI assistants like ChatGPT quote websites with clean Schema markup and verified Google Reviews.</span>
       </div>
     </div>
   );

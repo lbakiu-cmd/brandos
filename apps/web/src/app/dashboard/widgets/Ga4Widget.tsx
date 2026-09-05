@@ -96,13 +96,13 @@ export function Ga4Widget({ data, onRemove, initialTimeRange = "7D" }: Ga4Widget
       {/* Header */}
       <div className="flex items-center justify-between pb-4 border-b border-slate-800/80 gap-2">
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20">
-            <Bot className="h-4 w-4" />
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
+            <Bot className="h-4.5 w-4.5" />
           </div>
           <div className="min-w-0">
-            <h3 className="text-sm font-bold text-white flex items-center gap-2 truncate">
+            <h3 className="text-sm sm:text-base font-bold text-white flex items-center gap-2 truncate">
               Website Visitors from AI Chatbots
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 font-semibold border border-amber-500/30 shrink-0">
+              <span className="text-xs px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 font-semibold border border-amber-500/30 shrink-0">
                 AI Traffic
               </span>
             </h3>
@@ -129,29 +129,29 @@ export function Ga4Widget({ data, onRemove, initialTimeRange = "7D" }: Ga4Widget
       </div>
 
       {/* Highlights */}
-      <div className="grid grid-cols-3 gap-3 py-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 py-4">
         <div className="rounded-xl bg-slate-950/60 p-3 border border-slate-800/60">
-          <p className="text-[11px] text-slate-400 font-medium">Total Website Users</p>
-          <p className="text-lg font-black text-white mt-1">{totalUsers.toLocaleString()}</p>
-          <span className="text-[10px] text-emerald-400 font-bold flex items-center gap-0.5 mt-0.5">
-            <TrendingUp className="h-2.5 w-2.5" /> {userGrowth}
+          <p className="text-xs text-slate-400 font-medium">Total Website Users</p>
+          <p className="text-xl font-bold text-white mt-1">{totalUsers.toLocaleString()}</p>
+          <span className="text-xs text-emerald-400 font-semibold flex items-center gap-1 mt-0.5">
+            <TrendingUp className="h-3 w-3" /> {userGrowth}
           </span>
         </div>
 
         <div className="rounded-xl bg-slate-950/60 p-3 border border-slate-800/60">
-          <p className="text-[11px] text-slate-400 font-medium flex items-center gap-1">
-            <Sparkles className="h-3 w-3 text-amber-400" /> AI-Generated Visits
+          <p className="text-xs text-slate-400 font-medium flex items-center gap-1.5">
+            <Sparkles className="h-3.5 w-3.5 text-amber-400" /> AI-Generated Visits
           </p>
-          <p className="text-lg font-black text-amber-400 mt-1">{aiSessions.toLocaleString()}</p>
-          <span className="text-[10px] text-emerald-400 font-bold flex items-center gap-0.5 mt-0.5">
-            <TrendingUp className="h-2.5 w-2.5" /> {aiGrowth}
+          <p className="text-xl font-bold text-amber-400 mt-1">{aiSessions.toLocaleString()}</p>
+          <span className="text-xs text-emerald-400 font-semibold flex items-center gap-1 mt-0.5">
+            <TrendingUp className="h-3 w-3" /> {aiGrowth}
           </span>
         </div>
 
         <div className="rounded-xl bg-slate-950/60 p-3 border border-slate-800/60">
-          <p className="text-[11px] text-slate-400 font-medium">AI Traffic Share</p>
-          <p className="text-lg font-black text-white mt-1">{aiShare}%</p>
-          <span className="text-[10px] text-indigo-400 font-semibold mt-0.5 block">High Intent</span>
+          <p className="text-xs text-slate-400 font-medium">AI Traffic Share</p>
+          <p className="text-xl font-bold text-white mt-1">{aiShare}%</p>
+          <span className="text-xs text-indigo-400 font-semibold mt-0.5 block">High Intent</span>
         </div>
       </div>
 
@@ -177,21 +177,21 @@ export function Ga4Widget({ data, onRemove, initialTimeRange = "7D" }: Ga4Widget
       {/* AI Breakdown Table */}
       <div className="flex-1 overflow-x-auto">
         {engines.length > 0 ? (
-          <table className="w-full text-left text-xs">
+          <table className="w-full text-left text-xs sm:text-sm">
             <thead>
-              <tr className="border-b border-slate-800/80 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
-                <th className="pb-2">AI Platform</th>
-                <th className="pb-2 text-right">Visits</th>
-                <th className="pb-2 text-right">Time on Site</th>
-                <th className="pb-2 text-right">Inquiry Rate</th>
-                <th className="pb-2 text-right">Growth</th>
+              <tr className="border-b border-slate-800/80 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                <th className="pb-2.5">AI Platform</th>
+                <th className="pb-2.5 text-right">Visits</th>
+                <th className="pb-2.5 text-right">Time on Site</th>
+                <th className="pb-2.5 text-right">Inquiry Rate</th>
+                <th className="pb-2.5 text-right">Growth</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/40">
               {engines.map((e: any, idx: number) => (
                 <tr key={idx} className="hover:bg-slate-800/30 transition">
                   <td className="py-2.5 font-medium text-slate-200 flex items-center gap-2">
-                    <div className="h-2 w-2 rounded-full bg-amber-400" />
+                    <div className="h-2.5 w-2.5 rounded-full bg-amber-400" />
                     {e.engine}
                   </td>
                   <td className="py-2.5 text-right font-bold text-white">{e.sessions.toLocaleString()}</td>
@@ -203,14 +203,14 @@ export function Ga4Widget({ data, onRemove, initialTimeRange = "7D" }: Ga4Widget
             </tbody>
           </table>
         ) : (
-          <div className="py-8 text-center text-xs text-slate-500">
+          <div className="py-8 text-center text-xs sm:text-sm text-slate-500">
             No AI search engine sessions recorded yet.
           </div>
         )}
       </div>
 
       {/* Small business tip */}
-      <div className="mt-3 pt-3 border-t border-slate-800/60 flex items-center gap-1.5 text-[11px] text-slate-400">
+      <div className="mt-3 pt-3 border-t border-slate-800/60 flex items-center gap-1.5 text-xs text-slate-400">
         <span>💡 <strong>Why AI Traffic Matters:</strong> Visitors sent by ChatGPT & Perplexity convert to paying clients 3x faster than social media visitors.</span>
       </div>
     </div>

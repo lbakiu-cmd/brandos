@@ -258,25 +258,25 @@ export default function DashboardPage() {
   const completionPct = Math.round((completedCount / checklistSteps.length) * 100);
 
   return (
-    <main className="p-6 md:p-8 max-w-7xl mx-auto space-y-8">
+    <main className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6 sm:space-y-8">
       {/* Top Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-xl md:text-2xl font-semibold tracking-tight text-white">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
               Presence & Performance Overview
             </h1>
-            <span className="rounded-full bg-zinc-850 px-2.5 py-0.5 text-xs font-medium text-zinc-300 border border-zinc-700/60">
+            <span className="rounded-full bg-zinc-850 px-3 py-1 text-xs sm:text-sm font-semibold text-zinc-300 border border-zinc-700/60">
               {businessName}
             </span>
           </div>
-          <p className="text-xs text-zinc-400 mt-1">
+          <p className="text-sm sm:text-base text-zinc-400 mt-1">
             Real-time telemetry across search engines, local discovery, and assistant queries.
           </p>
         </div>
 
         {/* Action Controls */}
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
           {/* Time Range Filter */}
           <TimeRangeFilter
             value={timeRange}
@@ -289,10 +289,10 @@ export default function DashboardPage() {
           {/* 14-Day Baseline Comparison Button */}
           <button
             onClick={() => setIsComparisonOpen(true)}
-            className="flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs font-medium text-zinc-300 hover:bg-zinc-800 hover:text-white transition shadow-sm"
+            className="flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-zinc-900 px-3.5 py-2 text-xs sm:text-sm font-medium text-zinc-300 hover:bg-zinc-800 hover:text-white transition shadow-sm"
             title="View baseline vs actual presence comparison"
           >
-            <Award className="h-3.5 w-3.5 text-zinc-400" />
+            <Award className="h-4 w-4 text-zinc-400" />
             <span>14-Day Baseline</span>
           </button>
 
@@ -300,18 +300,18 @@ export default function DashboardPage() {
           <button
             onClick={handleSyncAll}
             disabled={isSyncing}
-            className="flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs font-medium text-zinc-300 hover:bg-zinc-800 hover:text-white transition shadow-sm"
+            className="flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-zinc-900 px-3.5 py-2 text-xs sm:text-sm font-medium text-zinc-300 hover:bg-zinc-800 hover:text-white transition shadow-sm"
           >
-            <RefreshCw className={`h-3.5 w-3.5 ${isSyncing ? "animate-spin text-zinc-400" : "text-zinc-400"}`} />
+            <RefreshCw className={`h-4 w-4 ${isSyncing ? "animate-spin text-zinc-400" : "text-zinc-400"}`} />
             {isSyncing ? "Refreshing..." : "Refresh"}
           </button>
 
           {/* Add Widget Button */}
           <button
             onClick={() => setIsAddModalOpen(true)}
-            className="flex items-center gap-1.5 rounded-lg bg-white px-3.5 py-1.5 text-xs font-semibold text-zinc-950 hover:bg-zinc-200 transition shadow-sm"
+            className="flex items-center gap-1.5 rounded-lg bg-white px-4 py-2 text-xs sm:text-sm font-bold text-zinc-950 hover:bg-zinc-200 transition shadow-sm"
           >
-            <Plus className="h-3.5 w-3.5" />
+            <Plus className="h-4 w-4" />
             <span>Add Card</span>
           </button>
         </div>
@@ -326,33 +326,33 @@ export default function DashboardPage() {
 
       {/* Sync Success Alert */}
       {syncNotice && (
-        <div className="flex items-center gap-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-4 py-2.5 text-xs font-medium text-emerald-400">
-          <CheckCircle2 className="h-4 w-4 shrink-0" />
+        <div className="flex items-center gap-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 px-4 py-3 text-sm font-medium text-emerald-400">
+          <CheckCircle2 className="h-5 w-5 shrink-0" />
           {syncNotice}
         </div>
       )}
 
       {/* SECTION: 4-Step Online Growth Checklist */}
-      <div className="rounded-xl border border-zinc-800/90 bg-zinc-900/40 p-6 space-y-5">
+      <div className="rounded-xl border border-zinc-800/90 bg-zinc-900/40 p-5 sm:p-6 space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-sm font-semibold text-white">Presence Setup & Verification</h2>
-              <span className="rounded-full bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 text-[10px] font-medium text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700">
+            <div className="flex items-center gap-2.5">
+              <h2 className="text-base sm:text-lg font-bold text-white">Presence Setup & Verification</h2>
+              <span className="rounded-full bg-zinc-100 dark:bg-zinc-800 px-2.5 py-0.5 text-xs sm:text-sm font-semibold text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700">
                 {completionPct}% Complete
               </span>
             </div>
-            <p className="text-xs text-zinc-400 mt-1">
+            <p className="text-sm text-zinc-400 mt-1">
               Verify these foundational signals to ensure accurate local indexing and search visibility.
             </p>
           </div>
 
-          <div className="w-full sm:w-48">
-            <div className="flex items-center justify-between text-[11px] text-zinc-400 font-medium mb-1.5">
+          <div className="w-full sm:w-56">
+            <div className="flex items-center justify-between text-xs sm:text-sm text-zinc-400 font-medium mb-1.5">
               <span>Setup Readiness</span>
               <span>{completedCount} of 4 Complete</span>
             </div>
-            <div className="h-1.5 w-full rounded-full bg-zinc-200 dark:bg-zinc-800 overflow-hidden">
+            <div className="h-2 w-full rounded-full bg-zinc-200 dark:bg-zinc-800 overflow-hidden">
               <div
                 className="h-full bg-emerald-500 transition-all duration-500"
                 style={{ width: `${completionPct}%` }}
@@ -361,43 +361,43 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
           {checklistSteps.map((step) => (
             <div
               key={step.id}
-              className={`flex flex-col justify-between rounded-lg border p-4 transition-colors ${
+              className={`flex flex-col justify-between rounded-xl border p-4 sm:p-5 transition-colors ${
                 step.done
                   ? "border-zinc-800/80 bg-zinc-950/60"
                   : "border-zinc-800 bg-zinc-950/90 hover:border-zinc-700"
               }`}
             >
               <div>
-                <div className="flex items-center justify-between">
-                  <span className={`text-xs font-semibold ${step.done ? "text-zinc-200" : "text-white"}`}>
+                <div className="flex items-center justify-between gap-2">
+                  <span className={`text-sm sm:text-base font-semibold ${step.done ? "text-zinc-200" : "text-white"}`}>
                     {step.title}
                   </span>
                   {step.done ? (
-                    <span className="flex items-center gap-1 text-[10px] font-medium text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
+                    <span className="flex items-center gap-1 text-xs font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 shrink-0">
                       ✓ Done
                     </span>
                   ) : (
-                    <span className="text-[10px] font-medium text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
+                    <span className="text-xs font-semibold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 shrink-0">
                       Pending
                     </span>
                   )}
                 </div>
-                <p className="text-[11px] text-zinc-400 mt-2 leading-relaxed">{step.desc}</p>
+                <p className="text-xs sm:text-sm text-zinc-400 mt-2 leading-relaxed">{step.desc}</p>
               </div>
 
               <Link
                 href={step.href}
-                className={`mt-4 flex items-center justify-center gap-1 rounded-md py-1.5 px-3 text-xs font-medium transition ${
+                className={`mt-4 flex items-center justify-center gap-1.5 rounded-lg py-2 px-3.5 text-xs sm:text-sm font-semibold transition ${
                   step.done
                     ? "bg-zinc-850 text-zinc-300 hover:bg-zinc-800 hover:text-white"
-                    : "bg-white text-zinc-950 hover:bg-zinc-200 font-semibold shadow-sm"
+                    : "bg-white text-zinc-950 hover:bg-zinc-200 shadow-sm"
                 }`}
               >
-                {step.action} <ArrowRight className="h-3 w-3 ml-0.5" />
+                {step.action} <ArrowRight className="h-3.5 w-3.5 ml-0.5" />
               </Link>
             </div>
           ))}
@@ -405,21 +405,21 @@ export default function DashboardPage() {
       </div>
 
       {/* SECTION: Precision Stats Banner */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
         {/* Google Visits */}
         <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/40 p-5">
-          <div className="flex items-center justify-between text-zinc-400 text-xs font-medium">
-            <span className="flex items-center gap-1.5">
-              <Search className="h-3.5 w-3.5 text-zinc-400" /> Google Search Visits
+          <div className="flex items-center justify-between text-zinc-400 text-sm font-medium">
+            <span className="flex items-center gap-2">
+              <Search className="h-4 w-4 text-zinc-400" /> Google Search Visits
             </span>
-            <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded border ${hasGsc ? "text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20" : "text-zinc-600 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700"}`}>
+            <span className={`text-xs font-semibold px-2 py-0.5 rounded border ${hasGsc ? "text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20" : "text-zinc-600 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700"}`}>
               {hasGsc ? "Active" : "Not Linked"}
             </span>
           </div>
-          <p className="text-2xl font-semibold text-white mt-2 tracking-tight">
+          <p className="text-3xl sm:text-4xl font-bold text-white mt-2 tracking-tight">
             {hasGsc ? totalClicks.toLocaleString() : "—"}
           </p>
-          <p className="text-[11px] text-zinc-500 mt-1">
+          <p className="text-xs sm:text-sm text-zinc-400 mt-1.5">
             {hasGsc
               ? `${(totalImpressions / 1000).toFixed(1)}k impressions in search results`
               : "Connect Google Search Console to track"}
@@ -428,55 +428,55 @@ export default function DashboardPage() {
 
         {/* AI Visitors */}
         <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/40 p-5">
-          <div className="flex items-center justify-between text-zinc-400 text-xs font-medium">
-            <span className="flex items-center gap-1.5">
-              <Globe className="h-3.5 w-3.5 text-zinc-400" /> Assistant Referrals
+          <div className="flex items-center justify-between text-zinc-400 text-sm font-medium">
+            <span className="flex items-center gap-2">
+              <Globe className="h-4 w-4 text-zinc-400" /> Assistant Referrals
             </span>
-            <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded border ${hasGa4 ? "text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20" : "text-zinc-600 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700"}`}>
+            <span className={`text-xs font-semibold px-2 py-0.5 rounded border ${hasGa4 ? "text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20" : "text-zinc-600 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700"}`}>
               {hasGa4 ? "Active" : "Not Linked"}
             </span>
           </div>
-          <p className="text-2xl font-semibold text-white mt-2 tracking-tight">
+          <p className="text-3xl sm:text-4xl font-bold text-white mt-2 tracking-tight">
             {hasGa4 ? aiSessions.toLocaleString() : "—"}
           </p>
-          <p className="text-[11px] text-zinc-500 mt-1">
+          <p className="text-xs sm:text-sm text-zinc-400 mt-1.5">
             {hasGa4 ? "Referred by ChatGPT, Gemini & Perplexity" : "Connect GA4 property to track"}
           </p>
         </div>
 
         {/* Local Maps & Calls */}
         <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/40 p-5">
-          <div className="flex items-center justify-between text-zinc-400 text-xs font-medium">
-            <span className="flex items-center gap-1.5">
-              <MapPin className="h-3.5 w-3.5 text-zinc-400" /> Maps & Local Calls
+          <div className="flex items-center justify-between text-zinc-400 text-sm font-medium">
+            <span className="flex items-center gap-2">
+              <MapPin className="h-4 w-4 text-zinc-400" /> Maps & Local Calls
             </span>
-            <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded border ${hasGbp ? "text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20" : "text-zinc-600 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700"}`}>
+            <span className={`text-xs font-semibold px-2 py-0.5 rounded border ${hasGbp ? "text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20" : "text-zinc-600 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700"}`}>
               {hasGbp ? "Active" : "Not Linked"}
             </span>
           </div>
-          <p className="text-2xl font-semibold text-white mt-2 tracking-tight">
+          <p className="text-3xl sm:text-4xl font-bold text-white mt-2 tracking-tight">
             {hasGbp ? totalLocalViews.toLocaleString() : "—"}
           </p>
-          <p className="text-[11px] text-zinc-500 mt-1">
+          <p className="text-xs sm:text-sm text-zinc-400 mt-1.5">
             {hasGbp ? "Directions, calls & listing views" : "Connect Google Business Profile"}
           </p>
         </div>
 
         {/* AI Recommendation Score */}
         <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/40 p-5">
-          <div className="flex items-center justify-between text-zinc-400 text-xs font-medium">
-            <span className="flex items-center gap-1.5">
-              <Award className="h-3.5 w-3.5 text-zinc-400" /> Assistant Citation Score
+          <div className="flex items-center justify-between text-zinc-400 text-sm font-medium">
+            <span className="flex items-center gap-2">
+              <Award className="h-4 w-4 text-zinc-400" /> Assistant Citation Score
             </span>
-            <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded border ${hasAeo && aeoScore > 0 ? "text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20" : "text-zinc-600 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700"}`}>
+            <span className={`text-xs font-semibold px-2 py-0.5 rounded border ${hasAeo && aeoScore > 0 ? "text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20" : "text-zinc-600 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700"}`}>
               {hasAeo && aeoScore > 0 ? "Scanned" : "Pending"}
             </span>
           </div>
-          <p className="text-2xl font-semibold text-white mt-2 tracking-tight">
+          <p className="text-3xl sm:text-4xl font-bold text-white mt-2 tracking-tight">
             {hasAeo && aeoScore > 0 ? `${aeoScore}` : "—"}{" "}
-            <span className="text-xs font-normal text-zinc-500">/ 100</span>
+            <span className="text-sm font-normal text-zinc-500">/ 100</span>
           </p>
-          <p className="text-[11px] text-zinc-500 mt-1">
+          <p className="text-xs sm:text-sm text-zinc-400 mt-1.5">
             {hasAeo && aeoScore > 0 ? "Benchmark frequency across 4 LLM engines" : "Run engine probe scan in Visibility"}
           </p>
         </div>
@@ -486,8 +486,8 @@ export default function DashboardPage() {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-sm font-semibold text-white">Live Performance Cards</h2>
-            <p className="text-xs text-zinc-400">Detailed metrics into search queries, customer engagement, and technical indexing.</p>
+            <h2 className="text-lg sm:text-xl font-bold text-white">Live Performance Cards</h2>
+            <p className="text-sm sm:text-base text-zinc-400 mt-0.5">Detailed metrics into search queries, customer engagement, and technical indexing.</p>
           </div>
         </div>
 
@@ -539,7 +539,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Footer controls */}
-      <div className="flex flex-col sm:flex-row items-center justify-between pt-6 border-t border-slate-800/80 text-xs text-slate-500 gap-3">
+      <div className="flex flex-col sm:flex-row items-center justify-between pt-6 border-t border-slate-800/80 text-xs sm:text-sm text-slate-400 gap-3">
         <p>BrandOS Eye • Helping businesses build a trusted, profitable online presence.</p>
         <button
           onClick={handleResetLayout}

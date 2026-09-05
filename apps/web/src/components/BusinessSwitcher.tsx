@@ -180,29 +180,29 @@ export function BusinessSwitcher() {
           type="button"
           onClick={() => setIsOpen(!isOpen)}
           disabled={switching}
-          className="flex items-center gap-2.5 rounded-xl border border-zinc-800 bg-zinc-900/90 px-3 py-1.5 text-xs font-semibold text-zinc-100 shadow-sm backdrop-blur-md transition hover:border-zinc-700 hover:bg-zinc-850 focus:outline-none"
+          className="flex items-center gap-2 sm:gap-2.5 rounded-xl border border-zinc-800 bg-zinc-900/90 px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-zinc-100 shadow-sm backdrop-blur-md transition hover:border-zinc-700 hover:bg-zinc-850 focus:outline-none"
           title="Switch active business workspace"
         >
           {loading ? (
             <div className="flex items-center gap-2 py-0.5">
-              <RefreshCw className="h-3.5 w-3.5 animate-spin text-zinc-400" />
-              <span className="text-zinc-400">Loading...</span>
+              <RefreshCw className="h-4 w-4 animate-spin text-zinc-400" />
+              <span className="text-zinc-400 text-xs sm:text-sm">Loading...</span>
             </div>
           ) : (
             <>
               {/* Business Monogram Avatar */}
-              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-gradient-to-tr from-violet-600 to-indigo-600 text-[10px] font-bold text-white shadow-sm border border-violet-400/30">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-tr from-violet-600 to-indigo-600 text-xs font-bold text-white shadow-sm border border-violet-400/30">
                 {(currentBusiness?.name || "B").substring(0, 2).toUpperCase()}
               </div>
 
               {/* Business Name & Indicator */}
-              <div className="flex flex-col text-left max-w-[170px] sm:max-w-[210px]">
+              <div className="flex flex-col text-left max-w-[110px] min-[400px]:max-w-[150px] sm:max-w-[210px]">
                 <div className="flex items-center gap-1.5 overflow-hidden">
-                  <span className="truncate font-semibold text-white text-xs">
+                  <span className="truncate font-semibold text-white text-xs sm:text-sm">
                     {currentBusiness?.name || "Select Workspace"}
                   </span>
                 </div>
-                <span className="text-[10px] text-zinc-400 font-normal truncate">
+                <span className="text-[11px] sm:text-xs text-zinc-400 font-normal truncate">
                   {currentBusiness?.website
                     ? currentBusiness.website.replace(/^https?:\/\//, "").replace(/\/$/, "")
                     : currentBusiness?.city || "Active Workspace"}
@@ -211,13 +211,13 @@ export function BusinessSwitcher() {
 
               {/* Plan Pill */}
               <span
-                className={`hidden md:inline-flex text-[9px] font-bold px-1.5 py-0.5 rounded-md border uppercase tracking-wider ${tierConfig.color}`}
+                className={`hidden md:inline-flex text-[10px] font-bold px-1.5 py-0.5 rounded-md border uppercase tracking-wider ${tierConfig.color}`}
               >
                 {tierConfig.label}
               </span>
 
               <ChevronDown
-                className={`h-3.5 w-3.5 text-zinc-400 transition-transform duration-200 shrink-0 ${
+                className={`h-4 w-4 text-zinc-400 transition-transform duration-200 shrink-0 ${
                   isOpen ? "rotate-180 text-white" : ""
                 }`}
               />

@@ -96,13 +96,13 @@ export function ReviewsWidget({ data, onRemove, initialTimeRange = "7D" }: Revie
       {/* Header */}
       <div className="flex items-center justify-between pb-4 border-b border-slate-800/80 gap-2">
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-            <Star className="h-4 w-4" />
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            <Star className="h-4.5 w-4.5" />
           </div>
           <div className="min-w-0">
-            <h3 className="text-sm font-bold text-white flex items-center gap-2 truncate">
+            <h3 className="text-sm sm:text-base font-bold text-white flex items-center gap-2 truncate">
               Google Reviews & AI Auto-Reply
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-semibold border border-emerald-500/30 shrink-0">
+              <span className="text-xs px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-semibold border border-emerald-500/30 shrink-0">
                 Auto-Pilot
               </span>
             </h3>
@@ -132,59 +132,59 @@ export function ReviewsWidget({ data, onRemove, initialTimeRange = "7D" }: Revie
       <div className="flex-1 space-y-3 py-3 overflow-y-auto max-h-[340px] pr-1">
         {reviews.length > 0 ? (
           reviews.map((r) => (
-            <div key={r.id} className="rounded-xl bg-slate-950/60 p-3.5 border border-slate-800/60 space-y-2">
+            <div key={r.id} className="rounded-xl bg-slate-950/60 p-4 border border-slate-800/60 space-y-2.5">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="h-6 w-6 rounded-full bg-slate-800 flex items-center justify-center font-bold text-xs text-white">
+                <div className="flex items-center gap-2.5">
+                  <div className="h-7 w-7 rounded-full bg-slate-800 flex items-center justify-center font-bold text-xs text-white">
                     {r.author[0]}
                   </div>
-                  <span className="text-xs font-bold text-white">{r.author}</span>
+                  <span className="text-xs sm:text-sm font-bold text-white">{r.author}</span>
                   <div className="flex items-center text-amber-400">
                     {Array.from({ length: r.rating }).map((_, i) => (
-                      <Star key={i} className="h-3 w-3 fill-amber-400" />
+                      <Star key={i} className="h-3.5 w-3.5 fill-amber-400" />
                     ))}
                   </div>
                 </div>
-                <span className="text-[10px] text-slate-500">{r.time}</span>
+                <span className="text-xs text-slate-400">{r.time}</span>
               </div>
 
-              <p className="text-xs text-slate-300 italic">&ldquo;{r.comment}&rdquo;</p>
+              <p className="text-xs sm:text-sm text-slate-200 italic">&ldquo;{r.comment}&rdquo;</p>
 
               {r.replied ? (
-                <div className="rounded-lg bg-emerald-950/30 border border-emerald-800/40 p-2.5 text-[11px] text-emerald-300">
-                  <span className="font-bold flex items-center gap-1 mb-1">
-                    <Check className="h-3 w-3" /> Responded:
+                <div className="rounded-xl bg-emerald-950/30 border border-emerald-800/40 p-3 text-xs sm:text-sm text-emerald-300">
+                  <span className="font-bold flex items-center gap-1.5 mb-1">
+                    <Check className="h-3.5 w-3.5" /> Responded:
                   </span>
                   {r.reply}
                 </div>
               ) : (
-                <div className="rounded-lg bg-indigo-950/40 border border-indigo-800/50 p-2.5 space-y-2">
-                  <div className="flex items-center justify-between text-[11px] text-indigo-300 font-semibold">
-                    <span className="flex items-center gap-1">
-                      <Sparkles className="h-3 w-3 text-indigo-400" /> AI Drafted Response:
+                <div className="rounded-xl bg-indigo-950/40 border border-indigo-800/50 p-3 space-y-2">
+                  <div className="flex items-center justify-between text-xs text-indigo-300 font-semibold">
+                    <span className="flex items-center gap-1.5">
+                      <Sparkles className="h-3.5 w-3.5 text-indigo-400" /> AI Drafted Response:
                     </span>
                   </div>
-                  <p className="text-[11px] text-slate-300">{r.aiDraft}</p>
+                  <p className="text-xs sm:text-sm text-slate-200">{r.aiDraft}</p>
                   <button
                     onClick={() => handleSendReply(r.id, r.aiDraft)}
-                    className="flex items-center gap-1 rounded-lg bg-indigo-600 px-2.5 py-1 text-[11px] font-bold text-white hover:bg-indigo-500 shadow-md shadow-indigo-600/30 transition"
+                    className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-indigo-500 shadow-md shadow-indigo-600/30 transition"
                   >
-                    <Send className="h-3 w-3" /> Approve & Post to Google
+                    <Send className="h-3.5 w-3.5" /> Approve & Post to Google
                   </button>
                 </div>
               )}
             </div>
           ))
         ) : (
-          <div className="py-8 text-center text-xs text-slate-500">
+          <div className="py-8 text-center text-xs sm:text-sm text-slate-500">
             No reviews received in this time range.
           </div>
         )}
       </div>
 
       {/* Small business tip */}
-      <div className="mt-3 pt-3 border-t border-slate-800/60 flex items-center gap-1.5 text-[11px] text-slate-400">
-        <span>💡 <strong>Review Impact:</strong> Replying to reviews within 24 hours increases customer retention by 33%.</span>
+      <div className="mt-3 pt-3 border-t border-slate-800/60 flex items-center gap-1.5 text-xs text-slate-400">
+        <span>💡 <strong>Review Impact:</strong> Replying to reviews within 24 hours increases Google Business Profile conversion by 16%.</span>
       </div>
     </div>
   );

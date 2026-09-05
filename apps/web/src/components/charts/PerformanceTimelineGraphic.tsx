@@ -219,13 +219,13 @@ export function PerformanceTimelineGraphic({
   return (
     <div className={`relative w-full rounded-xl border border-zinc-800/80 bg-zinc-950/60 transition-all ${isCompact ? "p-3 mb-3" : "p-4 sm:p-5 mb-4"}`}>
       {/* Header Controls */}
-      <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5">
         <div className="flex items-center gap-2">
-          <div className="flex h-5 w-5 items-center justify-center rounded-md bg-blue-500/10 text-blue-400 border border-blue-500/20">
-            <TrendingUp className="h-3 w-3" />
+          <div className="flex h-6 w-6 items-center justify-center rounded-md bg-blue-500/10 text-blue-400 border border-blue-500/20">
+            <TrendingUp className="h-3.5 w-3.5" />
           </div>
-          <span className="text-xs font-semibold text-zinc-200">{title}</span>
-          <span className="text-[10px] text-zinc-500 hidden sm:inline">• Daily velocity curve</span>
+          <span className="text-xs sm:text-sm font-semibold text-zinc-200">{title}</span>
+          <span className="text-xs text-zinc-500 hidden sm:inline">• Daily velocity curve</span>
         </div>
 
         {/* Legend / Filter buttons */}
@@ -233,9 +233,9 @@ export function PerformanceTimelineGraphic({
           <button
             type="button"
             onClick={() => setActiveMetric("all")}
-            className={`px-2 py-0.5 text-[10px] font-medium rounded-md transition ${
+            className={`px-2.5 py-1 text-xs font-medium rounded-md transition ${
               activeMetric === "all"
-                ? "bg-zinc-800 text-white shadow-sm"
+                ? "bg-zinc-800 text-white shadow-sm font-semibold"
                 : "text-zinc-400 hover:text-zinc-200"
             }`}
           >
@@ -244,49 +244,49 @@ export function PerformanceTimelineGraphic({
           <button
             type="button"
             onClick={() => setActiveMetric("clicks")}
-            className={`px-2 py-0.5 text-[10px] font-medium rounded-md flex items-center gap-1 transition ${
+            className={`px-2.5 py-1 text-xs font-medium rounded-md flex items-center gap-1.5 transition ${
               activeMetric === "clicks"
                 ? "bg-blue-500/20 text-blue-300 border border-blue-500/30 font-semibold"
                 : "text-zinc-400 hover:text-blue-300"
             }`}
           >
-            <span className="h-1.5 w-1.5 rounded-full bg-blue-400" />
+            <span className="h-2 w-2 rounded-full bg-blue-400" />
             {clicksLabel}
           </button>
           <button
             type="button"
             onClick={() => setActiveMetric("impressions")}
-            className={`px-2 py-0.5 text-[10px] font-medium rounded-md flex items-center gap-1 transition ${
+            className={`px-2.5 py-1 text-xs font-medium rounded-md flex items-center gap-1.5 transition ${
               activeMetric === "impressions"
                 ? "bg-purple-500/20 text-purple-300 border border-purple-500/30 font-semibold"
                 : "text-zinc-400 hover:text-purple-300"
             }`}
           >
-            <span className="h-1.5 w-1.5 rounded-full bg-purple-400" />
+            <span className="h-2 w-2 rounded-full bg-purple-400" />
             {impressionsLabel}
           </button>
           <button
             type="button"
             onClick={() => setActiveMetric("ctr")}
-            className={`px-2 py-0.5 text-[10px] font-medium rounded-md flex items-center gap-1 transition ${
+            className={`px-2.5 py-1 text-xs font-medium rounded-md flex items-center gap-1.5 transition ${
               activeMetric === "ctr"
                 ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold"
                 : "text-zinc-400 hover:text-emerald-300"
             }`}
           >
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+            <span className="h-2 w-2 rounded-full bg-emerald-400" />
             CTR %
           </button>
           <button
             type="button"
             onClick={() => setActiveMetric("position")}
-            className={`px-2 py-0.5 text-[10px] font-medium rounded-md flex items-center gap-1 transition ${
+            className={`px-2.5 py-1 text-xs font-medium rounded-md flex items-center gap-1.5 transition ${
               activeMetric === "position"
                 ? "bg-amber-500/20 text-amber-300 border border-amber-500/30 font-semibold"
                 : "text-zinc-400 hover:text-amber-300"
             }`}
           >
-            <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+            <span className="h-2 w-2 rounded-full bg-amber-400" />
             Avg Rank
           </button>
         </div>
