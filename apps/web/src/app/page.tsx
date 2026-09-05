@@ -3,6 +3,16 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import {
+  Radar,
+  ShieldCheck,
+  MapPin,
+  Code2,
+  ArrowRight,
+  Search,
+  CheckCircle2,
+} from "lucide-react";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 export default function Page() {
   const [scanUrl, setScanUrl] = useState("");
@@ -15,151 +25,169 @@ export default function Page() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 selection:bg-blue-500 selection:text-white">
+    <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 text-slate-900 dark:text-zinc-100 selection:bg-zinc-800 selection:text-white transition-colors duration-200">
       {/* Navigation */}
-      <header className="sticky top-0 z-50 border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-md">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+      <header className="sticky top-0 z-50 border-b border-slate-200 dark:border-zinc-800/80 bg-white/90 dark:bg-zinc-950/80 backdrop-blur-md">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3.5">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 font-bold text-white shadow-lg shadow-blue-500/25">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-950 font-bold text-sm shadow-sm">
               B
             </div>
-            <span className="text-xl font-bold tracking-tight text-white">Brand<span className="text-blue-400">OS</span></span>
-            <span className="rounded-full border border-blue-500/30 bg-blue-500/10 px-2.5 py-0.5 text-xs font-semibold text-blue-400">
-              AI Visibility & Omnichannel Engine
+            <span className="text-base font-semibold tracking-tight text-slate-900 dark:text-white">BrandOS</span>
+            <span className="hidden sm:inline-flex rounded-full border border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-900 px-2.5 py-0.5 text-[11px] font-medium text-slate-600 dark:text-zinc-400">
+              Presence & Search Engine
             </span>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 sm:gap-4">
             <Link
               href="/scan"
-              className="hidden sm:inline-block text-xs font-semibold text-slate-300 transition hover:text-white"
+              className="hidden sm:inline-block text-xs font-medium text-slate-600 dark:text-zinc-400 transition hover:text-slate-950 dark:hover:text-white"
             >
               Free Scanner
             </Link>
             <Link
               href="/pricing"
-              className="hidden sm:inline-block text-xs font-semibold text-slate-300 transition hover:text-white"
+              className="hidden sm:inline-block text-xs font-medium text-slate-600 dark:text-zinc-400 transition hover:text-slate-950 dark:hover:text-white"
             >
               Pricing
             </Link>
+            <ThemeToggle />
             <Link
               href="/login"
-              className="rounded-lg px-4 py-2 text-xs font-semibold text-slate-300 transition hover:text-white"
+              className="rounded-lg px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-zinc-300 transition hover:text-slate-950 dark:hover:text-white"
             >
               Sign In
             </Link>
             <Link
               href="/login"
-              className="rounded-xl bg-blue-600 px-5 py-2 text-xs font-bold text-white shadow-lg shadow-blue-600/30 transition hover:bg-blue-500"
+              className="rounded-lg bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200 px-3.5 py-1.5 text-xs font-semibold shadow-sm transition"
             >
-              Get Started Free
+              Get Started
             </Link>
           </div>
         </div>
       </header>
 
       {/* Hero Section */}
-      <section className="relative overflow-hidden pt-20 pb-20">
-        <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(59,130,246,0.22),rgba(255,255,255,0))]"></div>
-        <div className="mx-auto max-w-5xl px-6 text-center">
-          <div className="inline-flex items-center gap-2 rounded-full border border-slate-700 bg-slate-900/80 px-4 py-1.5 text-xs font-medium text-slate-300">
-            <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            AIO & GEO: Generative Engine Optimization is here
+      <section className="relative pt-24 pb-20 border-b border-slate-200 dark:border-zinc-900">
+        <div className="mx-auto max-w-4xl px-6 text-center">
+          <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/90 px-3.5 py-1 text-xs font-medium text-slate-700 dark:text-zinc-300 shadow-sm">
+            <span className="flex h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+            Unified Search & Assistant Intelligence
           </div>
 
-          <h1 className="mt-6 text-5xl font-extrabold tracking-tight text-white sm:text-6xl lg:text-7xl">
-            Own how AI search engines <br />
-            <span className="bg-gradient-to-r from-blue-400 via-cyan-300 to-indigo-400 bg-clip-text text-transparent">
-              recommend your business
-            </span>
+          <h1 className="mt-8 text-4xl font-semibold tracking-tight text-slate-950 dark:text-white sm:text-6xl sm:leading-[1.15]">
+            Command how modern search <br />
+            <span className="text-slate-500 dark:text-zinc-400">recommends your business.</span>
           </h1>
 
-          <p className="mx-auto mt-6 max-w-2xl text-base text-slate-400 sm:text-xl">
-            ChatGPT, Perplexity, Claude, and Gemini shape how local customers buy. BrandOS audits your entire online footprint, calculates your unified BrandOS Score, and generates ready-to-copy code fixes.
+          <p className="mx-auto mt-6 max-w-2xl text-sm leading-relaxed text-slate-600 dark:text-zinc-400 sm:text-base">
+            Customers discover local businesses through Google Search, Maps, and AI-powered assistants. BrandOS audits your digital footprint, tracks ranking signals, and produces copy-paste code optimizations.
           </p>
 
           {/* Instant Scan Bar Hero Widget */}
           <form
             onSubmit={handleHeroScan}
-            className="mx-auto mt-10 flex max-w-2xl flex-col gap-3 rounded-2xl border border-slate-800 bg-slate-900/90 p-3 shadow-2xl backdrop-blur-md sm:flex-row"
+            className="mx-auto mt-10 flex max-w-xl flex-col gap-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/90 p-2 shadow-xl dark:shadow-2xl sm:flex-row"
           >
-            <input
-              type="text"
-              value={scanUrl}
-              onChange={(e) => setScanUrl(e.target.value)}
-              placeholder="Enter your business website (e.g. acmedental.com)"
-              className="flex-1 rounded-xl border border-slate-800 bg-slate-950 px-4 py-3.5 text-sm text-white placeholder-slate-500 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-            />
+            <div className="relative flex-1">
+              <Search className="pointer-events-none absolute left-3.5 top-3 h-4 w-4 text-slate-400 dark:text-zinc-500" />
+              <input
+                type="text"
+                value={scanUrl}
+                onChange={(e) => setScanUrl(e.target.value)}
+                placeholder="Enter your business website (e.g. yourbusiness.com)"
+                className="w-full rounded-lg border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 py-2.5 pl-10 pr-4 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-zinc-500 outline-none focus:border-slate-400 dark:focus:border-zinc-600 focus:ring-1 focus:ring-slate-400 dark:focus:ring-zinc-600"
+              />
+            </div>
             <button
               type="submit"
               disabled={!scanUrl.trim()}
-              className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-3.5 text-sm font-bold text-white shadow-xl shadow-blue-600/30 transition hover:from-blue-500 hover:to-indigo-500 disabled:opacity-50"
+              className="flex items-center justify-center gap-2 rounded-lg bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200 px-5 py-2.5 text-xs font-semibold shadow-sm transition disabled:opacity-50"
             >
-              <span>⚡</span>
-              <span>Audit in 10s Free</span>
+              <span>Run Presence Audit</span>
+              <ArrowRight className="h-3.5 w-3.5" />
             </button>
           </form>
 
-          <p className="mt-3 text-xs text-slate-500">
-            No credit card or login required · Instant 4-pillar analysis & score
-          </p>
+          <div className="mt-4 flex items-center justify-center gap-6 text-[11px] text-slate-500 dark:text-zinc-500">
+            <span className="flex items-center gap-1.5">
+              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-zinc-400" /> Instant 4-pillar analysis
+            </span>
+            <span className="flex items-center gap-1.5">
+              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-zinc-400" /> No credit card required
+            </span>
+            <span className="flex items-center gap-1.5">
+              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-zinc-400" /> Ready-to-use schema fixes
+            </span>
+          </div>
         </div>
       </section>
 
       {/* Feature Showcase Grid */}
-      <section className="mx-auto max-w-7xl px-6 py-16">
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6 backdrop-blur-sm">
-            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-500/10 text-2xl text-blue-400">
-              🔮
+      <section className="mx-auto max-w-7xl px-6 py-20">
+        <div className="mb-12 text-center">
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-zinc-500">
+            Engineered Capabilities
+          </h2>
+          <p className="mt-2 text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">
+            Built for performance, precision, and search visibility.
+          </p>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-xl border border-slate-200 dark:border-zinc-800/80 bg-white dark:bg-zinc-900/40 p-6 transition hover:border-slate-300 dark:hover:border-zinc-700/80 shadow-sm">
+            <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-950 text-slate-800 dark:text-zinc-300">
+              <Radar className="h-5 w-5" />
             </div>
-            <h2 className="text-lg font-bold text-white">AI Engine Benchmarking</h2>
-            <p className="mt-2 text-xs text-slate-400">
-              Live prompt testing against ChatGPT, Claude, Gemini, and Perplexity to measure citation frequency and sentiment.
+            <h3 className="text-sm font-semibold text-slate-950 dark:text-white">Assistant Benchmarking</h3>
+            <p className="mt-2 text-xs leading-relaxed text-slate-600 dark:text-zinc-400">
+              Simulated customer prompt tests across ChatGPT, Claude, Gemini, and Perplexity to quantify citation frequency and brand sentiment.
             </p>
           </div>
 
-          <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6 backdrop-blur-sm">
-            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-cyan-500/10 text-2xl text-cyan-400">
-              🌐
+          <div className="rounded-xl border border-slate-200 dark:border-zinc-800/80 bg-white dark:bg-zinc-900/40 p-6 transition hover:border-slate-300 dark:hover:border-zinc-700/80 shadow-sm">
+            <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-950 text-slate-800 dark:text-zinc-300">
+              <ShieldCheck className="h-5 w-5" />
             </div>
-            <h2 className="text-lg font-bold text-white">Website AI & SEO Audit</h2>
-            <p className="mt-2 text-xs text-slate-400">
-              Validate Schema.org JSON-LD, `llms.txt` discovery manifests, AI crawler rules in `robots.txt`, and NAP signals.
+            <h3 className="text-sm font-semibold text-slate-950 dark:text-white">Website & Schema Health</h3>
+            <p className="mt-2 text-xs leading-relaxed text-slate-600 dark:text-zinc-400">
+              Deep technical validation of Schema.org JSON-LD, `llms.txt` discovery manifests, AI crawler permissions in `robots.txt`, and mobile vitals.
             </p>
           </div>
 
-          <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6 backdrop-blur-sm">
-            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-purple-500/10 text-2xl text-purple-400">
-              📍
+          <div className="rounded-xl border border-slate-200 dark:border-zinc-800/80 bg-white dark:bg-zinc-900/40 p-6 transition hover:border-slate-300 dark:hover:border-zinc-700/80 shadow-sm">
+            <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-950 text-slate-800 dark:text-zinc-300">
+              <MapPin className="h-5 w-5" />
             </div>
-            <h2 className="text-lg font-bold text-white">Google Business Profile</h2>
-            <p className="mt-2 text-xs text-slate-400">
-              Local Maps ranking factors, review response velocity, profile completeness, and category optimizations.
+            <h3 className="text-sm font-semibold text-slate-950 dark:text-white">Google Business & Maps</h3>
+            <p className="mt-2 text-xs leading-relaxed text-slate-600 dark:text-zinc-400">
+              Local Maps ranking signals, customer review velocity, profile completeness, and category optimization to capture local call intent.
             </p>
           </div>
 
-          <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6 backdrop-blur-sm">
-            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-500/10 text-2xl text-emerald-400">
-              ⚡
+          <div className="rounded-xl border border-slate-200 dark:border-zinc-800/80 bg-white dark:bg-zinc-900/40 p-6 transition hover:border-slate-300 dark:hover:border-zinc-700/80 shadow-sm">
+            <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-950 text-slate-800 dark:text-zinc-300">
+              <Code2 className="h-5 w-5" />
             </div>
-            <h2 className="text-lg font-bold text-white">1-Click Code & Copy Fixes</h2>
-            <p className="mt-2 text-xs text-slate-400">
-              Don't just view problems—get ready-to-use JSON-LD schema, `llms.txt`, and review response templates instantly.
+            <h3 className="text-sm font-semibold text-slate-950 dark:text-white">1-Click Code Fixes</h3>
+            <p className="mt-2 text-xs leading-relaxed text-slate-600 dark:text-zinc-400">
+              Actionable solutions generated directly for your CMS. Copy ready-to-paste JSON-LD structured data and automated review responses.
             </p>
           </div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-slate-800/80 px-6 py-8 text-center text-xs text-slate-500">
+      <footer className="border-t border-slate-200 dark:border-zinc-900 px-6 py-10 text-center text-xs text-slate-500 dark:text-zinc-500 bg-white/50 dark:bg-zinc-950">
         <div className="flex justify-center gap-6 mb-3">
-          <Link href="/" className="hover:text-slate-300">Home</Link>
-          <Link href="/scan" className="hover:text-slate-300">Free Audit Scanner</Link>
-          <Link href="/pricing" className="hover:text-slate-300">Pricing</Link>
-          <Link href="/privacy" className="text-slate-400 hover:text-white transition">Privacy Policy</Link>
-          <Link href="/terms" className="text-slate-400 hover:text-white transition">Terms of Service</Link>
+          <Link href="/" className="hover:text-slate-900 dark:hover:text-zinc-300 transition">Home</Link>
+          <Link href="/scan" className="hover:text-slate-900 dark:hover:text-zinc-300 transition">Free Audit Scanner</Link>
+          <Link href="/pricing" className="hover:text-slate-900 dark:hover:text-zinc-300 transition">Pricing</Link>
+          <Link href="/privacy" className="hover:text-slate-900 dark:hover:text-zinc-300 transition">Privacy Policy</Link>
+          <Link href="/terms" className="hover:text-slate-900 dark:hover:text-zinc-300 transition">Terms of Service</Link>
         </div>
-        <p>© 2026 BrandOS Eye · AI Visibility Operating System for Small Business. All rights reserved.</p>
+        <p>© 2026 BrandOS · Search Visibility & Presence Platform. All rights reserved.</p>
       </footer>
     </div>
   );

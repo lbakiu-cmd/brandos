@@ -1,11 +1,14 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Search, TrendingUp, MousePointerClick, Eye, Globe, Sparkles, Filter, RefreshCw, ChevronDown, Check } from "lucide-react";
+import Link from "next/link";
+import { Search, TrendingUp, MousePointerClick, Eye, Globe, Sparkles, Filter, RefreshCw, ChevronDown, Check, Plug } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
 import { TimeRangeFilter } from "@/components/TimeRangeFilter";
 import { TimeRangeKey, getTimeRangeMultiplier, getTimeRangeLabel, getTimeRangeDays } from "@/lib/timeRanges";
+import { PerformanceTimelineGraphic } from "@/components/charts/PerformanceTimelineGraphic";
+import { QueryRankDistributionGraphic } from "@/components/charts/QueryRankDistributionGraphic";
 
 export interface GscSite {
   siteUrl: string;
@@ -14,8 +17,12 @@ export interface GscSite {
   isSelected?: boolean;
 }
 
+export const dynamic = "force-dynamic";
+
 export default function GscPage() {
   const [filter, setFilter] = useState("");
+  const [selectedTier, setSelectedTier] = useState<string | null>(null);
+  const [selectedMetric, setSelectedMetric] = useState<"all" | "clicks" | "impressions" | "ctr" | "position">("all");
   const [timeRange, setTimeRange] = useState<TimeRangeKey>("7D");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -25,6 +32,7 @@ export default function GscPage() {
   const [gscData, setGscData] = useState<any>(null);
   const [business, setBusiness] = useState<any>(null);
   const [siteDropdownOpen, setSiteDropdownOpen] = useState(false);
+  const [isConnected, setIsConnected] = useState(false);
 
   const fetchSiteMetrics = useCallback(async (siteUrl: string, range?: TimeRangeKey) => {
     setRefreshing(true);
@@ -53,17 +61,20 @@ export default function GscPage() {
 
         if (bRes) setBusiness(bRes);
 
+        const gscInt = intRes?.integrations?.find((i: any) => i.provider === "GOOGLE_SEARCH_CONSOLE");
+        if (gscInt?.connected) {
+          setIsConnected(true);
+        }
+
         if (sitesRes?.sites && sitesRes.sites.length > 0) {
+          setIsConnected(true);
           setSites(sitesRes.sites);
           const active = sitesRes.sites.find((s) => s.isSelected) || sitesRes.sites[0];
           setSelectedSite(active.siteUrl);
           setSelectedDomain(active.domain);
           fetchSiteMetrics(active.siteUrl);
-        } else if (intRes?.integrations) {
-          const gsc = intRes.integrations.find((i: any) => i.provider === "GOOGLE_SEARCH_CONSOLE");
-          if (gsc?.metricsCache) {
-            setGscData(gsc.metricsCache);
-          }
+        } else if (gscInt?.metricsCache) {
+          setGscData(gscInt.metricsCache);
         }
       } catch (err) {
         console.error("Failed to load GSC data:", err);
@@ -79,7 +90,6 @@ export default function GscPage() {
     setSelectedDomain(site.domain);
     setSiteDropdownOpen(false);
 
-    // Update active domain in backend
     try {
       await apiFetch("/integrations/select-site", {
         method: "POST",
@@ -95,31 +105,45 @@ export default function GscPage() {
   const bName = business?.name || "Your Business";
   const multiplier = getTimeRangeMultiplier(timeRange);
 
-  const baseClicks = gscData?.totalClicks ?? 348;
-  const baseImpressions = gscData?.totalImpressions ?? 6850;
-  const clicks = Math.max(1, Math.round(baseClicks * multiplier));
-  const impressions = Math.max(10, Math.round(baseImpressions * multiplier));
-  const ctr = gscData?.averageCtr ?? 5.08;
-  const position = gscData?.averagePosition ?? 6.4;
+  const baseClicks = gscData?.totalClicks ?? 2640;
+  const baseImpressions = gscData?.totalImpressions ?? 48900;
+  const clicks = Math.round(baseClicks * multiplier);
+  const impressions = Math.round(baseImpressions * multiplier);
+  const ctr = gscData?.averageCtr ?? 5.4;
+  const position = gscData?.averagePosition ?? 2.8;
 
   const defaultQueries = [
-    { query: `${bName} official website`, clicks: 84, impressions: 1420, ctr: 5.92, position: 1.8, intent: "Branded Navigation" },
-    { query: `best ${business?.industry || "dentist"} near me`, clicks: 62, impressions: 980, ctr: 6.32, position: 2.1, intent: "Urgent Local" },
-    { query: `verified ${business?.industry || "dental clinic"} in ${business?.city || "my area"}`, clicks: 48, impressions: 1240, ctr: 3.87, position: 3.3, intent: "Informational" },
-    { query: `dental implants pricing and customer reviews`, clicks: 36, impressions: 810, ctr: 4.44, position: 4.4, intent: "Commercial" },
-    { query: `top rated cosmetic dentist`, clicks: 28, impressions: 560, ctr: 5.00, position: 4.9, intent: "High Commercial" },
+    { query: `${bName} booking and reviews`, clicks: 610, impressions: 6800, ctr: 8.97, position: 1.1, intent: "Branded Trust" },
+    { query: `dentist near me in ${business?.city || "Downtown"}`.trim(), clicks: 840, impressions: 14200, ctr: 5.92, position: 2.1, intent: "Local High Intent" },
+    { query: `emergency dentist open today ${business?.city || ""}`.trim(), clicks: 490, impressions: 9800, ctr: 5.0, position: 2.4, intent: "Urgent Medical" },
+    { query: `teeth whitening and dental implants cost`, clicks: 390, impressions: 12100, ctr: 3.22, position: 4.8, intent: "Commercial" },
+    { query: `best rated cosmetic dental clinic`, clicks: 210, impressions: 8400, ctr: 2.50, position: 7.3, intent: "Discovery" },
+    { query: `affordable root canal procedure price`, clicks: 175, impressions: 4600, ctr: 3.80, position: 9.1, intent: "Commercial" },
+    { query: `how often should you get teeth cleaning`, clicks: 95, impressions: 3200, ctr: 2.96, position: 14.5, intent: "Informational" },
+    { query: `dental insurance covered checkup`, clicks: 60, impressions: 2800, ctr: 2.14, position: 18.2, intent: "Informational" },
+    { query: `top rated oral surgeon recommendations`, clicks: 45, impressions: 2100, ctr: 2.14, position: 23.4, intent: "Discovery" },
   ];
 
-  const rawQueries = gscData?.topQueries && gscData.topQueries.length > 0 ? gscData.topQueries : defaultQueries;
+  const rawQueries = (gscData?.topQueries && gscData.topQueries.length > 0)
+    ? gscData.topQueries
+    : defaultQueries;
   const queries = rawQueries.map((q: any) => ({
     ...q,
-    clicks: Math.max(1, Math.round(q.clicks * multiplier)),
-    impressions: Math.max(5, Math.round(q.impressions * multiplier)),
+    clicks: Math.round(q.clicks * multiplier),
+    impressions: Math.round(q.impressions * multiplier),
   }));
 
-  const filtered = queries.filter((q: any) =>
-    q.query.toLowerCase().includes(filter.toLowerCase())
-  );
+  const filtered = queries.filter((q: any) => {
+    const matchesQuery = q.query.toLowerCase().includes(filter.toLowerCase());
+    if (!matchesQuery) return false;
+    if (!selectedTier) return true;
+    const pos = Number(q.position) || 99;
+    if (selectedTier === "top3") return pos <= 3;
+    if (selectedTier === "page1") return pos > 3 && pos <= 10;
+    if (selectedTier === "page2") return pos > 10 && pos <= 20;
+    if (selectedTier === "beyond") return pos > 20;
+    return true;
+  });
 
   return (
     <main className="p-8 max-w-7xl mx-auto space-y-6">
@@ -131,9 +155,15 @@ export default function GscPage() {
               <Search className="h-5 w-5" />
             </div>
             <h1 className="text-2xl font-black text-white">Google Search Console</h1>
-            <span className="rounded-full bg-emerald-500/10 px-3 py-0.5 text-xs font-bold text-emerald-400 border border-emerald-500/20 flex items-center gap-1.5">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-              Live OAuth Connected
+            <span className={`rounded-full px-3 py-0.5 text-xs font-bold border flex items-center gap-1.5 ${isConnected ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-slate-800 text-slate-400 border-slate-700"}`}>
+              {isConnected ? (
+                <>
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                  Live OAuth Connected
+                </>
+              ) : (
+                "Not Connected"
+              )}
             </span>
           </div>
           <p className="text-xs text-slate-400 mt-1">
@@ -179,16 +209,18 @@ export default function GscPage() {
           )}
 
           {/* Sync Button */}
-          <button
-            onClick={() => selectedSite && fetchSiteMetrics(selectedSite, timeRange)}
-            disabled={refreshing}
-            className="flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:text-white transition"
-          >
-            <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin text-blue-400" : ""}`} />
-            <span>Sync</span>
-          </button>
+          {isConnected && (
+            <button
+              onClick={() => selectedSite && fetchSiteMetrics(selectedSite, timeRange)}
+              disabled={refreshing}
+              className="flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:text-white transition"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin text-blue-400" : ""}`} />
+              <span>Sync</span>
+            </button>
+          )}
 
-          {/* Time range Filter (One Week, Two Weeks, One Month, 3 Months, Max) */}
+          {/* Time range Filter */}
           <TimeRangeFilter
             value={timeRange}
             onChange={(val) => {
@@ -202,110 +234,206 @@ export default function GscPage() {
         </div>
       </div>
 
-      {/* Metric Highlights */}
+      {/* Demo Banner when not connected */}
+      {!isConnected && (
+        <div className="rounded-2xl border border-blue-500/30 bg-gradient-to-r from-blue-950/40 via-slate-900/80 to-blue-950/30 p-4 backdrop-blur-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xl">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-500/20 text-blue-400 border border-blue-500/30 shrink-0 shadow-lg shadow-blue-500/10">
+              <Sparkles className="h-5 w-5 animate-pulse" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-white">Interactive GSC Demo Mode</h3>
+                <span className="rounded-full bg-blue-500/20 px-2 py-0.5 text-[10px] font-semibold text-blue-300 border border-blue-500/30">
+                  Simulated Property
+                </span>
+              </div>
+              <p className="text-xs text-slate-300 mt-0.5">
+                Exploring simulated search console analytics for <strong className="text-white">{bName}</strong>. Connect your verified Google domain to stream live clicks, real search terms and ranking updates.
+              </p>
+            </div>
+          </div>
+          <Link
+            href="/dashboard/integrations"
+            className="inline-flex items-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-500 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-blue-600/30 transition shrink-0"
+          >
+            <Plug className="h-3.5 w-3.5" />
+            <span>Connect Search Console</span>
+          </Link>
+        </div>
+      )}
+
+      {/* Metric Highlights with GSC-style clickable toggle */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 backdrop-blur">
-          <p className="text-xs font-medium text-slate-400 flex items-center gap-1.5">
-            <MousePointerClick className="h-4 w-4 text-blue-400" /> Total Organic Clicks
+        <button
+          type="button"
+          onClick={() => setSelectedMetric(selectedMetric === "clicks" ? "all" : "clicks")}
+          className={`text-left rounded-2xl border p-5 backdrop-blur transition-all duration-200 cursor-pointer ${
+            selectedMetric === "clicks"
+              ? "border-blue-500 bg-blue-950/30 shadow-lg shadow-blue-500/10 ring-1 ring-blue-500/50"
+              : "border-slate-800 bg-slate-900/60 hover:border-slate-700"
+          }`}
+        >
+          <p className="text-xs font-medium text-slate-400 flex items-center justify-between">
+            <span className="flex items-center gap-1.5">
+              <MousePointerClick className="h-4 w-4 text-blue-400" /> Total Organic Clicks
+            </span>
+            <span className={`h-2 w-2 rounded-full ${selectedMetric === "clicks" ? "bg-blue-400 animate-ping" : "bg-blue-400/40"}`} />
           </p>
           <div className="mt-2 flex items-baseline justify-between">
             <span className="text-2xl font-black text-white">{clicks.toLocaleString()}</span>
-            <span className="text-xs font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
-              +14.8%
-            </span>
+            <span className="text-[10px] text-blue-400 font-semibold">Volume Trend</span>
           </div>
-        </div>
+        </button>
 
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 backdrop-blur">
-          <p className="text-xs font-medium text-slate-400 flex items-center gap-1.5">
-            <Eye className="h-4 w-4 text-cyan-400" /> Search Impressions
+        <button
+          type="button"
+          onClick={() => setSelectedMetric(selectedMetric === "impressions" ? "all" : "impressions")}
+          className={`text-left rounded-2xl border p-5 backdrop-blur transition-all duration-200 cursor-pointer ${
+            selectedMetric === "impressions"
+              ? "border-purple-500 bg-purple-950/30 shadow-lg shadow-purple-500/10 ring-1 ring-purple-500/50"
+              : "border-slate-800 bg-slate-900/60 hover:border-slate-700"
+          }`}
+        >
+          <p className="text-xs font-medium text-slate-400 flex items-center justify-between">
+            <span className="flex items-center gap-1.5">
+              <Eye className="h-4 w-4 text-purple-400" /> Search Impressions
+            </span>
+            <span className={`h-2 w-2 rounded-full ${selectedMetric === "impressions" ? "bg-purple-400 animate-ping" : "bg-purple-400/40"}`} />
           </p>
           <div className="mt-2 flex items-baseline justify-between">
             <span className="text-2xl font-black text-white">{impressions.toLocaleString()}</span>
-            <span className="text-xs font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
-              +22.4%
-            </span>
+            <span className="text-[10px] text-purple-400 font-semibold">Reach</span>
           </div>
-        </div>
+        </button>
 
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 backdrop-blur">
-          <p className="text-xs font-medium text-slate-400 flex items-center gap-1.5">
-            <TrendingUp className="h-4 w-4 text-purple-400" /> Average CTR
+        <button
+          type="button"
+          onClick={() => setSelectedMetric(selectedMetric === "ctr" ? "all" : "ctr")}
+          className={`text-left rounded-2xl border p-5 backdrop-blur transition-all duration-200 cursor-pointer ${
+            selectedMetric === "ctr"
+              ? "border-emerald-500 bg-emerald-950/30 shadow-lg shadow-emerald-500/10 ring-1 ring-emerald-500/50"
+              : "border-slate-800 bg-slate-900/60 hover:border-slate-700"
+          }`}
+        >
+          <p className="text-xs font-medium text-slate-400 flex items-center justify-between">
+            <span className="flex items-center gap-1.5">
+              <TrendingUp className="h-4 w-4 text-emerald-400" /> Average CTR
+            </span>
+            <span className={`h-2 w-2 rounded-full ${selectedMetric === "ctr" ? "bg-emerald-400 animate-ping" : "bg-emerald-400/40"}`} />
           </p>
           <div className="mt-2 flex items-baseline justify-between">
             <span className="text-2xl font-black text-white">{ctr}%</span>
-            <span className="text-xs text-slate-400">Past {timeRange}</span>
+            <span className="text-xs text-slate-400">{getTimeRangeLabel(timeRange)}</span>
           </div>
-        </div>
+        </button>
 
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 backdrop-blur">
-          <p className="text-xs font-medium text-slate-400 flex items-center gap-1.5">
-            <Globe className="h-4 w-4 text-amber-400" /> Average Google Rank
+        <button
+          type="button"
+          onClick={() => setSelectedMetric(selectedMetric === "position" ? "all" : "position")}
+          className={`text-left rounded-2xl border p-5 backdrop-blur transition-all duration-200 cursor-pointer ${
+            selectedMetric === "position"
+              ? "border-amber-500 bg-amber-950/30 shadow-lg shadow-amber-500/10 ring-1 ring-amber-500/50"
+              : "border-slate-800 bg-slate-900/60 hover:border-slate-700"
+          }`}
+        >
+          <p className="text-xs font-medium text-slate-400 flex items-center justify-between">
+            <span className="flex items-center gap-1.5">
+              <Globe className="h-4 w-4 text-amber-400" /> Average Google Rank
+            </span>
+            <span className={`h-2 w-2 rounded-full ${selectedMetric === "position" ? "bg-amber-400 animate-ping" : "bg-amber-400/40"}`} />
           </p>
           <div className="mt-2 flex items-baseline justify-between">
-            <span className="text-2xl font-black text-white">#{position}</span>
-            <span className="text-xs text-emerald-400 font-semibold">Top Page</span>
+            <span className="text-2xl font-black text-white">#{position || "—"}</span>
+            <span className="text-[10px] text-amber-400 font-semibold">Top Tier</span>
           </div>
-        </div>
+        </button>
+      </div>
+
+      {/* Graphics on Top of Data Table */}
+      <div className="space-y-4">
+        <PerformanceTimelineGraphic
+          timeRange={timeRange}
+          totalClicks={clicks}
+          totalImpressions={impressions}
+          avgCtr={ctr}
+          avgPosition={position}
+          activeMetric={selectedMetric}
+          onMetricChange={setSelectedMetric}
+          variant="full"
+          title="Search Performance Velocity & Ranking Trajectory"
+        />
+
+        {queries.length > 0 && (
+          <QueryRankDistributionGraphic
+            queries={queries}
+            selectedTier={selectedTier}
+            onSelectTier={setSelectedTier}
+          />
+        )}
       </div>
 
       {/* Top Search Queries Table */}
       <div className="rounded-2xl border border-slate-800 bg-slate-900/80 backdrop-blur-sm overflow-hidden">
         <div className="p-5 border-b border-slate-800 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2">
-            <h2 className="text-base font-bold text-white">Live Search Queries for {selectedDomain}</h2>
+            <h2 className="text-base font-bold text-white">Live Search Queries for {selectedDomain || bName}</h2>
             <span className="text-xs text-slate-400">({filtered.length} active queries)</span>
           </div>
           <div className="relative">
             <Search className="h-4 w-4 text-slate-400 absolute left-3 top-2.5" />
             <input
               type="text"
+              placeholder="Filter keywords..."
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
-              placeholder="Search queries..."
-              className="rounded-xl border border-slate-700 bg-slate-950 pl-9 pr-4 py-1.5 text-xs text-white placeholder-slate-500 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              className="rounded-xl border border-slate-700 bg-slate-950 pl-9 pr-4 py-1.5 text-xs text-white placeholder-slate-500 focus:border-blue-500 focus:outline-none"
             />
           </div>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-slate-950/80 text-slate-400 border-b border-slate-800 text-[11px] uppercase tracking-wider font-semibold">
-              <tr>
-                <th className="px-6 py-3.5">Organic Search Query</th>
-                <th className="px-6 py-3.5 text-right">Clicks</th>
-                <th className="px-6 py-3.5 text-right">Impressions</th>
-                <th className="px-6 py-3.5 text-right">CTR</th>
-                <th className="px-6 py-3.5 text-right">Google Position</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/60 text-slate-200">
-              {filtered.map((row: any, i: number) => (
-                <tr key={i} className="hover:bg-slate-850/50 transition">
-                  <td className="px-6 py-3.5 font-medium text-white flex items-center gap-2">
-                    <span className="text-slate-500 font-mono text-[10px]">#{i + 1}</span>
-                    <span>{row.query}</span>
-                  </td>
-                  <td className="px-6 py-3.5 text-right font-bold text-blue-400">
-                    {row.clicks.toLocaleString()}
-                  </td>
-                  <td className="px-6 py-3.5 text-right font-mono text-slate-300">
-                    {row.impressions.toLocaleString()}
-                  </td>
-                  <td className="px-6 py-3.5 text-right font-mono text-emerald-400">
-                    {typeof row.ctr === "number" ? `${row.ctr}%` : row.ctr}
-                  </td>
-                  <td className="px-6 py-3.5 text-right font-bold">
-                    <span className={`inline-block px-2 py-0.5 rounded ${
-                      row.position <= 3 ? "bg-emerald-500/15 text-emerald-400" : row.position <= 10 ? "bg-blue-500/15 text-blue-400" : "bg-slate-800 text-slate-400"
-                    }`}>
-                      #{row.position}
-                    </span>
-                  </td>
+          {filtered.length > 0 ? (
+            <table className="w-full text-left text-xs">
+              <thead className="border-b border-slate-800 bg-slate-950/50 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                <tr>
+                  <th className="px-5 py-3">Search Query</th>
+                  <th className="px-5 py-3 text-right">Intent</th>
+                  <th className="px-5 py-3 text-right">Clicks</th>
+                  <th className="px-5 py-3 text-right">Impressions</th>
+                  <th className="px-5 py-3 text-right">CTR</th>
+                  <th className="px-5 py-3 text-right">Position</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-slate-800/50">
+                {filtered.map((q: any, i: number) => (
+                  <tr key={i} className="hover:bg-slate-800/40 transition">
+                    <td className="px-5 py-3 font-medium text-white flex items-center gap-2">
+                      <span className="text-slate-500 font-mono text-[11px]">{i + 1}.</span>
+                      {q.query}
+                    </td>
+                    <td className="px-5 py-3 text-right">
+                      <span className="rounded-md bg-slate-800 px-2 py-0.5 text-[10px] font-medium text-slate-300 border border-slate-700">
+                        {q.intent || "Organic"}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3 text-right font-bold text-white">{q.clicks.toLocaleString()}</td>
+                    <td className="px-5 py-3 text-right text-slate-400">{q.impressions.toLocaleString()}</td>
+                    <td className="px-5 py-3 text-right text-emerald-400 font-semibold">{q.ctr}%</td>
+                    <td className="px-5 py-3 text-right">
+                      <span className="rounded-md bg-blue-500/10 px-2 py-0.5 text-[11px] font-bold text-blue-400 border border-blue-500/20">
+                        #{q.position}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <div className="py-12 text-center text-xs text-slate-500">
+              No search query keywords matching filter.
+            </div>
+          )}
         </div>
       </div>
     </main>

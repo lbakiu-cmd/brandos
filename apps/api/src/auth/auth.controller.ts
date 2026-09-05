@@ -15,8 +15,8 @@ import { AuthService } from "./auth.service";
 import {
   parseRegister,
   parseLogin,
-  parseSendPhoneOtp,
-  parseVerifyPhoneOtp,
+  parseVerify2faSetup,
+  parseVerify2faLogin,
   parseGoogleVerify,
   RegisterDto,
   LoginDto,
@@ -41,45 +41,51 @@ export class AuthController {
   @Post("register")
   async register(
     @Body() body: unknown,
-    @Req() req: FastifyRequest,
-    @Res({ passthrough: true }) reply: FastifyReply
+    @Req() req: FastifyRequest
   ) {
     const input: RegisterDto = parseRegister(body);
     const meta = extractReqMeta(req);
     const result = await this.auth.register(input, meta);
-    this.setSessionCookie(reply, result.token);
-    return { user: result.user };
+    return result;
   }
 
   @Post("login")
   async login(
     @Body() body: unknown,
-    @Req() req: FastifyRequest,
-    @Res({ passthrough: true }) reply: FastifyReply
+    @Req() req: FastifyRequest
   ) {
     const input: LoginDto = parseLogin(body);
     const meta = extractReqMeta(req);
     const result = await this.auth.login(input.email, input.password, meta);
-    this.setSessionCookie(reply, result.token);
-    return { user: result.user };
+    return result;
   }
 
-  @Post("phone/send-otp")
-  async sendPhoneOtp(@Body() body: unknown, @Req() req: FastifyRequest) {
-    const input = parseSendPhoneOtp(body);
-    const meta = extractReqMeta(req);
-    return this.auth.sendPhoneOtp(input.phone, meta);
-  }
-
-  @Post("phone/verify-otp")
-  async verifyPhoneOtp(
+  @Post("2fa/verify-setup")
+  async verify2faSetup(
     @Body() body: unknown,
     @Req() req: FastifyRequest,
     @Res({ passthrough: true }) reply: FastifyReply
   ) {
-    const input = parseVerifyPhoneOtp(body);
+    const input = parseVerify2faSetup(body);
     const meta = extractReqMeta(req);
-    const result = await this.auth.verifyPhoneOtp(input, meta);
+    const result = await this.auth.verify2faSetup(input, meta);
+    this.setSessionCookie(reply, result.token);
+    return {
+      user: result.user,
+      backupCodes: result.backupCodes,
+      message: result.message,
+    };
+  }
+
+  @Post("2fa/verify-login")
+  async verify2faLogin(
+    @Body() body: unknown,
+    @Req() req: FastifyRequest,
+    @Res({ passthrough: true }) reply: FastifyReply
+  ) {
+    const input = parseVerify2faLogin(body);
+    const meta = extractReqMeta(req);
+    const result = await this.auth.verify2faLogin(input, meta);
     this.setSessionCookie(reply, result.token);
     return { user: result.user };
   }
@@ -93,8 +99,10 @@ export class AuthController {
     const input = parseGoogleVerify(body);
     const meta = extractReqMeta(req);
     const result = await this.auth.loginWithGoogle(input, meta);
-    this.setSessionCookie(reply, result.token);
-    return { user: result.user };
+    if ((result as any).token) {
+      this.setSessionCookie(reply, (result as any).token);
+    }
+    return result;
   }
 
   @Get("google/url")
@@ -103,10 +111,10 @@ export class AuthController {
     const redirectUri =
       process.env.GOOGLE_AUTH_REDIRECT_URI ||
       process.env.GOOGLE_REDIRECT_URI ||
-      "http://localhost:3000/login?provider=google";
+      "https://brandoseye.com/api/oauth/google/callback";
 
     const scopes = ["openid", "email", "profile"].join(" ");
-    const stateObj = { ret: returnUrl || "/dashboard", t: Date.now() };
+    const stateObj = { auth: true, ret: returnUrl || "/dashboard", t: Date.now() };
     const state = Buffer.from(JSON.stringify(stateObj)).toString("base64url");
 
     const params = new URLSearchParams({
@@ -155,24 +163,6 @@ export class AuthController {
       body.newPassword || "",
       meta
     );
-  }
-
-  @Post("2fa/toggle")
-  @UseGuards(AuthGuard)
-  async toggle2FA(
-    @Req() request: FastifyRequest & { user: { id: string } },
-    @Body() body: { enabled?: boolean }
-  ) {
-    return this.auth.toggle2FA(request.user.id, Boolean(body.enabled));
-  }
-
-  @Post("2fa/verify")
-  @UseGuards(AuthGuard)
-  async verify2FA(
-    @Req() request: FastifyRequest & { user: { id: string } },
-    @Body() body: { code?: string }
-  ) {
-    return this.auth.verify2FACode(request.user.id, body.code || "");
   }
 
   @Post("logout")

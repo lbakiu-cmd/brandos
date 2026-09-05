@@ -32,9 +32,6 @@ importers:
       '@brandos/database':
         specifier: workspace:*
         version: link:../../packages/database
-      '@brandos/shared':
-        specifier: workspace:*
-        version: link:../../packages/shared
       '@fastify/cookie':
         specifier: ^11.0.1
         version: 11.1.2
@@ -99,12 +96,6 @@ importers:
 
   apps/web:
     dependencies:
-      '@brandos/shared':
-        specifier: workspace:*
-        version: link:../../packages/shared
-      '@brandos/ui':
-        specifier: workspace:*
-        version: link:../../packages/ui
       '@tanstack/react-query':
         specifier: ^5.60.0
         version: 5.101.4(react@19.2.8)
@@ -160,9 +151,6 @@ importers:
 
   apps/worker:
     dependencies:
-      '@brandos/ai':
-        specifier: workspace:*
-        version: link:../../packages/ai
       '@brandos/audit-engine':
         specifier: workspace:*
         version: link:../../packages/audit-engine
@@ -192,26 +180,11 @@ importers:
         specifier: ^5
         version: 5.9.3
 
-  packages/ai:
-    devDependencies:
-      '@types/node':
-        specifier: ^20
-        version: 20.19.43
-      typescript:
-        specifier: ^5
-        version: 5.9.3
-
   packages/audit-engine:
     devDependencies:
       '@types/node':
         specifier: ^20
         version: 20.19.43
-      typescript:
-        specifier: ^5
-        version: 5.9.3
-
-  packages/config:
-    devDependencies:
       typescript:
         specifier: ^5
         version: 5.9.3
@@ -228,37 +201,6 @@ importers:
       prisma:
         specifier: ^6.0.0
         version: 6.19.3(typescript@5.9.3)
-      typescript:
-        specifier: ^5
-        version: 5.9.3
-
-  packages/integrations:
-    devDependencies:
-      '@types/node':
-        specifier: ^20
-        version: 20.19.43
-      typescript:
-        specifier: ^5
-        version: 5.9.3
-
-  packages/shared:
-    dependencies:
-      zod:
-        specifier: ^3.24.0
-        version: 3.25.76
-    devDependencies:
-      '@types/node':
-        specifier: ^20
-        version: 20.19.43
-      typescript:
-        specifier: ^5
-        version: 5.9.3
-
-  packages/ui:
-    devDependencies:
-      '@types/node':
-        specifier: ^20
-        version: 20.19.43
       typescript:
         specifier: ^5
         version: 5.9.3

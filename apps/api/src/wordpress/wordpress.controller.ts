@@ -27,7 +27,7 @@ export class WordpressController {
   @Get("connection")
   @UseGuards(AuthGuard)
   async getConnection(@Req() req: any) {
-    const biz = await this.business.get(req.user.id);
+    const biz = await this.business.get(req.user.id, req.user.activeBusinessId);
     return this.wordpress.getConnection(biz.id);
   }
 
@@ -37,7 +37,7 @@ export class WordpressController {
   @Post("rotate-key")
   @UseGuards(AuthGuard)
   async rotateKey(@Req() req: any) {
-    const biz = await this.business.get(req.user.id);
+    const biz = await this.business.get(req.user.id, req.user.activeBusinessId);
     return this.wordpress.rotateApiKey(biz.id);
   }
 
@@ -47,7 +47,7 @@ export class WordpressController {
   @Post("connect")
   @UseGuards(AuthGuard)
   async connectSite(@Req() req: any, @Body() body: { site_url: string }) {
-    const biz = await this.business.get(req.user.id);
+    const biz = await this.business.get(req.user.id, req.user.activeBusinessId);
     return this.wordpress.connectFromDashboard(biz.id, body.site_url);
   }
 
@@ -57,7 +57,7 @@ export class WordpressController {
   @Post("disconnect")
   @UseGuards(AuthGuard)
   async disconnectSite(@Req() req: any) {
-    const biz = await this.business.get(req.user.id);
+    const biz = await this.business.get(req.user.id, req.user.activeBusinessId);
     return this.wordpress.disconnect(biz.id);
   }
 
@@ -67,7 +67,7 @@ export class WordpressController {
   @Post("sync")
   @UseGuards(AuthGuard)
   async syncTelemetry(@Req() req: any) {
-    const biz = await this.business.get(req.user.id);
+    const biz = await this.business.get(req.user.id, req.user.activeBusinessId);
     return this.wordpress.sync(biz.id);
   }
 
@@ -80,7 +80,7 @@ export class WordpressController {
     @Req() req: any,
     @Body() body: { fix_type: string; payload?: any }
   ) {
-    const biz = await this.business.get(req.user.id);
+    const biz = await this.business.get(req.user.id, req.user.activeBusinessId);
     return this.wordpress.applyRemoteFix(biz.id, body);
   }
 
@@ -90,7 +90,7 @@ export class WordpressController {
   @Get("categories")
   @UseGuards(AuthGuard)
   async getCategories(@Req() req: any) {
-    const biz = await this.business.get(req.user.id);
+    const biz = await this.business.get(req.user.id, req.user.activeBusinessId);
     return this.wordpress.getCategories(biz.id);
   }
 
@@ -109,7 +109,7 @@ export class WordpressController {
       focusKeyword?: string;
     }
   ) {
-    const biz = await this.business.get(req.user.id);
+    const biz = await this.business.get(req.user.id, req.user.activeBusinessId);
     return this.wordpress.generateArticle(biz.id, body);
   }
 
@@ -133,7 +133,7 @@ export class WordpressController {
       tags?: string[];
     }
   ) {
-    const biz = await this.business.get(req.user.id);
+    const biz = await this.business.get(req.user.id, req.user.activeBusinessId);
     return this.wordpress.publishPost(biz.id, body);
   }
 

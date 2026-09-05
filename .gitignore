@@ -16,3 +16,12 @@ out
 
 brandos/
 scratch/
+*.tar.gz
+.tmp.driveupload/
+.tmp.drivedownload/
+apps/web/web-src.tar.gz
+bundle.tar.gz
+trash/
+.kilo/
+*.tsbuildinfo
+*dist*

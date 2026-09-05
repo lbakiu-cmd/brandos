@@ -77,7 +77,7 @@ export class CompetitorsService {
     });
 
     const engines: AiEngine[] = ["CHATGPT", "GEMINI", "CLAUDE", "PERPLEXITY"];
-    const prompt = `Top rated ${biz.industry || "specialist & clinic"} in ${biz.city || "Tirana, Albania"}`;
+    const prompt = `Top rated ${biz.industry || "services"} in ${biz.city || "your area"}`;
 
     // 1. Calculate Your Business Authority & Weight
     // Check if Google Search Console is connected with live clicks

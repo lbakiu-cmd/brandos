@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { MapPin, PhoneCall, Navigation, Globe, Star, TrendingUp } from "lucide-react";
+import Link from "next/link";
+import { MapPin, PhoneCall, Navigation, Globe, Star, TrendingUp, Plug } from "lucide-react";
 import { TimeRangeFilter } from "@/components/TimeRangeFilter";
 import { TimeRangeKey, getTimeRangeMultiplier, getTimeRangeLabel } from "@/lib/timeRanges";
 
@@ -20,21 +21,69 @@ export function GbpWidget({ data, onRemove, initialTimeRange = "7D" }: GbpWidget
     }
   }, [initialTimeRange]);
 
+  const isConnected = Boolean(data && (data.searchViews !== undefined || data.mapsViews !== undefined || data.connected));
+
+  if (!isConnected) {
+    return (
+      <div className="flex flex-col justify-between h-full rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-xl backdrop-blur">
+        <div className="flex items-center justify-between pb-4 border-b border-slate-800/80">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              <MapPin className="h-4 w-4" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-white">Google Maps & Local Discovery</h3>
+              <p className="text-xs text-slate-400">Google Business Profile</p>
+            </div>
+          </div>
+          <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">
+            Not Connected
+          </span>
+        </div>
+
+        <div className="py-6 text-center">
+          <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            <MapPin className="h-5 w-5" />
+          </div>
+          <p className="text-xs text-slate-300 font-medium mb-1">No Google Business Profile data yet</p>
+          <p className="text-[11px] text-slate-400 max-w-xs mx-auto mb-4">
+            Connect your Google Business listing to track local map views, direction requests and customer phone calls.
+          </p>
+          <Link
+            href="/dashboard/integrations"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-2 text-xs font-semibold text-white hover:bg-emerald-500 shadow-lg shadow-emerald-600/20 transition"
+          >
+            <MapPin className="h-3.5 w-3.5" />
+            <span>Connect Google Business</span>
+          </Link>
+        </div>
+
+        <div className="pt-3 border-t border-slate-800/60 flex items-center justify-between text-[11px] text-slate-500">
+          <span>Google Business Profile API</span>
+          {onRemove && (
+            <button onClick={onRemove} className="text-slate-500 hover:text-red-400 transition">
+              Remove
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   const multiplier = getTimeRangeMultiplier(timeRange);
+  const baseSearchViews = data?.searchViews || 0;
+  const baseMapsViews = data?.mapsViews || 0;
+  const baseCalls = data?.callClicks || 0;
+  const baseDirections = data?.directionRequests || 0;
+  const baseWebsiteClicks = data?.websiteClicks || 0;
+  const rating = data?.averageRating || 0;
+  const totalReviews = data?.totalReviews || 0;
 
-  const baseSearchViews = data?.searchViews || 1480;
-  const baseMapsViews = data?.mapsViews || 980;
-  const baseCalls = data?.callClicks || 45;
-  const baseDirections = data?.directionRequests || 68;
-  const baseWebsiteClicks = data?.websiteClicks || 120;
-  const rating = data?.averageRating || 4.9;
-  const totalReviews = data?.totalReviews || 86;
-
-  const searchViews = Math.max(1, Math.round(baseSearchViews * multiplier));
-  const mapsViews = Math.max(1, Math.round(baseMapsViews * multiplier));
-  const calls = Math.max(1, Math.round(baseCalls * multiplier));
-  const directions = Math.max(1, Math.round(baseDirections * multiplier));
-  const websiteClicks = Math.max(1, Math.round(baseWebsiteClicks * multiplier));
+  const searchViews = Math.round(baseSearchViews * multiplier);
+  const mapsViews = Math.round(baseMapsViews * multiplier);
+  const calls = Math.round(baseCalls * multiplier);
+  const directions = Math.round(baseDirections * multiplier);
+  const websiteClicks = Math.round(baseWebsiteClicks * multiplier);
 
   const searchGrowth =
     timeRange === "7D" ? "+11.5%" : timeRange === "14D" ? "+14.0%" : timeRange === "3M" ? "+32.4%" : timeRange === "MAX" ? "+98.0%" : "+16.5%";
@@ -100,10 +149,10 @@ export function GbpWidget({ data, onRemove, initialTimeRange = "7D" }: GbpWidget
           <p className="text-[11px] text-slate-400 font-medium">Customer Rating</p>
           <div className="flex items-center gap-1 mt-1">
             <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
-            <span className="text-lg font-black text-white">{rating}</span>
-            <span className="text-xs text-slate-400">({totalReviews})</span>
+            <span className="text-lg font-black text-white">{rating > 0 ? rating : "—"}</span>
+            {totalReviews > 0 && <span className="text-xs text-slate-400">({totalReviews})</span>}
           </div>
-          <span className="text-[10px] text-emerald-400 font-bold mt-0.5 block">Top Rated in Area</span>
+          <span className="text-[10px] text-emerald-400 font-bold mt-0.5 block">Google Maps Rank</span>
         </div>
       </div>
 

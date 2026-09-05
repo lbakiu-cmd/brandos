@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Sparkles, Bot, ArrowRight, CheckCircle2, AlertCircle, HelpCircle, Zap } from "lucide-react";
+import { Radar, ArrowRight, CheckCircle2, AlertCircle, ShieldCheck, RefreshCw } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
 type EngineMention = {
@@ -67,125 +67,128 @@ export default function VisibilityPage() {
     s >= 70 ? "text-emerald-400" : s >= 40 ? "text-amber-400" : "text-rose-400";
 
   return (
-    <main className="min-h-screen bg-slate-950 p-6 text-slate-100 md:p-10">
-      <div className="mx-auto max-w-6xl">
-        <header className="mb-8 flex flex-wrap items-center justify-between gap-4">
+    <main className="min-h-screen bg-zinc-950 p-6 text-zinc-100 md:p-8">
+      <div className="mx-auto max-w-6xl space-y-6">
+        <header className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2">
-              <span className="rounded-full bg-blue-500/20 px-2.5 py-0.5 text-xs font-bold text-blue-400">
+              <span className="rounded-full bg-zinc-100 dark:bg-zinc-800 px-2.5 py-0.5 text-xs font-medium text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700">
                 {business?.industry || "Local Business"}
               </span>
-              <span className="text-xs text-slate-400">• {business?.city || "Local Market"}</span>
+              <span className="text-xs text-zinc-500">• {business?.city || "Local Market"}</span>
             </div>
-            <h1 className="mt-1 text-2xl md:text-3xl font-black tracking-tight text-white">
-              AI Recommendation Studio (ChatGPT & Gemini)
+            <h1 className="mt-1 text-xl md:text-2xl font-semibold tracking-tight text-white">
+              Search & Assistant Visibility
             </h1>
-            <p className="text-xs md:text-sm text-slate-400 mt-1">
-              Find out how often AI assistants recommend your business when potential customers ask for recommendations in your area.
+            <p className="text-xs text-zinc-400 mt-0.5">
+              Simulate customer queries across ChatGPT, Claude, Gemini, and Perplexity to quantify how often your business is recommended.
             </p>
           </div>
           <div className="flex gap-3">
-            <Link href="/dashboard" className="rounded-xl border border-slate-800 bg-slate-900 px-4 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-800">
-              ← Dashboard
+            <Link
+              href="/dashboard"
+              className="rounded-lg border border-zinc-800 bg-zinc-900 px-3.5 py-1.5 text-xs font-medium text-zinc-300 hover:bg-zinc-800 transition"
+            >
+              ← Overview
             </Link>
           </div>
         </header>
 
         {/* Action Hero */}
-        <div className="mb-8 rounded-3xl border border-slate-800/80 bg-slate-900/60 p-6 backdrop-blur space-y-4">
+        <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/40 p-6 space-y-5">
           <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
             <div>
-              <h2 className="text-base font-bold text-white flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-amber-400" />
-                Simulate Customer Inquiries for "{business?.name || "Your Business"}"
+              <h2 className="text-sm font-semibold text-white flex items-center gap-2">
+                <Radar className="h-4 w-4 text-zinc-400" />
+                Simulate Discovery Queries for "{business?.name || "Your Business"}"
               </h2>
-              <p className="mt-1 text-xs text-slate-400 max-w-2xl">
-                We simulate real customer prompts on ChatGPT, Perplexity, Gemini, and Claude (e.g. <em>"Who is the top rated {business?.industry || "specialist"} in {business?.city || "your city"}?"</em>) and verify if your business is recommended.
+              <p className="mt-1 text-xs text-zinc-400 max-w-2xl leading-relaxed">
+                Tests simulated customer intent prompts (e.g. <em>"Who is the top rated {business?.industry || "specialist"} in {business?.city || "your city"}?"</em>) and validates citation verification.
               </p>
             </div>
 
             <button
               onClick={run}
               disabled={busy || running}
-              className="shrink-0 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-3 text-xs font-bold text-white shadow-lg shadow-blue-500/20 hover:from-blue-500 hover:to-indigo-500 disabled:opacity-50 transition"
+              className="shrink-0 rounded-lg bg-white px-4 py-2 text-xs font-semibold text-zinc-950 shadow-sm hover:bg-zinc-200 disabled:opacity-50 transition"
             >
-              {running ? "⚡ Querying AI Models…" : "Run Live AI Visibility Check"}
+              {running ? "Simulating Queries…" : "Run Visibility Probe"}
             </button>
           </div>
 
-          {/* Beginner explainer card */}
-          <div className="rounded-2xl bg-slate-950/70 border border-slate-800/80 p-4 grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+          {/* Precision telemetry factors */}
+          <div className="rounded-lg bg-zinc-950/80 border border-zinc-800/80 p-4 grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
             <div className="flex items-start gap-2.5">
-              <span className="text-blue-400 font-bold">1.</span>
+              <span className="text-zinc-400 font-semibold">01</span>
               <div>
-                <p className="font-bold text-white">How AI Picks You</p>
-                <p className="text-[11px] text-slate-400 mt-0.5">AI reads your website's <code>/llms.txt</code> feed and verified customer reviews.</p>
+                <p className="font-semibold text-zinc-200">Knowledge Ingestion</p>
+                <p className="text-[11px] text-zinc-400 mt-0.5">Assistants index Schema.org microdata and <code>/llms.txt</code> manifests.</p>
               </div>
             </div>
             <div className="flex items-start gap-2.5">
-              <span className="text-indigo-400 font-bold">2.</span>
+              <span className="text-zinc-400 font-semibold">02</span>
               <div>
-                <p className="font-bold text-white">Direct Customer Referrals</p>
-                <p className="text-[11px] text-slate-400 mt-0.5">When users ask for local suggestions, AI provides a direct clickable link to your site.</p>
+                <p className="font-semibold text-zinc-200">Citation Routing</p>
+                <p className="text-[11px] text-zinc-400 mt-0.5">Direct clickable citations route qualified local searchers directly to your site.</p>
               </div>
             </div>
             <div className="flex items-start gap-2.5">
-              <span className="text-emerald-400 font-bold">3.</span>
+              <span className="text-zinc-400 font-semibold">03</span>
               <div>
-                <p className="font-bold text-white">Higher Conversion Rate</p>
-                <p className="text-[11px] text-slate-400 mt-0.5">AI-referred visitors are already interested and convert 3x faster into paying clients.</p>
+                <p className="font-semibold text-zinc-200">High Intent Conversion</p>
+                <p className="text-[11px] text-zinc-400 mt-0.5">Assistant-referred users convert at significantly higher velocity than broad traffic.</p>
               </div>
             </div>
           </div>
         </div>
 
         {latest && latest.mentions && (
-          <div className="space-y-8">
+          <div className="space-y-6">
             {/* Score Banner */}
-            <div className="rounded-3xl border border-slate-800/80 bg-slate-900/60 p-8 backdrop-blur">
+            <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/40 p-6">
               <div className="flex flex-wrap items-center justify-between gap-6">
                 <div className="flex items-center gap-6">
-                  <div className={`text-6xl font-black ${scoreColor(latest.overallScore ?? 0)}`}>
+                  <div className={`text-4xl font-semibold tracking-tight ${scoreColor(latest.overallScore ?? 0)}`}>
                     {latest.overallScore}%
                   </div>
                   <div>
-                    <h3 className="text-lg font-bold text-white">AI Recommendation Score</h3>
-                    <p className="text-xs text-slate-400">
-                      Percentage of simulated AI search queries that actively recommend {business?.name || "your business"} as the top choice.
+                    <h3 className="text-sm font-semibold text-white">Assistant Recommendation Frequency</h3>
+                    <p className="text-xs text-zinc-400 mt-0.5">
+                      Percentage of simulated queries across all tested engines where {business?.name || "your business"} was cited as a primary recommendation.
                     </p>
                   </div>
                 </div>
 
                 <div className="flex gap-2">
-                  <span className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-bold text-emerald-400">
-                    {latest.mentions.filter((m) => m.mentioned).length} Recommended You
+                  <span className="rounded-md border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-400">
+                    {latest.mentions.filter((m) => m.mentioned).length} Cited
                   </span>
-                  <span className="rounded-xl border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-bold text-slate-300">
-                    {latest.mentions.length} AI Engines Tested
+                  <span className="rounded-md border border-zinc-200 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 px-2.5 py-1 text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                    {latest.mentions.length} Engines Benchmarked
                   </span>
                 </div>
               </div>
             </div>
 
             {/* Individual Engine Cards */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-3.5 md:grid-cols-2 lg:grid-cols-3">
               {latest.mentions.map((m) => (
                 <div
                   key={m.engine}
-                  className={`rounded-3xl border p-6 backdrop-blur transition ${
+                  className={`rounded-xl border p-5 transition ${
                     m.mentioned
-                      ? "border-emerald-500/30 bg-emerald-950/10"
-                      : "border-slate-800/80 bg-slate-900/60"
+                      ? "border-emerald-500/20 bg-zinc-900/50"
+                      : "border-zinc-800/80 bg-zinc-900/30"
                   }`}
                 >
-                  <div className="mb-4 flex items-center justify-between">
+                  <div className="mb-3 flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="font-bold text-white">{m.engine}</span>
+                      <span className="text-xs font-semibold text-white">{m.engine}</span>
                       <span
-                        className={`rounded-md px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider ${
+                        className={`rounded px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider ${
                           m.source === "live"
-                            ? "bg-blue-500/20 text-blue-400 border border-blue-500/30"
-                            : "bg-slate-800 text-slate-400"
+                            ? "bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700"
+                            : "bg-zinc-100 dark:bg-zinc-850 text-zinc-600 dark:text-zinc-500"
                         }`}
                       >
                         {m.source === "live" ? "Live API" : "Simulated"}
@@ -193,30 +196,35 @@ export default function VisibilityPage() {
                     </div>
 
                     <span
-                      className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
+                      className={`rounded px-2 py-0.5 text-[10px] font-medium ${
                         m.mentioned
-                          ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-                          : "bg-rose-500/20 text-rose-400 border border-rose-500/30"
+                          ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                          : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
                       }`}
                     >
-                      {m.mentioned ? "✔ Recommended" : "✕ Not Recommended"}
+                      {m.mentioned ? "Recommended" : "Not Cited"}
                     </span>
                   </div>
 
-                  <div className="space-y-3 text-xs">
-                    <div className="flex items-center justify-between text-slate-400">
-                      <span>Recommendation Rank:</span>
-                      <span className="font-bold text-white">{m.rank ? `#${m.rank}` : "N/A"}</span>
-                    </div>
-
-                    <div className="flex items-center justify-between text-slate-400">
+                  <div className="space-y-2 text-xs">
+                    {m.rank !== null && (
+                      <div className="flex justify-between text-zinc-400 text-[11px]">
+                        <span>Rank Position:</span>
+                        <span className="font-semibold text-white">#{m.rank}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between text-zinc-400 text-[11px]">
                       <span>Sentiment:</span>
-                      <span className="font-bold capitalize text-slate-200">{m.sentiment}</span>
+                      <span className="capitalize font-medium text-zinc-200">{m.sentiment}</span>
                     </div>
 
-                    <div className="rounded-2xl border border-slate-800 bg-slate-950/80 p-3 text-[11px] italic text-slate-300">
-                      "{m.quote}"
-                    </div>
+                    {m.quote && (
+                      <div className="mt-3 rounded-lg bg-zinc-950/80 p-3 border border-zinc-800/60">
+                        <p className="text-[11px] italic text-zinc-300 leading-relaxed">
+                          "{m.quote}"
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}

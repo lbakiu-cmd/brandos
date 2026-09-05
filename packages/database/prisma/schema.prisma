@@ -126,9 +126,13 @@ model User {
   authProvider    String    @default("EMAIL") // EMAIL, PHONE, GOOGLE
   status          String    @default("ACTIVE") // ACTIVE, SUSPENDED, DEACTIVATED
   isSuperAdmin    Boolean   @default(false)
+  twoFactorEnabled Boolean  @default(false)
+  twoFactorSecret  String?
+  twoFactorBackupCodes String[] @default([])
   lastLoginAt     DateTime?
   name            String?
   avatarUrl       String?
+  activeBusinessId String?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 

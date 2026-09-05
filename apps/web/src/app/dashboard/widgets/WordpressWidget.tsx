@@ -2,6 +2,7 @@
 
 import { Plug, RefreshCw } from "lucide-react";
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { TimeRangeFilter } from "@/components/TimeRangeFilter";
 import { TimeRangeKey, getTimeRangeLabel } from "@/lib/timeRanges";
 
@@ -22,12 +23,61 @@ export function WordpressWidget({ data, onRemove, initialTimeRange = "7D" }: Wor
     }
   }, [initialTimeRange]);
 
-  const siteUrl = data?.siteUrl || "https://yourdomain.com";
-  const pluginVersion = data?.pluginVersion || "1.4.1";
-  const seo = data?.avgSeo || 92;
-  const aeo = data?.avgAeo || 85;
-  const geo = data?.avgGeo || 89;
-  const postsCount = data?.postsIndexed || 14;
+  const isConnected = Boolean(data && (data.connected || data.siteUrl || data.pluginVersion));
+
+  if (!isConnected) {
+    return (
+      <div className="flex flex-col justify-between h-full rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-xl backdrop-blur">
+        <div className="flex items-center justify-between pb-4 border-b border-slate-800/80">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+              <Plug className="h-4 w-4" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-white">WordPress AIVision Engine</h3>
+              <p className="text-xs text-slate-400">On-Site AI Optimization Plugin</p>
+            </div>
+          </div>
+          <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">
+            Not Connected
+          </span>
+        </div>
+
+        <div className="py-6 text-center">
+          <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+            <Plug className="h-5 w-5" />
+          </div>
+          <p className="text-xs text-slate-300 font-medium mb-1">WordPress Plugin Not Connected</p>
+          <p className="text-[11px] text-slate-400 max-w-xs mx-auto mb-4">
+            Install the BrandOS AIVision WordPress plugin to auto-publish /llms.txt, JSON-LD Schema and auto-fix SEO errors.
+          </p>
+          <Link
+            href="/dashboard/integrations"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-2 text-xs font-semibold text-white hover:bg-indigo-500 shadow-lg shadow-indigo-600/20 transition"
+          >
+            <Plug className="h-3.5 w-3.5" />
+            <span>Connect WordPress</span>
+          </Link>
+        </div>
+
+        <div className="pt-3 border-t border-slate-800/60 flex items-center justify-between text-[11px] text-slate-500">
+          <span>WordPress REST Telemetry</span>
+          {onRemove && (
+            <button onClick={onRemove} className="text-slate-500 hover:text-red-400 transition">
+              Remove
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  const siteUrl = data?.siteUrl || "Connected WordPress Site";
+  const pluginVersion = data?.pluginVersion || "1.0.0";
+  const seo = data?.avgSeo || 0;
+  const aeo = data?.avgAeo || 0;
+  const geo = data?.avgGeo || 0;
+  const postsCount = data?.postsIndexed || 0;
 
   const handleTriggerSync = () => {
     setSyncing(true);
@@ -77,20 +127,20 @@ export function WordpressWidget({ data, onRemove, initialTimeRange = "7D" }: Wor
       <div className="grid grid-cols-3 gap-3 py-4">
         <div className="rounded-xl bg-slate-950/60 p-3 border border-slate-800/60 text-center">
           <p className="text-[11px] text-slate-400 font-medium">On-Page SEO</p>
-          <p className="text-xl font-black text-blue-400 mt-1">{seo}/100</p>
-          <span className="text-[10px] text-emerald-400 font-bold mt-0.5 block">Optimized</span>
+          <p className="text-xl font-black text-blue-400 mt-1">{seo > 0 ? `${seo}/100` : "—"}</p>
+          <span className="text-[10px] text-emerald-400 font-bold mt-0.5 block">Plugin Live</span>
         </div>
 
         <div className="rounded-xl bg-slate-950/60 p-3 border border-slate-800/60 text-center">
           <p className="text-[11px] text-slate-400 font-medium">AEO / LLM Score</p>
-          <p className="text-xl font-black text-indigo-400 mt-1">{aeo}/100</p>
+          <p className="text-xl font-black text-indigo-400 mt-1">{aeo > 0 ? `${aeo}/100` : "—"}</p>
           <span className="text-[10px] text-emerald-400 font-bold mt-0.5 block">LLMs.txt Active</span>
         </div>
 
         <div className="rounded-xl bg-slate-950/60 p-3 border border-slate-800/60 text-center">
           <p className="text-[11px] text-slate-400 font-medium">GEO Local Score</p>
-          <p className="text-xl font-black text-purple-400 mt-1">{geo}/100</p>
-          <span className="text-[10px] text-emerald-400 font-bold mt-0.5 block">Local Schema Injected</span>
+          <p className="text-xl font-black text-purple-400 mt-1">{geo > 0 ? `${geo}/100` : "—"}</p>
+          <span className="text-[10px] text-emerald-400 font-bold mt-0.5 block">Schema Active</span>
         </div>
       </div>
 
@@ -102,10 +152,10 @@ export function WordpressWidget({ data, onRemove, initialTimeRange = "7D" }: Wor
         <button
           onClick={handleTriggerSync}
           disabled={syncing}
-          className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-indigo-500 transition shadow-sm"
+          className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500 shadow-md shadow-indigo-600/30 transition disabled:opacity-50"
         >
           <RefreshCw className={`h-3.5 w-3.5 ${syncing ? "animate-spin" : ""}`} />
-          {syncSuccess ? "Telemetry Synced!" : syncing ? "Syncing..." : "Sync Plugin"}
+          <span>{syncSuccess ? "Telemetry Synced!" : syncing ? "Pushing..." : "Sync Telemetry"}</span>
         </button>
       </div>
     </div>

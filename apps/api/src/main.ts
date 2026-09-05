@@ -1,5 +1,9 @@
 import "dotenv/config";
 import "reflect-metadata";
+import * as dns from "node:dns";
+// Ensure outbound requests use whitelisted VPS IPv4 address
+dns.setDefaultResultOrder("ipv4first");
+
 import { NestFactory } from "@nestjs/core";
 import { FastifyAdapter, NestFastifyApplication } from "@nestjs/platform-fastify";
 import { ExceptionFilter, Catch, ArgumentsHost, HttpException, HttpStatus } from "@nestjs/common";

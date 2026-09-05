@@ -7,42 +7,80 @@ import { MailService } from "../mail/mail.service";
 export class BusinessService {
   constructor(private readonly mail: MailService) {}
 
-  async get(userId: string) {
-    let membership = await prisma.membership.findFirst({
-      where: { userId },
-      include: { business: true },
-      orderBy: { createdAt: "desc" },
-    });
+  async get(userId: string, requestedBusinessId?: string) {
+    let membership: any = null;
 
-    if (!membership) {
-      let business = await prisma.business.findFirst({
-        orderBy: { createdAt: "asc" },
+    if (requestedBusinessId) {
+      membership = await prisma.membership.findFirst({
+        where: { userId, businessId: requestedBusinessId },
+        include: { business: true },
       });
 
-      if (!business) {
-        business = await prisma.business.create({
-          data: {
-            name: "Your Business",
-            industry: "Dental & Healthcare",
-            city: "Austin, TX",
-            website: "https://yourbusiness.com",
-            phone: "(512) 555-0199",
-            email: "contact@yourbusiness.com",
-          },
+      if (!membership) {
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+        if (user?.isSuperAdmin) {
+          const business = await prisma.business.findUnique({
+            where: { id: requestedBusinessId },
+          });
+          if (business) {
+            await this.ensureInitialSnapshot(business.id);
+            return business;
+          }
+        }
+      }
+    }
+
+    if (!membership) {
+      // Check user's stored activeBusinessId
+      const user = await prisma.user.findUnique({ where: { id: userId } });
+      if (user?.activeBusinessId) {
+        membership = await prisma.membership.findFirst({
+          where: { userId, businessId: user.activeBusinessId },
+          include: { business: true },
         });
       }
+    }
 
-      await prisma.membership.create({
+    if (!membership) {
+      membership = await prisma.membership.findFirst({
+        where: { userId },
+        include: { business: true },
+        orderBy: { createdAt: "desc" },
+      });
+    }
+
+    if (!membership) {
+      const user = await prisma.user.findUnique({ where: { id: userId } });
+      const userEmail = user?.email || "user@example.com";
+      const userName = user?.name || userEmail.split("@")[0];
+      const bizName = `${userName}'s Workspace`;
+
+      const business = await prisma.business.create({
+        data: {
+          name: bizName,
+          industry: "General Business",
+          city: "Austin, TX",
+          website: `https://${userEmail.split("@")[1] || "example.com"}`,
+          phone: "(512) 555-0100",
+          email: userEmail,
+        },
+      });
+
+      membership = await prisma.membership.create({
         data: {
           userId,
           businessId: business.id,
           role: Role.OWNER,
         },
-      }).catch(() => {});
+        include: { business: true },
+      });
 
-      // Ensure baseline snapshot exists for default business
+      await prisma.user.update({
+        where: { id: userId },
+        data: { activeBusinessId: business.id },
+      });
+
       await this.ensureInitialSnapshot(business.id);
-
       return business;
     }
 
@@ -50,6 +88,43 @@ export class BusinessService {
     await this.ensureInitialSnapshot(membership.businessId);
 
     return membership.business;
+  }
+
+  async switchBusiness(userId: string, businessId: string) {
+    if (!businessId) {
+      throw new BadRequestException("Business ID is required to switch workspace.");
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException("User not found.");
+
+    const membership = await prisma.membership.findFirst({
+      where: { userId, businessId },
+      include: { business: true },
+    });
+
+    if (!membership && !user.isSuperAdmin) {
+      throw new BadRequestException("You do not have access to this business workspace.");
+    }
+
+    let targetBusiness = membership?.business;
+    if (!targetBusiness && user.isSuperAdmin) {
+      targetBusiness = await prisma.business.findUnique({ where: { id: businessId } });
+    }
+
+    if (!targetBusiness) {
+      throw new NotFoundException("Target business workspace not found.");
+    }
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { activeBusinessId: businessId },
+    });
+
+    return {
+      success: true,
+      business: targetBusiness,
+    };
   }
 
   async list(userId: string) {
@@ -117,8 +192,46 @@ export class BusinessService {
       throw new BadRequestException("Client business name is required.");
     }
 
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { memberships: { include: { business: true } } },
+    });
+
+    if (!user) throw new NotFoundException("User not found.");
+
+    // Check plan limits unless super admin
+    if (!user.isSuperAdmin) {
+      const existingMemberships = user.memberships || [];
+      const tierRank: Record<string, number> = {
+        FREE: 1,
+        STARTER: 1,
+        GROWTH: 3,
+        AGENCY: 15,
+      };
+
+      let maxAllowed = 1;
+      let highestTier = "STARTER";
+      for (const m of existingMemberships) {
+        const tier = m.business.subscriptionTier || "FREE";
+        const allowed = tierRank[tier] || 1;
+        if (allowed > maxAllowed) {
+          maxAllowed = allowed;
+          highestTier = tier;
+        }
+      }
+
+      if (existingMemberships.length >= maxAllowed) {
+        throw new BadRequestException(
+          `Workspace limit reached (${existingMemberships.length}/${maxAllowed} on ${highestTier} Plan). Please upgrade to Pro Growth (3 workspaces) or Agency Plan (15 workspaces) to create more client businesses.`
+        );
+      }
+    }
+
     const clean = (v?: string) =>
       v === undefined ? undefined : v.trim() === "" ? null : v.trim();
+
+    // Inherit tier from user's primary business if available
+    const inheritedTier = user.memberships?.[0]?.business?.subscriptionTier || "FREE";
 
     const business = await prisma.business.create({
       data: {
@@ -128,6 +241,7 @@ export class BusinessService {
         website: clean(data.website),
         phone: clean(data.phone),
         email: clean(data.email),
+        subscriptionTier: inheritedTier,
         memberships: {
           create: {
             userId,
@@ -135,6 +249,12 @@ export class BusinessService {
           },
         },
       },
+    });
+
+    // Set new business as active for user
+    await prisma.user.update({
+      where: { id: userId },
+      data: { activeBusinessId: business.id },
     });
 
     // Capture initial registration baseline snapshot
@@ -171,7 +291,7 @@ export class BusinessService {
           data: {
             name: data.name?.trim() || "Your Business",
             city: data.city?.trim() || null,
-            industry: data.industry?.trim() || "Dental & Healthcare",
+            industry: data.industry?.trim() || "Professional Services",
             website: data.website?.trim() || null,
             phone: data.phone?.trim() || null,
             email: data.email?.trim() || null,
@@ -195,13 +315,22 @@ export class BusinessService {
     const clean = (v?: string) =>
       v === undefined ? undefined : v.trim() === "" ? null : v.trim();
 
+    const formatUrl = (v?: string) => {
+      const c = clean(v);
+      if (!c) return c;
+      if (!c.startsWith("http://") && !c.startsWith("https://")) {
+        return `https://${c}`;
+      }
+      return c;
+    };
+
     const updated = await prisma.business.update({
       where: { id: businessId },
       data: {
         name: clean(data.name) ?? undefined,
         city: clean(data.city),
         industry: clean(data.industry),
-        website: clean(data.website),
+        website: formatUrl(data.website),
         phone: clean(data.phone),
         email: clean(data.email),
       },

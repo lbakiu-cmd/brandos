@@ -29,7 +29,7 @@ export class IntegrationsController {
   @Get("status")
   @UseGuards(AuthGuard)
   async getStatus(@Req() req: any) {
-    const biz = await this.business.get(req.user.id);
+    const biz = await this.business.get(req.user.id, req.user.activeBusinessId);
     return this.integrations.getStatus(biz.id);
   }
 
@@ -39,7 +39,7 @@ export class IntegrationsController {
   @Get("google/sites")
   @UseGuards(AuthGuard)
   async getGoogleSites(@Req() req: any) {
-    const biz = await this.business.get(req.user.id);
+    const biz = await this.business.get(req.user.id, req.user.activeBusinessId);
     const sites = await this.googleOAuth.getSitesList(biz.id);
     return {
       sites,
@@ -58,7 +58,7 @@ export class IntegrationsController {
     @Query("siteUrl") siteUrl?: string,
     @Query("days") days?: string
   ) {
-    const biz = await this.business.get(req.user.id);
+    const biz = await this.business.get(req.user.id, req.user.activeBusinessId);
     const token = await this.googleOAuth.getFreshAccessToken(biz.id);
     if (!token) {
       throw new BadRequestException("Google Search Console is not connected.");
@@ -88,7 +88,7 @@ export class IntegrationsController {
       throw new BadRequestException("siteUrl is required");
     }
 
-    const biz = await this.business.get(req.user.id);
+    const biz = await this.business.get(req.user.id, req.user.activeBusinessId);
     const cleanDomain = body.domain || body.siteUrl
       .replace("sc-domain:", "")
       .replace(/^https?:\/\//, "")
@@ -137,7 +137,7 @@ export class IntegrationsController {
       throw new BadRequestException(`Invalid integration provider: ${provider}`);
     }
 
-    const biz = await this.business.get(req.user.id);
+    const biz = await this.business.get(req.user.id, req.user.activeBusinessId);
     return this.integrations.connect(biz.id, validProvider, body);
   }
 
@@ -148,7 +148,7 @@ export class IntegrationsController {
   @UseGuards(AuthGuard)
   async disconnect(@Req() req: any, @Param("provider") provider: string) {
     const validProvider = provider.toUpperCase() as IntegrationProvider;
-    const biz = await this.business.get(req.user.id);
+    const biz = await this.business.get(req.user.id, req.user.activeBusinessId);
     return this.integrations.disconnect(biz.id, validProvider);
   }
 
@@ -159,7 +159,7 @@ export class IntegrationsController {
   @UseGuards(AuthGuard)
   async sync(@Req() req: any, @Param("provider") provider: string) {
     const validProvider = provider.toUpperCase() as IntegrationProvider;
-    const biz = await this.business.get(req.user.id);
+    const biz = await this.business.get(req.user.id, req.user.activeBusinessId);
     return this.integrations.sync(biz.id, validProvider);
   }
 }

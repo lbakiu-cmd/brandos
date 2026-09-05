@@ -10,7 +10,6 @@
   "dependencies": {
     "@brandos/audit-engine": "workspace:*",
     "@brandos/database": "workspace:*",
-    "@brandos/shared": "workspace:*",
     "@fastify/cookie": "^11.0.1",
     "@nestjs/common": "^11.0.0",
     "@nestjs/core": "^11.0.0",

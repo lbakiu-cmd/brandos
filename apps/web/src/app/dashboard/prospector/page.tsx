@@ -17,11 +17,11 @@ type ProspectResult = {
   pitch: string;
 };
 
-const SAMPLE_LIST = `austindentalspecialists.com
-southaustinplumbingpros.com
-bellanapolipizzeriaaustin.com
-texashonorlawyers.com
-downtownaustinspa.com`;
+const SAMPLE_LIST = `acmegrowthconsulting.com
+metrohvacservices.com
+bayarealawgroup.com
+summitrealestateteam.com
+coastalwellnessclinic.com`;
 
 export default function ProspectorPage() {
   const [urlsText, setUrlsText] = useState(SAMPLE_LIST);
@@ -98,7 +98,7 @@ export default function ProspectorPage() {
                 value={urlsText}
                 onChange={(e) => setUrlsText(e.target.value)}
                 rows={5}
-                placeholder="exampledental.com&#10;miamiplumbing.com&#10;bistrorestaurant.com"
+                placeholder="acmegrowthconsulting.com&#10;metrohvacservices.com&#10;bayarealawgroup.com"
                 className="w-full rounded-2xl border border-slate-800 bg-slate-950/80 p-4 font-mono text-xs text-slate-200 placeholder-slate-600 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
               />
             </div>

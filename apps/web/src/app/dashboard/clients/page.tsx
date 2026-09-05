@@ -30,7 +30,7 @@ export default function ClientsPage() {
     name: "",
     website: "",
     city: "",
-    industry: "Dental & Healthcare",
+    industry: "Professional Services",
     phone: "",
   });
 
@@ -59,7 +59,7 @@ export default function ClientsPage() {
         method: "POST",
         body: JSON.stringify(form),
       });
-      setForm({ name: "", website: "", city: "", industry: "Dental & Healthcare", phone: "" });
+      setForm({ name: "", website: "", city: "", industry: "Professional Services", phone: "" });
       setShowAddModal(false);
       await loadClients();
     } catch (err: any) {

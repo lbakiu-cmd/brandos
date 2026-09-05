@@ -13,15 +13,15 @@ export interface LoginDto {
   password: string;
 }
 
-export interface SendPhoneOtpDto {
-  phone: string;
+export interface Verify2faSetupDto {
+  tempToken: string;
+  code: string;
+  secret: string;
 }
 
-export interface VerifyPhoneOtpDto {
-  phone: string;
+export interface Verify2faLoginDto {
+  tempToken: string;
   code: string;
-  name?: string;
-  businessName?: string;
 }
 
 export interface GoogleVerifyDto {
@@ -42,15 +42,15 @@ const loginSchema = z.object({
   password: z.string().min(1),
 });
 
-const sendPhoneOtpSchema = z.object({
-  phone: z.string().trim().min(7, "Please enter a valid phone number."),
+const verify2faSetupSchema = z.object({
+  tempToken: z.string().min(1, "Temporary 2FA token is required."),
+  code: z.string().trim().min(6, "Verification code must be at least 6 digits."),
+  secret: z.string().min(16, "2FA secret is required."),
 });
 
-const verifyPhoneOtpSchema = z.object({
-  phone: z.string().trim().min(7, "Please enter a valid phone number."),
-  code: z.string().trim().min(4, "Verification code must be at least 4 digits."),
-  name: z.string().trim().optional(),
-  businessName: z.string().trim().optional(),
+const verify2faLoginSchema = z.object({
+  tempToken: z.string().min(1, "Temporary 2FA token is required."),
+  code: z.string().trim().min(6, "Verification code or backup code is required."),
 });
 
 const googleVerifySchema = z.object({
@@ -81,26 +81,26 @@ export function parseLogin(data: unknown): LoginDto {
   return result.data as LoginDto;
 }
 
-export function parseSendPhoneOtp(data: unknown): SendPhoneOtpDto {
-  const result = sendPhoneOtpSchema.safeParse(data);
+export function parseVerify2faSetup(data: unknown): Verify2faSetupDto {
+  const result = verify2faSetupSchema.safeParse(data);
   if (!result.success) {
     throw new BadRequestException({
-      message: "Invalid phone number format",
+      message: "Invalid 2FA setup verification request",
       errors: result.error.flatten().fieldErrors,
     });
   }
-  return result.data as SendPhoneOtpDto;
+  return result.data as Verify2faSetupDto;
 }
 
-export function parseVerifyPhoneOtp(data: unknown): VerifyPhoneOtpDto {
-  const result = verifyPhoneOtpSchema.safeParse(data);
+export function parseVerify2faLogin(data: unknown): Verify2faLoginDto {
+  const result = verify2faLoginSchema.safeParse(data);
   if (!result.success) {
     throw new BadRequestException({
-      message: "Invalid OTP verification request",
+      message: "Invalid 2FA login verification request",
       errors: result.error.flatten().fieldErrors,
     });
   }
-  return result.data as VerifyPhoneOtpDto;
+  return result.data as Verify2faLoginDto;
 }
 
 export function parseGoogleVerify(data: unknown): GoogleVerifyDto {

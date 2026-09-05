@@ -9,13 +9,22 @@ export class BusinessController {
   @Get()
   @UseGuards(AuthGuard)
   get(@Req() req: any) {
-    return this.business.get(req.user.id);
+    return this.business.get(
+      req.user.id,
+      req.user.activeBusinessId || (req.headers["x-business-id"] as string)
+    );
   }
 
   @Get("list")
   @UseGuards(AuthGuard)
   list(@Req() req: any) {
     return this.business.list(req.user.id);
+  }
+
+  @Post("switch")
+  @UseGuards(AuthGuard)
+  switchWorkspace(@Req() req: any, @Body("businessId") businessId: string) {
+    return this.business.switchBusiness(req.user.id, businessId);
   }
 
   @Post()

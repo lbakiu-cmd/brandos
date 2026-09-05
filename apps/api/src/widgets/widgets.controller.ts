@@ -36,7 +36,7 @@ export class WidgetsController {
   @Get()
   @UseGuards(AuthGuard)
   async getWidgets(@Req() req: any) {
-    const biz = await this.business.get(req.user.id);
+    const biz = await this.business.get(req.user.id, req.user.activeBusinessId);
     return this.widgets.getWidgets(biz.id);
   }
 
@@ -56,7 +56,7 @@ export class WidgetsController {
       config?: any;
     }
   ) {
-    const biz = await this.business.get(req.user.id);
+    const biz = await this.business.get(req.user.id, req.user.activeBusinessId);
     return this.widgets.addWidget(biz.id, body);
   }
 
@@ -66,7 +66,7 @@ export class WidgetsController {
   @Post("reset-default")
   @UseGuards(AuthGuard)
   async resetDefault(@Req() req: any) {
-    const biz = await this.business.get(req.user.id);
+    const biz = await this.business.get(req.user.id, req.user.activeBusinessId);
     await this.widgets.initDefaultWidgets(biz.id);
     return this.widgets.getWidgets(biz.id);
   }

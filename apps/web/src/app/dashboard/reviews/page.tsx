@@ -128,7 +128,7 @@ export default function ReviewsPage() {
           <span className="text-xs text-slate-400">Average Rating</span>
           <div className="mt-2 flex items-baseline gap-2">
             <span className="text-3xl font-extrabold text-amber-400">
-              {data?.stats.averageRating ?? 4.8}★
+              {data?.stats?.averageRating ? `${data.stats.averageRating}★` : "—"}
             </span>
             <span className="text-xs text-slate-500">Google Verified</span>
           </div>
@@ -138,7 +138,7 @@ export default function ReviewsPage() {
           <span className="text-xs text-slate-400">Response Rate</span>
           <div className="mt-2 flex items-baseline gap-2">
             <span className="text-3xl font-extrabold text-emerald-400">
-              {data?.stats.responseRatePercent ?? 80}%
+              {data?.stats?.responseRatePercent ? `${data.stats.responseRatePercent}%` : "—"}
             </span>
             <span className="text-xs text-slate-500">Target: 80%+</span>
           </div>
@@ -282,6 +282,18 @@ export default function ReviewsPage() {
             </div>
           </div>
         ))}
+
+        {filtered.length === 0 && (
+          <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-12 text-center text-slate-400 space-y-3">
+            <p className="text-sm font-semibold text-white">No Google Reviews Found</p>
+            <p className="text-xs max-w-sm mx-auto">Connect your Google Business Profile in Integrations to start monitoring and auto-replying to customer feedback.</p>
+            <div className="pt-2">
+              <Link href="/dashboard/integrations" className="inline-flex rounded-xl bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-500">
+                Connect Google Business Profile
+              </Link>
+            </div>
+          </div>
+        )}
       </section>
     </main>
   );

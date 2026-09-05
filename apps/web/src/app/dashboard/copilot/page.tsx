@@ -96,7 +96,7 @@ export default function CopilotPage() {
             <div className="flex items-center gap-2">
               <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
               <span className="text-xs font-bold text-emerald-400">Online & Context Aware</span>
-              <span className="text-xs text-slate-500">• {business?.name || "Apex Dental Care"}</span>
+              <span className="text-xs text-slate-500">• {business?.name || "Your Business"}</span>
             </div>
             <h1 className="mt-1 text-2xl font-black text-white">AI Brand Copilot & Growth Strategist</h1>
           </div>

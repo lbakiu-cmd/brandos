@@ -165,7 +165,7 @@ export default function CompetitorsPage() {
             <div className="my-4 flex h-36 w-36 items-center justify-center rounded-full border-4 border-emerald-500/30 bg-emerald-950/20 text-4xl font-black text-emerald-400 shadow-inner">
               {yourSov}%
             </div>
-            <p className="text-sm font-bold text-white">{business?.name ?? "Nobel Dental Clinic"}</p>
+            <p className="text-sm font-bold text-white">{business?.name ?? "Your Business"}</p>
             <p className="text-xs text-emerald-400 font-semibold mt-0.5">Market Leader (You)</p>
             <p className="text-[11px] text-slate-500 mt-2">
               Tested across 4 Major LLM Engines
@@ -178,7 +178,7 @@ export default function CompetitorsPage() {
               <span className="text-xs text-slate-400 font-mono">Weighted Algorithm v2.1</span>
             </div>
             <p className="text-xs text-slate-400">
-              Target Prompt: <span className="font-mono text-purple-300">"{benchmark?.prompt || `Top rated Dental & Healthcare in Tirana, Albania`}"</span>
+              Target Prompt: <span className="font-mono text-purple-300">"{benchmark?.prompt || `Top rated ${business?.industry || "services"} in ${business?.city || "your market"}`}"</span>
             </p>
 
             {/* SOV Breakdown Bars */}
@@ -186,7 +186,7 @@ export default function CompetitorsPage() {
               <div>
                 <div className="flex justify-between text-xs font-semibold mb-1">
                   <span className="text-white flex items-center gap-1.5">
-                    <strong>{business?.name || "Nobel Dental Clinic"}</strong>
+                    <strong>{business?.name || "Your Business"}</strong>
                     <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.2 rounded border border-emerald-500/20">YOU</span>
                   </span>
                   <span className="text-emerald-400 font-bold">{yourSov}% SOV</span>

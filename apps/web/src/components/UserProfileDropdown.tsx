@@ -15,6 +15,8 @@ import {
   Building2,
   ExternalLink,
   Globe,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { apiFetch, authApi } from "@/lib/api";
 
@@ -32,16 +34,42 @@ export function UserProfileDropdown() {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [profile, setProfile] = useState<UserProfile>({
-    name: "Nobel Dental Clinic",
-    email: "admin@dental-nobel.com",
+    name: "My Business",
+    email: "",
     role: "Owner",
     plan: "Pro Growth Plan",
-    website: "dental-nobel.com",
+    website: "example.com",
   });
+  const [currentTheme, setCurrentTheme] = useState<"dark" | "light">("light");
   const [loading, setLoading] = useState(true);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    try {
+      const stored = localStorage.getItem("brandos_theme");
+      if (stored === "light" || stored === "dark") {
+        setCurrentTheme(stored);
+        if (stored === "dark") {
+          document.documentElement.classList.add("dark");
+        } else {
+          document.documentElement.classList.remove("dark");
+        }
+      }
+    } catch {
+      // ignore
+    }
+
+    const handleThemeChange = (e: any) => {
+      if (e?.detail?.theme) {
+        setCurrentTheme(e.detail.theme);
+        if (e.detail.theme === "dark") {
+          document.documentElement.classList.add("dark");
+        } else {
+          document.documentElement.classList.remove("dark");
+        }
+      }
+    };
+    window.addEventListener("brandos:theme-changed", handleThemeChange);
     async function loadProfile() {
       try {
         const [meRes, bizRes, billRes] = await Promise.all([
@@ -51,11 +79,11 @@ export function UserProfileDropdown() {
         ]);
 
         const userObj = meRes?.user;
-        const bizName = bizRes?.name || userObj?.businessName || userObj?.name || "Nobel Dental Clinic";
-        const email = userObj?.email || bizRes?.email || "admin@dental-nobel.com";
+        const bizName = userObj?.businessName || bizRes?.name || userObj?.name || "My Workspace";
+        const email = userObj?.email || bizRes?.email || "";
         const websiteClean = bizRes?.website
           ? bizRes.website.replace(/^https?:\/\//, "").replace(/\/$/, "")
-          : "dental-nobel.com";
+          : "yourbusiness.com";
         const planName = billRes?.subscription?.planName || "Pro Growth Plan";
 
         setProfile({
@@ -89,11 +117,32 @@ export function UserProfileDropdown() {
 
     document.addEventListener("mousedown", handleClickOutside);
     document.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("brandos:business-changed", loadProfile);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
       document.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("brandos:business-changed", loadProfile);
+      window.removeEventListener("brandos:theme-changed", handleThemeChange);
     };
   }, []);
+
+  const handleToggleTheme = () => {
+    const next = currentTheme === "dark" ? "light" : "dark";
+    setCurrentTheme(next);
+    try {
+      document.documentElement.setAttribute("data-theme", next);
+      if (next === "dark") {
+        document.documentElement.classList.add("dark");
+      } else {
+        document.documentElement.classList.remove("dark");
+      }
+      localStorage.setItem("brandos_theme", next);
+      document.cookie = `brandos_theme=${next}; path=/; max-age=31536000; SameSite=Lax`;
+    } catch {
+      // ignore
+    }
+    window.dispatchEvent(new CustomEvent("brandos:theme-changed", { detail: { theme: next } }));
+  };
 
   const handleLogout = async () => {
     try {
@@ -159,7 +208,7 @@ export function UserProfileDropdown() {
               </div>
               <div className="flex-1 overflow-hidden">
                 <p className="font-bold text-white text-sm truncate">{profile.name}</p>
-                <p className="text-[11px] text-slate-400 font-mono truncate">{profile.email}</p>
+                <p className="text-[11px] text-slate-400 font-mono truncate">{profile.email || "No email linked"}</p>
               </div>
             </div>
 
@@ -230,20 +279,26 @@ export function UserProfileDropdown() {
               </div>
             </Link>
 
-            {/* Super Admin Console Shortcut */}
-            <Link
-              href="/admin"
-              onClick={() => setIsOpen(false)}
-              className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold text-purple-300 bg-purple-500/10 border border-purple-500/20 transition hover:bg-purple-500/20 hover:text-white group"
+            <button
+              type="button"
+              onClick={handleToggleTheme}
+              className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 transition hover:bg-slate-800 hover:text-white group"
             >
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-purple-500/20 text-purple-300 group-hover:bg-purple-500/30 transition">
-                <ShieldCheck className="h-4 w-4" />
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-800 text-amber-400 group-hover:bg-amber-500/20 transition">
+                  {currentTheme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4 text-indigo-400" />}
+                </div>
+                <div className="flex flex-col text-left">
+                  <span>Appearance</span>
+                  <span className="text-[10px] text-slate-500 font-normal">
+                    {currentTheme === "dark" ? "Dark Theme Active" : "Light Theme Active"}
+                  </span>
+                </div>
               </div>
-              <div className="flex flex-col text-left">
-                <span className="font-bold flex items-center gap-1">👑 Super Admin Console</span>
-                <span className="text-[10px] text-purple-400/80 font-normal">User monitoring, audit logs & control</span>
-              </div>
-            </Link>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border border-slate-700 bg-slate-800/80 uppercase">
+                {currentTheme}
+              </span>
+            </button>
           </div>
 
           {/* Sign Out Section */}

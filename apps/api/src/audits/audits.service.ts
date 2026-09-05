@@ -457,21 +457,33 @@ export class AuditsService {
       }),
     ]);
 
-    const websiteScore = latestWeb?.score ?? 79;
-    const gbpScore = latestGbp?.score ?? 82;
-    const socialScore = latestSocial?.score ?? 76;
-    const aiVisibilityScore = latestAi?.overallScore ?? 75;
+    const hasAnyAudit = Boolean(latestWeb || latestGbp || latestSocial || latestAi);
+    const websiteScore = latestWeb?.score ?? null;
+    const gbpScore = latestGbp?.score ?? null;
+    const socialScore = latestSocial?.score ?? null;
+    const aiVisibilityScore = latestAi?.overallScore ?? null;
 
-    const composite = calculateCompositeBrandScore({
-      websiteScore,
-      gbpScore,
-      socialScore,
-      aiVisibilityScore,
-    });
+    const composite = hasAnyAudit
+      ? calculateCompositeBrandScore({
+          websiteScore: websiteScore ?? 50,
+          gbpScore: gbpScore ?? 50,
+          socialScore: socialScore ?? 50,
+          aiVisibilityScore: aiVisibilityScore ?? 50,
+        })
+      : {
+          overallScore: 0,
+          grade: "—",
+          gradeLabel: "Audit Required",
+          websiteScore: null,
+          gbpScore: null,
+          socialScore: null,
+          aiVisibilityScore: null,
+        };
 
     const recommendations = deduplicateAndPurgeRecommendations(rawRecommendations);
 
     return {
+      hasAudits: hasAnyAudit,
       composite,
       latestWeb,
       latestGbp,
@@ -484,6 +496,13 @@ export class AuditsService {
             url: firstBiz.wordpressUrl,
             siteName: firstBiz.wordpressSiteName || firstBiz.name,
             version: firstBiz.wordpressPluginVersion,
+          }
+        : null,
+      business: firstBiz
+        ? {
+            id: firstBiz.id,
+            name: firstBiz.name,
+            website: firstBiz.website,
           }
         : null,
     };

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const PLANS = [
   {
@@ -60,60 +61,61 @@ export default function PricingPage() {
   const [billingCycle, setBillingCycle] = useState<"MONTHLY" | "ANNUAL">("MONTHLY");
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 selection:bg-blue-500 selection:text-white">
+    <div className="min-h-screen bg-zinc-950 text-zinc-100 selection:bg-zinc-800 selection:text-white">
       {/* Navigation */}
-      <header className="sticky top-0 z-50 border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-md">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+      <header className="sticky top-0 z-50 border-b border-zinc-800/80 bg-zinc-950/80 backdrop-blur-md">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3.5">
           <Link href="/" className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 font-bold text-white shadow-lg shadow-blue-500/25">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-100 text-zinc-950 font-bold text-sm shadow-sm">
               B
             </div>
-            <span className="text-xl font-bold tracking-tight text-white">Brand<span className="text-blue-400">OS</span></span>
+            <span className="text-base font-semibold tracking-tight text-white">BrandOS</span>
           </Link>
-          <div className="flex items-center gap-4">
-            <Link href="/scan" className="text-xs font-semibold text-slate-300 hover:text-white">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <Link href="/scan" className="text-xs font-medium text-zinc-400 hover:text-white transition">
               Free Scanner
             </Link>
-            <Link href="/login" className="text-xs font-semibold text-slate-300 hover:text-white">
+            <ThemeToggle />
+            <Link href="/login" className="text-xs font-medium text-zinc-300 hover:text-white transition">
               Sign In
             </Link>
             <Link
               href="/login"
-              className="rounded-xl bg-blue-600 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-blue-600/30 hover:bg-blue-500"
+              className="rounded-lg bg-white px-3.5 py-1.5 text-xs font-semibold text-zinc-950 shadow-sm transition hover:bg-zinc-200"
             >
-              Get Started Free
+              Get Started
             </Link>
           </div>
         </div>
       </header>
 
       {/* Hero Section */}
-      <section className="relative overflow-hidden pt-16 pb-12 text-center">
+      <section className="relative pt-20 pb-12 text-center border-b border-zinc-900">
         <div className="mx-auto max-w-4xl px-6">
-          <span className="rounded-full border border-blue-500/30 bg-blue-500/10 px-3 py-1 text-xs font-bold uppercase tracking-wider text-blue-400">
-            Simple, Transparent Pricing
+          <span className="rounded-full border border-zinc-800 bg-zinc-900 px-3 py-1 text-xs font-medium text-zinc-300">
+            Straightforward Pricing
           </span>
-          <h1 className="mt-4 text-4xl font-extrabold tracking-tight text-white sm:text-6xl">
-            Choose Your <span className="bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">Growth Plan</span>
+          <h1 className="mt-6 text-3xl font-semibold tracking-tight text-white sm:text-5xl">
+            Choose Your Growth Plan
           </h1>
-          <p className="mx-auto mt-4 max-w-2xl text-sm text-slate-400 sm:text-base">
-            Start with our 14-day free trial. Cancel or switch plans anytime.
+          <p className="mx-auto mt-4 max-w-xl text-xs text-zinc-400 sm:text-sm leading-relaxed">
+            All plans include automated Search Console tracking, local presence auditing, and technical schema fixes. 14-day free trial.
           </p>
 
           {/* Billing Switcher */}
-          <div className="mt-8 inline-flex items-center rounded-xl border border-slate-800 bg-slate-900 p-1 text-xs font-semibold">
+          <div className="mt-8 inline-flex items-center rounded-lg border border-zinc-800 bg-zinc-900 p-1 text-xs font-medium">
             <button
               onClick={() => setBillingCycle("MONTHLY")}
-              className={`rounded-lg px-5 py-2 transition ${
-                billingCycle === "MONTHLY" ? "bg-blue-600 text-white shadow-md" : "text-slate-400 hover:text-white"
+              className={`rounded-md px-4 py-1.5 transition ${
+                billingCycle === "MONTHLY" ? "bg-white text-zinc-950 font-semibold shadow-sm" : "text-zinc-400 hover:text-white"
               }`}
             >
               Monthly Billing
             </button>
             <button
               onClick={() => setBillingCycle("ANNUAL")}
-              className={`rounded-lg px-5 py-2 transition ${
-                billingCycle === "ANNUAL" ? "bg-blue-600 text-white shadow-md" : "text-slate-400 hover:text-white"
+              className={`rounded-md px-4 py-1.5 transition ${
+                billingCycle === "ANNUAL" ? "bg-white text-zinc-950 font-semibold shadow-sm" : "text-zinc-400 hover:text-white"
               }`}
             >
               Annual Billing (Save 20%)
@@ -123,41 +125,41 @@ export default function PricingPage() {
       </section>
 
       {/* Pricing Cards Grid */}
-      <section className="mx-auto max-w-7xl px-6 pb-24">
-        <div className="grid gap-8 lg:grid-cols-3">
+      <section className="mx-auto max-w-7xl px-6 py-16">
+        <div className="grid gap-6 lg:grid-cols-3">
           {PLANS.map((plan) => {
             const price = billingCycle === "MONTHLY" ? plan.priceMonthly : Math.round(plan.priceAnnual / 12);
 
             return (
               <div
                 key={plan.id}
-                className={`rounded-3xl border p-8 flex flex-col justify-between transition ${
+                className={`rounded-xl border p-7 flex flex-col justify-between transition ${
                   plan.badge
-                    ? "border-blue-500/50 bg-gradient-to-b from-blue-950/40 via-slate-900 to-slate-950 shadow-2xl relative"
-                    : "border-slate-800 bg-slate-900/60"
+                    ? "border-zinc-700 bg-zinc-900/80 shadow-xl relative"
+                    : "border-zinc-800/80 bg-zinc-900/40"
                 }`}
               >
                 {plan.badge && (
-                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-0.5 text-[10px] font-black uppercase tracking-wider text-white shadow-lg">
+                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full border border-zinc-700 bg-zinc-800 px-3 py-0.5 text-[10px] font-medium text-zinc-200">
                     {plan.badge}
                   </span>
                 )}
 
                 <div>
-                  <h3 className="text-xl font-bold text-white">{plan.name}</h3>
-                  <p className="mt-2 text-xs text-slate-400 min-h-[36px]">{plan.description}</p>
+                  <h3 className="text-base font-semibold text-white">{plan.name}</h3>
+                  <p className="mt-1.5 text-xs text-zinc-400 min-h-[36px] leading-relaxed">{plan.description}</p>
 
                   <div className="my-6">
-                    <span className="text-5xl font-black text-white">${price}</span>
-                    <span className="text-xs text-slate-400"> / month</span>
+                    <span className="text-4xl font-semibold tracking-tight text-white">${price}</span>
+                    <span className="text-xs text-zinc-500"> / month</span>
                   </div>
 
-                  <div className="space-y-3 pt-4 border-t border-slate-800/80">
-                    <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Included Features:</p>
-                    <ul className="space-y-2.5 text-xs text-slate-300">
+                  <div className="space-y-3 pt-5 border-t border-zinc-800/80">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Included Capabilities:</p>
+                    <ul className="space-y-2 text-xs text-zinc-300">
                       {plan.features.map((f, i) => (
-                        <li key={i} className="flex items-start gap-2.5">
-                          <span className="text-emerald-400 font-bold shrink-0">✔</span>
+                        <li key={i} className="flex items-start gap-2">
+                          <span className="text-emerald-400 font-medium shrink-0">✓</span>
                           <span>{f}</span>
                         </li>
                       ))}
@@ -165,16 +167,16 @@ export default function PricingPage() {
                   </div>
                 </div>
 
-                <div className="mt-8 pt-6 border-t border-slate-800/80">
+                <div className="mt-8 pt-6 border-t border-zinc-800/80">
                   <Link
                     href={`/login?plan=${plan.id}`}
-                    className={`block w-full text-center rounded-xl py-3.5 text-xs font-bold transition shadow-lg ${
+                    className={`block w-full text-center rounded-lg py-2.5 text-xs font-semibold transition shadow-sm ${
                       plan.badge
-                        ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-blue-600/30 hover:from-blue-500 hover:to-indigo-500"
-                        : "border border-slate-700 bg-slate-800 text-white hover:bg-slate-700"
+                        ? "bg-white text-zinc-950 hover:bg-zinc-200"
+                        : "border border-zinc-800 bg-zinc-950 text-zinc-200 hover:bg-zinc-900"
                     }`}
                   >
-                    Start 14-Day Free Trial →
+                    Start 14-Day Free Trial
                   </Link>
                 </div>
               </div>
@@ -184,15 +186,15 @@ export default function PricingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-slate-800/80 px-6 py-8 text-center text-xs text-slate-500">
+      <footer className="border-t border-zinc-900 px-6 py-10 text-center text-xs text-zinc-500">
         <div className="flex justify-center gap-6 mb-3">
-          <Link href="/" className="hover:text-slate-300">Home</Link>
-          <Link href="/scan" className="hover:text-slate-300">Free Scanner</Link>
-          <Link href="/pricing" className="hover:text-slate-300">Pricing</Link>
-          <Link href="/privacy" className="text-slate-400 hover:text-white transition">Privacy Policy</Link>
-          <Link href="/terms" className="text-slate-400 hover:text-white transition">Terms of Service</Link>
+          <Link href="/" className="hover:text-zinc-300 transition">Home</Link>
+          <Link href="/scan" className="hover:text-zinc-300 transition">Free Scanner</Link>
+          <Link href="/pricing" className="hover:text-zinc-300 transition">Pricing</Link>
+          <Link href="/privacy" className="hover:text-zinc-300 transition">Privacy Policy</Link>
+          <Link href="/terms" className="hover:text-zinc-300 transition">Terms of Service</Link>
         </div>
-        <p>© 2026 BrandOS Eye · AI Visibility & Small Business SaaS Platform. All rights reserved.</p>
+        <p>© 2026 BrandOS · Search Visibility & Presence Platform. All rights reserved.</p>
       </footer>
     </div>
   );

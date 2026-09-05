@@ -127,14 +127,14 @@ export default function ContentPage() {
           }
         }
       } catch (e) {
-        // Fallback default dental/healthcare categories
+        // Fallback default services categories
         const defaults: CategoryItem[] = [
-          { id: 1, name: "Dental Implants & Restorations", slug: "dental-implants", isSuggested: true },
-          { id: 2, name: "Cosmetic Dentistry & Smile Design", slug: "cosmetic-dentistry", isSuggested: true },
-          { id: 3, name: "Teeth Whitening & Hygiene", slug: "teeth-whitening", isSuggested: true },
-          { id: 4, name: "Emergency Dental Care", slug: "emergency-dental", isSuggested: true },
-          { id: 5, name: "Orthodontics & Clear Aligners", slug: "orthodontics", isSuggested: true },
-          { id: 6, name: "Preventative Care & Checkups", slug: "preventative-care", isSuggested: true },
+          { id: 1, name: "Services & Solutions Guide", slug: "services-guide", isSuggested: true },
+          { id: 2, name: "Pricing & Cost Breakdown", slug: "pricing-breakdown", isSuggested: true },
+          { id: 3, name: "Client Case Studies & Results", slug: "case-studies", isSuggested: true },
+          { id: 4, name: "Frequently Asked Questions", slug: "faqs", isSuggested: true },
+          { id: 5, name: "Expert Tips & Industry Insights", slug: "expert-tips", isSuggested: true },
+          { id: 6, name: "Local Service Guide", slug: "local-guide", isSuggested: true },
         ];
         setAvailableCategories(defaults);
         if (selectedCategories.length === 0) setSelectedCategories([defaults[0].name]);
@@ -174,14 +174,14 @@ export default function ContentPage() {
   }
 
   // Generate Suggested Headlines based on Selected Categories
-  const primaryCat = selectedCategories[0] || "Dental Implants & Restorations";
-  const city = business?.city || "Austin";
-  const bizName = business?.name || "Apex Dental Care";
+  const primaryCat = selectedCategories[0] || "Services Guide";
+  const city = business?.city || "your area";
+  const bizName = business?.name || "Your Business";
 
   const suggestedHeadlines = [
-    `The Complete 2026 ${primaryCat} Guide in ${city}`,
-    `${primaryCat} Cost, Recovery & Step-by-Step Procedure at ${bizName}`,
-    `How to Choose the Best ${primaryCat} Specialist in ${city} (Checklist & FAQs)`,
+    `The Complete 2026 ${primaryCat} in ${city}`,
+    `${primaryCat}: Step-by-Step Overview & Key Benefits at ${bizName}`,
+    `How to Choose the Best Specialist for ${primaryCat} in ${city} (Checklist & FAQs)`,
   ];
 
   // Trigger AI Article Generation
@@ -377,7 +377,7 @@ export default function ContentPage() {
           <div>
             <div className="flex items-center gap-2">
               <span className="rounded-full bg-blue-500/20 px-2.5 py-0.5 text-xs font-bold text-blue-400">
-                {business?.industry || "Dental & Healthcare"}
+                {business?.industry || "Professional Services"}
               </span>
               <span className="text-xs text-slate-500">• {business?.city || "Local Market"}</span>
               {wpConn?.connected && (

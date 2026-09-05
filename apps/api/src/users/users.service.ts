@@ -387,4 +387,220 @@ export class UsersService {
 
     return { success: true, message: "Session revoked successfully." };
   }
+
+  /**
+   * Super Admin: Reset Entire Platform Data (Wipes all non-superadmin users, businesses, audits, and cache)
+   */
+  async resetEntireSystem(superAdminUserId: string) {
+    const actor = await prisma.user.findUnique({ where: { id: superAdminUserId } });
+    if (!actor?.isSuperAdmin) {
+      throw new ForbiddenException("Access denied. Super Administrator authority required.");
+    }
+
+    this.logger.warn(`Super Admin ${actor.email} initiated FULL PLATFORM DATA RESET`);
+
+    // 1. Identify Master Business and Super Admin
+    let masterBiz = await prisma.business.findFirst({
+      where: { name: "BrandOS Global Headquarters" },
+    });
+
+    if (!masterBiz) {
+      masterBiz = await prisma.business.create({
+        data: {
+          name: "BrandOS Global Headquarters",
+          website: "https://brandoseye.com",
+          industry: "Enterprise AI & Growth Tech",
+          city: "Austin, TX",
+          phone: "+1 (512) 555-0100",
+          email: "superadmin@brandoseye.com",
+          subscriptionTier: "AGENCY",
+        },
+      });
+    }
+
+    // 2. Delete non-master businesses and all associated cascade relations
+    const otherBusinesses = await prisma.business.findMany({
+      where: { id: { not: masterBiz.id } },
+      select: { id: true },
+    });
+    const bizIdsToDelete = otherBusinesses.map((b) => b.id);
+
+    if (bizIdsToDelete.length > 0) {
+      await prisma.googleReview.deleteMany({ where: { businessId: { in: bizIdsToDelete } } });
+      await prisma.auditFinding.deleteMany({ where: { audit: { businessId: { in: bizIdsToDelete } } } });
+      await prisma.competitorMention.deleteMany({ where: { competitor: { businessId: { in: bizIdsToDelete } } } });
+      await prisma.websiteAudit.deleteMany({ where: { businessId: { in: bizIdsToDelete } } });
+      await prisma.gbpAudit.deleteMany({ where: { businessId: { in: bizIdsToDelete } } });
+      await prisma.socialAudit.deleteMany({ where: { businessId: { in: bizIdsToDelete } } });
+      await prisma.aiVisibilityReport.deleteMany({ where: { businessId: { in: bizIdsToDelete } } });
+      await prisma.recommendation.deleteMany({ where: { businessId: { in: bizIdsToDelete } } });
+      await prisma.competitor.deleteMany({ where: { businessId: { in: bizIdsToDelete } } });
+      await prisma.dashboardWidget.deleteMany({ where: { businessId: { in: bizIdsToDelete } } });
+      await prisma.metricSnapshot.deleteMany({ where: { businessId: { in: bizIdsToDelete } } });
+      await prisma.businessSnapshot.deleteMany({ where: { businessId: { in: bizIdsToDelete } } });
+      await prisma.integrationAccount.deleteMany({ where: { businessId: { in: bizIdsToDelete } } });
+      await prisma.membership.deleteMany({ where: { businessId: { in: bizIdsToDelete } } });
+      await prisma.business.deleteMany({ where: { id: { in: bizIdsToDelete } } });
+    }
+
+    // 3. Delete non-superadmin users
+    const nonSuperAdmins = await prisma.user.findMany({
+      where: { isSuperAdmin: false },
+      select: { id: true },
+    });
+    const userIdsToDelete = nonSuperAdmins.map((u) => u.id);
+
+    if (userIdsToDelete.length > 0) {
+      await prisma.session.deleteMany({ where: { userId: { in: userIdsToDelete } } });
+      await prisma.membership.deleteMany({ where: { userId: { in: userIdsToDelete } } });
+      await prisma.user.deleteMany({ where: { id: { in: userIdsToDelete } } });
+    }
+
+    // 4. Ensure Super Admin is member of Master Business
+    const existingMembership = await prisma.membership.findFirst({
+      where: { userId: superAdminUserId, businessId: masterBiz.id },
+    });
+    if (!existingMembership) {
+      await prisma.membership.create({
+        data: {
+          userId: superAdminUserId,
+          businessId: masterBiz.id,
+          role: Role.SUPER_ADMIN,
+        },
+      });
+    }
+
+    await this.activity.log({
+      userId: superAdminUserId,
+      businessId: masterBiz.id,
+      action: "PLATFORM_DATA_RESET",
+      category: "SECURITY",
+      entityType: "DATABASE",
+      entityId: "postgres",
+      description: `Super Admin executed full system reset. All test businesses and user profiles wiped cleanly.`,
+    });
+
+    return {
+      success: true,
+      message: `System reset complete. ${bizIdsToDelete.length} businesses and ${userIdsToDelete.length} user accounts removed. Super Admin environment is ready.`,
+      businessesRemoved: bizIdsToDelete.length,
+      usersRemoved: userIdsToDelete.length,
+    };
+  }
+
+  /**
+   * Super Admin: Delete a specific user profile
+   */
+  async deleteUserBySuperAdmin(superAdminUserId: string, targetUserId: string) {
+    const actor = await prisma.user.findUnique({ where: { id: superAdminUserId } });
+    if (!actor?.isSuperAdmin) {
+      throw new ForbiddenException("Super Administrator authority required.");
+    }
+    if (superAdminUserId === targetUserId) {
+      throw new BadRequestException("Super Administrator cannot delete their own account.");
+    }
+
+    const targetUser = await prisma.user.findUnique({
+      where: { id: targetUserId },
+      include: {
+        memberships: {
+          include: { business: true },
+        },
+      },
+    });
+
+    if (!targetUser) {
+      throw new NotFoundException("Target user not found.");
+    }
+
+    // Identify businesses exclusively owned by this user
+    for (const mem of targetUser.memberships) {
+      if (mem.role === Role.OWNER) {
+        const ownerCount = await prisma.membership.count({
+          where: { businessId: mem.businessId, role: Role.OWNER },
+        });
+        if (ownerCount <= 1) {
+          // Delete exclusive business
+          await this.deleteBusinessBySuperAdmin(superAdminUserId, mem.businessId).catch(() => null);
+        }
+      }
+    }
+
+    await prisma.session.deleteMany({ where: { userId: targetUserId } });
+    await prisma.membership.deleteMany({ where: { userId: targetUserId } });
+    await prisma.user.delete({ where: { id: targetUserId } });
+
+    return { success: true, message: `User ${targetUser.email || targetUser.name} deleted successfully.` };
+  }
+
+  /**
+   * Super Admin: Delete a specific business workspace
+   */
+  async deleteBusinessBySuperAdmin(superAdminUserId: string, targetBusinessId: string) {
+    const actor = await prisma.user.findUnique({ where: { id: superAdminUserId } });
+    if (!actor?.isSuperAdmin) {
+      throw new ForbiddenException("Super Administrator authority required.");
+    }
+
+    const biz = await prisma.business.findUnique({ where: { id: targetBusinessId } });
+    if (!biz) {
+      throw new NotFoundException("Business not found.");
+    }
+    if (biz.name === "BrandOS Global Headquarters") {
+      throw new BadRequestException("Cannot delete the Master BrandOS Global Headquarters workspace.");
+    }
+
+    await prisma.googleReview.deleteMany({ where: { businessId: targetBusinessId } });
+    await prisma.auditFinding.deleteMany({ where: { audit: { businessId: targetBusinessId } } });
+    await prisma.competitorMention.deleteMany({ where: { competitor: { businessId: targetBusinessId } } });
+    await prisma.websiteAudit.deleteMany({ where: { businessId: targetBusinessId } });
+    await prisma.gbpAudit.deleteMany({ where: { businessId: targetBusinessId } });
+    await prisma.socialAudit.deleteMany({ where: { businessId: targetBusinessId } });
+    await prisma.aiVisibilityReport.deleteMany({ where: { businessId: targetBusinessId } });
+    await prisma.recommendation.deleteMany({ where: { businessId: targetBusinessId } });
+    await prisma.competitor.deleteMany({ where: { businessId: targetBusinessId } });
+    await prisma.dashboardWidget.deleteMany({ where: { businessId: targetBusinessId } });
+    await prisma.metricSnapshot.deleteMany({ where: { businessId: targetBusinessId } });
+    await prisma.businessSnapshot.deleteMany({ where: { businessId: targetBusinessId } });
+    await prisma.integrationAccount.deleteMany({ where: { businessId: targetBusinessId } });
+    await prisma.membership.deleteMany({ where: { businessId: targetBusinessId } });
+    await prisma.business.delete({ where: { id: targetBusinessId } });
+
+    return { success: true, message: `Business ${biz.name} and all associated records deleted successfully.` };
+  }
+
+  /**
+   * Super Admin: Reset all data and audits for a specific business
+   */
+  async resetBusinessDataBySuperAdmin(superAdminUserId: string, targetBusinessId: string) {
+    const actor = await prisma.user.findUnique({ where: { id: superAdminUserId } });
+    if (!actor?.isSuperAdmin) {
+      throw new ForbiddenException("Super Administrator authority required.");
+    }
+
+    const biz = await prisma.business.findUnique({ where: { id: targetBusinessId } });
+    if (!biz) {
+      throw new NotFoundException("Business not found.");
+    }
+
+    await prisma.googleReview.deleteMany({ where: { businessId: targetBusinessId } });
+    await prisma.auditFinding.deleteMany({ where: { audit: { businessId: targetBusinessId } } });
+    await prisma.competitorMention.deleteMany({ where: { competitor: { businessId: targetBusinessId } } });
+    await prisma.websiteAudit.deleteMany({ where: { businessId: targetBusinessId } });
+    await prisma.gbpAudit.deleteMany({ where: { businessId: targetBusinessId } });
+    await prisma.socialAudit.deleteMany({ where: { businessId: targetBusinessId } });
+    await prisma.aiVisibilityReport.deleteMany({ where: { businessId: targetBusinessId } });
+    await prisma.recommendation.deleteMany({ where: { businessId: targetBusinessId } });
+    await prisma.competitor.deleteMany({ where: { businessId: targetBusinessId } });
+    await prisma.metricSnapshot.deleteMany({ where: { businessId: targetBusinessId } });
+    await prisma.businessSnapshot.deleteMany({ where: { businessId: targetBusinessId } });
+
+    // Reset integration metrics
+    await prisma.integrationAccount.updateMany({
+      where: { businessId: targetBusinessId },
+      data: { metricsCache: null, lastSyncedAt: null },
+    });
+
+    return { success: true, message: `All audits, metrics, and snapshots for ${biz.name} have been reset.` };
+  }
 }

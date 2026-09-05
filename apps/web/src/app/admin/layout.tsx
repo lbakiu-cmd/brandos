@@ -1,25 +1,24 @@
 "use client";
 
-import { type ReactNode } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
-  ShieldAlert,
   Users,
   Activity,
   Building2,
   LayoutDashboard,
-  ArrowLeft,
   ShieldCheck,
-  Eye,
   LogOut,
-  Sparkles,
   Terminal,
+  RefreshCw,
+  Server,
 } from "lucide-react";
-import { UserProfileDropdown } from "@/components/UserProfileDropdown";
+import { authApi } from "@/lib/api";
 
 const ADMIN_NAV = [
   { href: "/admin", label: "Control Center", icon: LayoutDashboard },
+  { href: "/admin/vps", label: "VPS Realtime Monitor", icon: Server },
   { href: "/admin/users", label: "User Management & Team", icon: Users },
   { href: "/admin/activity", label: "Global Audit & Activity", icon: Activity },
   { href: "/admin/businesses", label: "Client Workspaces & Tenancy", icon: Building2 },
@@ -27,6 +26,65 @@ const ADMIN_NAV = [
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
+
+  const [loading, setLoading] = useState(pathname !== "/admin/login");
+  const [authorized, setAuthorized] = useState(false);
+
+  useEffect(() => {
+    if (pathname === "/admin/login") {
+      setLoading(false);
+      return;
+    }
+
+    async function checkSuperAdmin() {
+      try {
+        const meRes = await authApi.me();
+        const user = meRes?.user;
+        const isSuper =
+          user?.isSuperAdmin === true ||
+          user?.role === "SUPER_ADMIN" ||
+          user?.memberships?.some((m: any) => m.role === "SUPER_ADMIN");
+
+        if (isSuper) {
+          setAuthorized(true);
+        } else {
+          router.replace("/admin/login");
+        }
+      } catch {
+        router.replace("/admin/login");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    checkSuperAdmin();
+  }, [pathname, router]);
+
+  if (pathname === "/admin/login") {
+    return <>{children}</>;
+  }
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-950 text-white">
+        <RefreshCw className="h-8 w-8 animate-spin text-purple-500" />
+      </div>
+    );
+  }
+
+  if (!authorized) {
+    return null;
+  }
+
+  const handleAdminLogout = async () => {
+    try {
+      await authApi.logout().catch(() => {});
+    } catch {
+      // Ignore
+    }
+    router.push("/admin/login");
+  };
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 selection:bg-purple-500 selection:text-white">
@@ -43,7 +101,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             </span>
             <p className="text-[10px] text-purple-400 font-medium flex items-center gap-1">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-              Super Admin Authority
+              SaaS Owner Authority
             </p>
           </div>
         </div>
@@ -73,18 +131,15 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           })}
         </nav>
 
-        {/* Exit to End-User Dashboard button */}
-        <div className="mt-auto pt-3 border-t border-slate-800/80 space-y-2">
-          <Link
-            href="/dashboard"
-            className="flex items-center justify-between rounded-xl bg-slate-950/80 border border-slate-800 px-3 py-2.5 text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800 hover:border-slate-700 transition group"
+        {/* Super Admin Logout */}
+        <div className="mt-auto pt-3 border-t border-slate-800/80">
+          <button
+            onClick={handleAdminLogout}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-purple-950/40 border border-purple-800/40 px-3 py-2.5 text-xs font-semibold text-purple-300 hover:text-white hover:bg-purple-900/50 transition"
           >
-            <div className="flex items-center gap-2">
-              <ArrowLeft className="h-4 w-4 text-slate-400 group-hover:text-white transition" />
-              <span>Back to User Dashboard</span>
-            </div>
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400">App</span>
-          </Link>
+            <LogOut className="h-4 w-4" />
+            <span>Sign Out from Admin</span>
+          </button>
         </div>
       </aside>
 
@@ -95,12 +150,19 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           <div className="flex items-center gap-3">
             <span className="flex items-center gap-1.5 rounded-full bg-purple-500/10 px-3 py-1 text-xs font-semibold text-purple-300 border border-purple-500/20">
               <Terminal className="h-3.5 w-3.5" />
-              <span>Super Admin Management Root (/admin)</span>
+              <span>Restricted Control Center</span>
             </span>
           </div>
 
-          <div className="flex items-center gap-4">
-            <UserProfileDropdown />
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-purple-300/80 font-mono">superadmin@brandoseye.com</span>
+            <button
+              onClick={handleAdminLogout}
+              className="rounded-lg bg-slate-900 border border-slate-800 p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 transition"
+              title="Sign Out"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
           </div>
         </header>
 

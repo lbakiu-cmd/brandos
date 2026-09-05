@@ -33,7 +33,7 @@ export class ActivityController {
   ) {
     let bizId: string | undefined;
     if (!req.user?.isSuperAdmin) {
-      const biz = await this.business.get(req.user.id).catch(() => null);
+      const biz = await this.business.get(req.user.id, req.user.activeBusinessId).catch(() => null);
       bizId = biz?.id;
     }
 
@@ -53,7 +53,7 @@ export class ActivityController {
   async getStats(@Req() req: any) {
     let bizId: string | undefined;
     if (!req.user?.isSuperAdmin) {
-      const biz = await this.business.get(req.user.id).catch(() => null);
+      const biz = await this.business.get(req.user.id, req.user.activeBusinessId).catch(() => null);
       bizId = biz?.id;
     }
     return this.activity.getStats(bizId);
@@ -66,7 +66,7 @@ export class ActivityController {
   ) {
     let bizId: string | undefined;
     if (!req.user?.isSuperAdmin) {
-      const biz = await this.business.get(req.user.id).catch(() => null);
+      const biz = await this.business.get(req.user.id, req.user.activeBusinessId).catch(() => null);
       bizId = biz?.id;
     }
     return this.activity.exportLogs(bizId, body?.format || "json");

@@ -10,7 +10,8 @@ import {
   BadRequestException,
   Logger,
 } from "@nestjs/common";
-import { AuthGuard } from "../auth/auth.guard";
+import { AuthGuard, COOKIE_NAME } from "../auth/auth.guard";
+import { AuthService } from "../auth/auth.service";
 import { GoogleOAuthService } from "./google-oauth.service";
 import { MetaOAuthService } from "./meta-oauth.service";
 import { BusinessService } from "../business/business.service";
@@ -23,7 +24,8 @@ export class OAuthController {
   constructor(
     private readonly googleOAuth: GoogleOAuthService,
     private readonly metaOAuth: MetaOAuthService,
-    private readonly business: BusinessService
+    private readonly business: BusinessService,
+    private readonly authService: AuthService
   ) {}
 
   private async saveIntegration(
@@ -77,7 +79,7 @@ export class OAuthController {
   @Get("google/url")
   @UseGuards(AuthGuard)
   async getGoogleAuthUrl(@Req() req: any, @Query("returnUrl") returnUrl?: string) {
-    const biz = await this.business.get(req.user.id);
+    const biz = await this.business.get(req.user.id, req.user.activeBusinessId);
     const authUrl = this.googleOAuth.generateAuthUrl(biz.id, returnUrl);
     return { url: authUrl };
   }
@@ -92,7 +94,7 @@ export class OAuthController {
     @Res() res: any,
     @Query("returnUrl") returnUrl?: string
   ) {
-    const biz = await this.business.get(req.user.id);
+    const biz = await this.business.get(req.user.id, req.user.activeBusinessId);
     const authUrl = this.googleOAuth.generateAuthUrl(biz.id, returnUrl);
     
     // Explicit 302 redirect for Fastify + HTML fallback
@@ -120,6 +122,7 @@ export class OAuthController {
     @Query("code") code: string,
     @Query("state") state: string,
     @Query("error") error: string,
+    @Req() req: any,
     @Res() res: any
   ) {
     const frontendBase = process.env.FRONTEND_URL || "https://brandoseye.com";
@@ -127,21 +130,99 @@ export class OAuthController {
     if (error || !code) {
       this.logger.warn(`Google OAuth error or cancellation: ${error}`);
       res.status(302);
-      res.header("Location", `${frontendBase}/dashboard/integrations?error=google_cancelled`);
+      res.header("Location", `${frontendBase}/login?error=${encodeURIComponent(error || "google_cancelled")}`);
       return res.send();
     }
 
     try {
-      let businessId = "";
-      let returnPath = "/dashboard/integrations";
+      let stateData: any = {};
       try {
-        const decoded = JSON.parse(Buffer.from(state, "base64url").toString());
-        businessId = decoded.bId;
-        returnPath = decoded.ret || returnPath;
-      } catch {
-        const defaultBiz = await prisma.business.findFirst();
-        if (defaultBiz) businessId = defaultBiz.id;
+        if (state) {
+          stateData = JSON.parse(Buffer.from(state, "base64url").toString());
+        }
+      } catch (err) {
+        this.logger.warn(`Could not parse OAuth state: ${state}`);
       }
+
+      // Check if this is a USER LOGIN / AUTHENTICATION request
+      const isAuthFlow =
+        stateData.auth === true ||
+        stateData.purpose === "login" ||
+        (!stateData.bId && !stateData.businessId);
+
+      if (isAuthFlow) {
+        this.logger.log(`Processing Google User Sign-In OAuth flow...`);
+        const meta = {
+          ip:
+            (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ||
+            req.ip ||
+            "127.0.0.1",
+          userAgent: (req.headers["user-agent"] as string) || "Unknown Device",
+        };
+
+        const redirectUri =
+          process.env.GOOGLE_AUTH_REDIRECT_URI ||
+          process.env.GOOGLE_REDIRECT_URI ||
+          "https://brandoseye.com/api/oauth/google/callback";
+
+        const result = await this.authService.loginWithGoogle(
+          { code, redirectUri },
+          meta
+        );
+
+        if ((result as any).requires2fa) {
+          const r = result as any;
+          if (r.setupRequired) {
+            this.logger.log(
+              `Google user requires 2FA setup: ${r.user?.email} (${r.user?.id})`
+            );
+            res.status(302);
+            res.header(
+              "Location",
+              `${frontendBase}/login?setup2fa=1&tempToken=${encodeURIComponent(
+                r.tempToken
+              )}&secret=${encodeURIComponent(r.secret || "")}&email=${encodeURIComponent(
+                r.user?.email || ""
+              )}`
+            );
+            return res.send();
+          } else {
+            this.logger.log(
+              `Google user requires 2FA challenge: ${r.user?.email} (${r.user?.id})`
+            );
+            res.status(302);
+            res.header(
+              "Location",
+              `${frontendBase}/login?verify2fa=1&tempToken=${encodeURIComponent(
+                r.tempToken
+              )}&email=${encodeURIComponent(r.user?.email || "")}`
+            );
+            return res.send();
+          }
+        }
+
+        if ((result as any).token) {
+          // Set the secure session cookie on the reply
+          res.setCookie(COOKIE_NAME, (result as any).token, {
+            path: "/",
+            httpOnly: true,
+            sameSite: "lax",
+            maxAge: 30 * 24 * 60 * 60,
+          });
+        }
+
+        const destination = stateData.ret || "/dashboard";
+        this.logger.log(
+          `Google user login successful: ${(result as any).user?.email}, redirecting to ${destination}`
+        );
+        res.status(302);
+        res.header("Location", `${frontendBase}${destination}`);
+        return res.send();
+      }
+
+      // Otherwise, this is a Business Integrations OAuth flow
+      const businessId = stateData.bId || stateData.businessId;
+      const returnPath = stateData.ret || "/dashboard/integrations";
 
       if (!businessId) {
         throw new BadRequestException("No valid business found in OAuth state");
@@ -205,7 +286,7 @@ export class OAuthController {
   @Get("meta/url")
   @UseGuards(AuthGuard)
   async getMetaAuthUrl(@Req() req: any, @Query("returnUrl") returnUrl?: string) {
-    const biz = await this.business.get(req.user.id);
+    const biz = await this.business.get(req.user.id, req.user.activeBusinessId);
     const authUrl = this.metaOAuth.generateAuthUrl(biz.id, returnUrl);
     return { url: authUrl };
   }
@@ -220,7 +301,7 @@ export class OAuthController {
     @Res() res: any,
     @Query("returnUrl") returnUrl?: string
   ) {
-    const biz = await this.business.get(req.user.id);
+    const biz = await this.business.get(req.user.id, req.user.activeBusinessId);
     const authUrl = this.metaOAuth.generateAuthUrl(biz.id, returnUrl);
     res.status(302);
     res.header("Location", authUrl);

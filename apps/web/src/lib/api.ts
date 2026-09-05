@@ -10,6 +10,18 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
     headers["Content-Type"] = "application/json";
   }
 
+  // Automatically attach active business header if available in browser
+  if (typeof window !== "undefined") {
+    try {
+      const activeBizId = localStorage.getItem("brandos_active_business_id");
+      if (activeBizId && !headers["x-business-id"]) {
+        headers["x-business-id"] = activeBizId;
+      }
+    } catch {
+      // ignore localstorage errors
+    }
+  }
+
   const res = await fetch(`${API_URL}${path}`, {
     ...options,
     credentials: "include",
@@ -24,20 +36,89 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
   return res.json();
 }
 
+export interface BusinessItem {
+  id: string;
+  name: string;
+  city?: string | null;
+  industry?: string | null;
+  website?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  subscriptionTier?: string;
+  role?: string;
+  latestScore?: number | null;
+  reviewsCount?: number;
+  competitorsCount?: number;
+  createdAt?: string;
+}
+
+export const businessApi = {
+  list: () => apiFetch<BusinessItem[]>("/business/list"),
+  current: () => apiFetch<BusinessItem>("/business"),
+  switch: (businessId: string) =>
+    apiFetch<{ success: boolean; business: BusinessItem }>("/business/switch", {
+      method: "POST",
+      body: JSON.stringify({ businessId }),
+    }),
+  create: (data: {
+    name: string;
+    city?: string;
+    industry?: string;
+    website?: string;
+    phone?: string;
+    email?: string;
+  }) =>
+    apiFetch<BusinessItem>("/business", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+};
+
 export const authApi = {
   register: (data: { email: string; password: string; name?: string; businessName?: string }) =>
-    apiFetch<{ user: any }>("/auth/register", { method: "POST", body: JSON.stringify(data) }),
+    apiFetch<{
+      requires2fa?: boolean;
+      setupRequired?: boolean;
+      tempToken?: string;
+      qrCodeUri?: string;
+      secret?: string;
+      backupCodes?: string[];
+      user?: any;
+      token?: string;
+      message?: string;
+    }>("/auth/register", { method: "POST", body: JSON.stringify(data) }),
   login: (data: { email: string; password: string }) =>
-    apiFetch<{ user: any }>("/auth/login", { method: "POST", body: JSON.stringify(data) }),
-  sendPhoneOtp: (phone: string) =>
-    apiFetch<{ success: boolean; phone: string; expiresInSeconds: number; message: string; devOtp?: string }>(
-      "/auth/phone/send-otp",
-      { method: "POST", body: JSON.stringify({ phone }) }
-    ),
-  verifyPhoneOtp: (data: { phone: string; code: string; name?: string; businessName?: string }) =>
-    apiFetch<{ user: any }>("/auth/phone/verify-otp", { method: "POST", body: JSON.stringify(data) }),
+    apiFetch<{
+      requires2fa?: boolean;
+      setupRequired?: boolean;
+      tempToken?: string;
+      qrCodeUri?: string;
+      secret?: string;
+      backupCodes?: string[];
+      user?: any;
+      token?: string;
+      message?: string;
+    }>("/auth/login", { method: "POST", body: JSON.stringify(data) }),
+  verify2faSetup: (data: { tempToken: string; code: string; secret: string }) =>
+    apiFetch<{ user: any; backupCodes?: string[]; message: string }>("/auth/2fa/verify-setup", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  verify2faLogin: (data: { tempToken: string; code: string }) =>
+    apiFetch<{ user: any }>("/auth/2fa/verify-login", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
   googleVerify: (data: { idToken?: string; accessToken?: string; code?: string }) =>
-    apiFetch<{ user: any }>("/auth/google/verify", { method: "POST", body: JSON.stringify(data) }),
+    apiFetch<{
+      requires2fa?: boolean;
+      setupRequired?: boolean;
+      tempToken?: string;
+      qrCodeUri?: string;
+      secret?: string;
+      user?: any;
+      token?: string;
+    }>("/auth/google/verify", { method: "POST", body: JSON.stringify(data) }),
   getGoogleAuthUrl: (returnUrl?: string) =>
     apiFetch<{ url: string; clientId: string }>(`/auth/google/url${returnUrl ? `?returnUrl=${encodeURIComponent(returnUrl)}` : ""}`),
   me: () => apiFetch<{ user: any }>("/auth/me"),
@@ -84,6 +165,79 @@ export const usersApi = {
     ),
   revokeSession: (sessionId: string) =>
     apiFetch<{ success: boolean; message: string }>(`/users/sessions/${sessionId}`, { method: "DELETE" }),
+};
+
+export interface VpsTelemetry {
+  timestamp: string;
+  vps: {
+    host: string;
+    domain: string;
+    platform: string;
+    arch: string;
+    release: string;
+    hostname: string;
+    uptimeSeconds: number;
+    loadAvg: number[];
+    coresCount: number;
+  };
+  cpu: {
+    usagePct: number;
+    cores: number;
+    model: string;
+    speedMhz: number;
+  };
+  memory: {
+    totalBytes: number;
+    usedBytes: number;
+    freeBytes: number;
+    totalGb: number;
+    usedGb: number;
+    freeGb: number;
+    usagePct: number;
+  };
+  disk: {
+    totalGb: number;
+    usedGb: number;
+    freeGb: number;
+    usagePct: number;
+  };
+  network: {
+    rxKbSec: number;
+    txKbSec: number;
+  };
+  services: Array<{
+    name: string;
+    pid: number;
+    status: string;
+    cpu: number;
+    memoryMb: number;
+    uptime: number;
+    restarts: number;
+  }>;
+}
+
+export const adminApi = {
+  getVpsMetrics: () => apiFetch<VpsTelemetry>("/system/metrics"),
+  resetSystem: () =>
+    apiFetch<{ success: boolean; message: string; businessesRemoved: number; usersRemoved: number }>(
+      "/users/admin/reset-system",
+      {
+        method: "POST",
+        body: JSON.stringify({ confirmation: "CONFIRM_RESET_ALL_DATA" }),
+      }
+    ),
+  deleteUser: (userId: string) =>
+    apiFetch<{ success: boolean; message: string }>(`/users/admin/users/${userId}`, {
+      method: "DELETE",
+    }),
+  deleteBusiness: (businessId: string) =>
+    apiFetch<{ success: boolean; message: string }>(`/users/admin/businesses/${businessId}`, {
+      method: "DELETE",
+    }),
+  resetBusinessData: (businessId: string) =>
+    apiFetch<{ success: boolean; message: string }>(`/users/admin/businesses/${businessId}/reset-data`, {
+      method: "POST",
+    }),
 };
 
 export const activityApi = {

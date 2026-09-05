@@ -75,7 +75,7 @@ async function main() {
   console.log("📦 Creating clean production bundle...");
   const bundlePath = path.resolve(__dirname, "..", "bundle.tar.gz");
   execSync(
-    'tar --exclude="node_modules" --exclude=".git" --exclude=".next" --exclude="dist" --exclude=".pnpm-store" --exclude=".turbo" --exclude="bundle.tar.gz" -czf bundle.tar.gz .',
+    'tar --exclude="node_modules" --exclude=".git" --exclude=".next" --exclude="dist" --exclude=".pnpm-store" --exclude=".turbo" --exclude="bundle.tar.gz" --exclude=".tmp.driveupload" --exclude=".tmp.drivedownload" --exclude=".kilo" --exclude="scratch" --exclude="trash" --exclude="*.tar.gz" -czf bundle.tar.gz .',
     { cwd: path.resolve(__dirname, ".."), stdio: "inherit" }
   );
 
@@ -105,7 +105,7 @@ async function main() {
     console.log("\n📂 Extracting files on VPS...");
     await runRemoteCommand(
       conn,
-      "cd /opt/brandos && rm -rf apps/api/src/inbox apps/api/src/posts apps/web/src/app/dashboard/inbox apps/web/src/app/dashboard/content && tar -xzf bundle.tar.gz && rm bundle.tar.gz && ls -la"
+      "cd /opt/brandos && rm -rf apps/api/src/inbox apps/api/src/posts apps/web/src/app/dashboard/inbox apps/web/src/app/dashboard/content packages/ai packages/config packages/integrations packages/shared packages/ui scratch brandos && tar -xzf bundle.tar.gz && rm bundle.tar.gz && ls -la"
     );
 
     // Step 6: Configure environment files
@@ -139,7 +139,7 @@ cp /opt/brandos/.env /opt/brandos/apps/api/.env
     console.log("\n🐳 Starting PostgreSQL 16 & Redis 7 Docker containers...");
     await runRemoteCommand(
       conn,
-      "cd /opt/brandos && docker compose up -d && docker ps"
+      "cd /opt/brandos && (docker compose -f infrastructure/docker/docker-compose.yml up -d || docker compose up -d) && docker ps"
     );
 
     // Step 8: Wait for Postgres to be healthy
@@ -177,7 +177,7 @@ cp /opt/brandos/.env /opt/brandos/apps/api/.env
     console.log("\n🏗️ Building production artifacts (NestJS API & Next.js Web App)...");
     await runRemoteCommand(
       conn,
-      "cd /opt/brandos && pnpm build"
+      "cd /opt/brandos && rm -rf apps/web/.next/cache && pnpm build --force"
     );
 
     // Step 12: Install PM2 process manager
@@ -251,7 +251,7 @@ EOF`
     await runRemoteCommand(
       conn,
       `cd /opt/brandos
-       pm2 startOrRestart ecosystem.config.js
+       pm2 restart all --update-env || pm2 start ecosystem.config.js
        pm2 save
        pm2 startup systemd -u root --hp /root || true
        pm2 status`
@@ -271,18 +271,35 @@ EOF`
        fi
 
        cat << 'EOF' > /etc/caddy/Caddyfile
-:80 {
-    # API endpoints directly forwarded to NestJS
+{
+    email support@brandoseye.com
+}
+
+brandoseye.com, www.brandoseye.com {
     handle_path /api/* {
         reverse_proxy 127.0.0.1:3001
     }
 
-    # WordPress handshake & plugin downloads forwarded to NestJS
     handle /wordpress/* {
         reverse_proxy 127.0.0.1:3001
     }
 
-    # All frontend pages & SSR forwarded to Next.js
+    handle {
+        reverse_proxy 127.0.0.1:3000
+    }
+
+    encode gzip zstd
+}
+
+:80 {
+    handle_path /api/* {
+        reverse_proxy 127.0.0.1:3001
+    }
+
+    handle /wordpress/* {
+        reverse_proxy 127.0.0.1:3001
+    }
+
     handle {
         reverse_proxy 127.0.0.1:3000
     }

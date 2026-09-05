@@ -80,20 +80,32 @@ async function askAnthropic(q: EngineQuery): Promise<string | null> {
 
 async function askGemini(q: EngineQuery): Promise<string | null> {
   const key = process.env.GEMINI_API_KEY;
-  if (!key) return null;
-  const res = await fetch(
-    "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + key,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: buildPrompt(q) }] }],
-      }),
-    },
-  );
-  if (!res.ok) return null;
-  const json: any = await res.json();
-  return json?.candidates?.[0]?.content?.parts?.[0]?.text ?? null;
+  if (!key) {
+    console.warn("⚠️ GEMINI_API_KEY is missing in worker environment.");
+    return null;
+  }
+  try {
+    const res = await fetch(
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + key,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: buildPrompt(q) }] }],
+        }),
+      },
+    );
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => null);
+      console.error("❌ askGemini failed [HTTP " + res.status + "]:", errJson?.error?.message || res.statusText);
+      return null;
+    }
+    const json: any = await res.json();
+    return json?.candidates?.[0]?.content?.parts?.[0]?.text ?? null;
+  } catch (err: any) {
+    console.error("❌ askGemini network error:", err.message);
+    return null;
+  }
 }
 
 const PROVIDERS: Record<string, (q: EngineQuery) => Promise<string | null>> = {
@@ -101,6 +113,8 @@ const PROVIDERS: Record<string, (q: EngineQuery) => Promise<string | null>> = {
   PERPLEXITY: askPerplexity,
   CLAUDE: askAnthropic,
   GEMINI: askGemini,
+  GOOGLE_AI_OVERVIEW: askGemini,
+  BING_COPILOT: askOpenAI,
 };
 
 // ---------------- Answer analysis ----------------

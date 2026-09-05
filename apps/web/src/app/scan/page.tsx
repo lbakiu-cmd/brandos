@@ -3,6 +3,7 @@
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 type ScanResult = {
   url: string;
@@ -106,43 +107,44 @@ function ScanContent() {
     s >= 75 ? "text-emerald-400" : s >= 50 ? "text-amber-400" : "text-rose-400";
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100 selection:bg-blue-600 selection:text-white">
+    <main className="min-h-screen bg-zinc-950 text-zinc-100 selection:bg-zinc-800 selection:text-white">
       {/* Top Navbar */}
-      <nav className="border-b border-slate-800/80 bg-slate-950/80 px-6 py-4 backdrop-blur-md">
+      <nav className="border-b border-zinc-800/80 bg-zinc-950/80 px-6 py-3.5 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 text-sm font-black text-white shadow-lg shadow-blue-500/30">
+          <Link href="/" className="flex items-center gap-2.5">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-100 text-sm font-bold text-zinc-950 shadow-sm">
               B
             </span>
-            <span className="text-xl font-bold tracking-tight text-white">BrandOS</span>
+            <span className="text-base font-semibold tracking-tight text-white">BrandOS</span>
           </Link>
           <div className="flex items-center gap-3">
+            <ThemeToggle />
             <Link
               href="/login"
-              className="rounded-xl border border-slate-800 bg-slate-900 px-4 py-2 text-xs font-semibold text-slate-300 transition hover:bg-slate-800 hover:text-white"
+              className="rounded-lg border border-zinc-800 bg-zinc-900 px-3.5 py-1.5 text-xs font-medium text-zinc-300 transition hover:bg-zinc-800 hover:text-white"
             >
               Sign In
             </Link>
             <Link
               href="/login"
-              className="rounded-xl bg-blue-600 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-blue-600/30 transition hover:bg-blue-500"
+              className="rounded-lg bg-white px-3.5 py-1.5 text-xs font-semibold text-zinc-950 shadow-sm transition hover:bg-zinc-200"
             >
-              Start Free Trial
+              Get Started
             </Link>
           </div>
         </div>
       </nav>
 
       {/* Hero & Input Section */}
-      <div className="mx-auto max-w-4xl px-6 pt-12 pb-8 text-center">
-        <span className="inline-block rounded-full border border-blue-500/20 bg-blue-500/10 px-3 py-1 text-xs font-bold uppercase tracking-wider text-blue-400">
-          Instant AI Visibility & Discovery Scanner
+      <div className="mx-auto max-w-4xl px-6 pt-16 pb-8 text-center">
+        <span className="inline-block rounded-full border border-zinc-800 bg-zinc-900 px-3 py-1 text-xs font-medium text-zinc-300">
+          Presence & Search Discovery Scanner
         </span>
-        <h1 className="mt-4 text-3xl font-extrabold tracking-tight text-white sm:text-5xl">
-          Is Your Business Visible to <span className="bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">ChatGPT & AI Search?</span>
+        <h1 className="mt-6 text-3xl font-semibold tracking-tight text-white sm:text-5xl">
+          Is Your Business Visible across Modern Search & Assistants?
         </h1>
-        <p className="mx-auto mt-3 max-w-2xl text-sm text-slate-400 sm:text-base">
-          Enter your website to audit your AI search readiness, Google Business ranking factors, and unlock actionable fixes in seconds.
+        <p className="mx-auto mt-3 max-w-xl text-xs text-zinc-400 sm:text-sm leading-relaxed">
+          Enter your website to audit assistant readiness, Google Business ranking signals, and technical Schema data.
         </p>
 
         {/* Scan Bar */}
@@ -151,7 +153,7 @@ function ScanContent() {
             e.preventDefault();
             handleScan();
           }}
-          className="mx-auto mt-8 flex max-w-2xl flex-col gap-3 rounded-2xl border border-slate-800 bg-slate-900/80 p-3 shadow-2xl backdrop-blur-md sm:flex-row"
+          className="mx-auto mt-8 flex max-w-xl flex-col gap-2.5 rounded-xl border border-zinc-800 bg-zinc-900/90 p-2 shadow-2xl sm:flex-row"
         >
           <input
             type="text"
@@ -159,23 +161,20 @@ function ScanContent() {
             onChange={(e) => setUrl(e.target.value)}
             placeholder="e.g. yourbusiness.com"
             disabled={scanning}
-            className="flex-1 rounded-xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm text-white placeholder-slate-500 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+            className="flex-1 rounded-lg border border-zinc-800 bg-zinc-950 px-3.5 py-2.5 text-xs text-white placeholder-zinc-500 outline-none focus:border-zinc-600 focus:ring-1 focus:ring-zinc-600"
           />
           <button
             type="submit"
             disabled={scanning || !url.trim()}
-            className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-blue-600/30 transition hover:from-blue-500 hover:to-indigo-500 disabled:opacity-50"
+            className="flex items-center justify-center gap-2 rounded-lg bg-white px-5 py-2.5 text-xs font-semibold text-zinc-950 shadow-sm transition hover:bg-zinc-200 disabled:opacity-50"
           >
             {scanning ? (
               <>
-                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-zinc-950 border-t-transparent"></span>
                 <span>Auditing…</span>
               </>
             ) : (
-              <>
-                <span>⚡</span>
-                <span>Scan Free</span>
-              </>
+              <span>Run Presence Audit</span>
             )}
           </button>
         </form>

@@ -39,12 +39,12 @@ type Business = {
 
 const VERTICALS = [
   {
-    id: "Dental & Healthcare",
-    icon: "🦷",
-    label: "Dental & Healthcare",
-    schema: "Dentist / MedicalClinic",
-    eeat: "Patient Care & Clinical Authority",
-    sampleQuery: "Emergency dentist in [City] with transparent pricing",
+    id: "Professional Services",
+    icon: "💼",
+    label: "Professional Services & Consulting",
+    schema: "ProfessionalService / Consulting",
+    eeat: "Client Case Studies & Industry Authority",
+    sampleQuery: "Top business consulting and advisory firm in [City]",
   },
   {
     id: "Home Services & Trades",
@@ -52,7 +52,7 @@ const VERTICALS = [
     label: "Home Services & Trades",
     schema: "Plumber / HVACBusiness / Contractor",
     eeat: "Field Experience & Licensed Trades",
-    sampleQuery: "24/7 emergency plumber near me in [City]",
+    sampleQuery: "24/7 emergency repair services near me in [City]",
   },
   {
     id: "Restaurants & Food",
@@ -60,15 +60,15 @@ const VERTICALS = [
     label: "Restaurants, Cafes & Food",
     schema: "Restaurant / Cafe / Menu",
     eeat: "Culinary Authenticity & Sourcing",
-    sampleQuery: "Best Italian dinner spots with outdoor seating in [City]",
+    sampleQuery: "Best local dinner spots and restaurants in [City]",
   },
   {
     id: "Legal & Financial",
     icon: "⚖️",
     label: "Legal & Financial Services",
     schema: "LegalService / Attorney / Accounting",
-    eeat: "Case Results & Bar Admissions",
-    sampleQuery: "Top rated personal injury attorney in [City]",
+    eeat: "Case Results & Professional Credentials",
+    sampleQuery: "Top rated attorneys and advisors in [City]",
   },
   {
     id: "Real Estate",
@@ -76,7 +76,7 @@ const VERTICALS = [
     label: "Real Estate & Brokerages",
     schema: "RealEstateAgent / Residence",
     eeat: "Neighborhood Market Expertise",
-    sampleQuery: "Best real estate agents to sell a home in [City]",
+    sampleQuery: "Best real estate agents and brokerages in [City]",
   },
   {
     id: "Beauty & Wellness",
@@ -84,7 +84,15 @@ const VERTICALS = [
     label: "Beauty Salons & Spas",
     schema: "BeautySalon / DaySpa",
     eeat: "Stylist Portfolios & Treatments",
-    sampleQuery: "Top rated hair salon and facial spa in [City]",
+    sampleQuery: "Top rated salon and wellness spa in [City]",
+  },
+  {
+    id: "Healthcare & Medical",
+    icon: "🏥",
+    label: "Healthcare & Medical Clinics",
+    schema: "MedicalClinic / Physician",
+    eeat: "Patient Care & Clinical Authority",
+    sampleQuery: "Top rated healthcare and medical clinic in [City]",
   },
   {
     id: "Automotive & Repair",
@@ -92,15 +100,7 @@ const VERTICALS = [
     label: "Automotive & Mechanics",
     schema: "AutoRepair / AutoDealer",
     eeat: "Certified Technicians & Warranties",
-    sampleQuery: "Trusted brake and transmission repair shop in [City]",
-  },
-  {
-    id: "Professional Services",
-    icon: "💼",
-    label: "B2B & Consulting",
-    schema: "ProfessionalService / Consulting",
-    eeat: "Client Case Studies & ROI",
-    sampleQuery: "Top business management consulting firm in [City]",
+    sampleQuery: "Trusted automotive repair and maintenance in [City]",
   },
 ];
 
@@ -116,7 +116,7 @@ export default function SettingsPage() {
   const [form, setForm] = useState<Record<string, string>>({
     name: "",
     city: "",
-    industry: "Dental & Healthcare",
+    industry: "Professional Services",
     website: "",
     phone: "",
     email: "",
@@ -126,7 +126,7 @@ export default function SettingsPage() {
   const [savedForm, setSavedForm] = useState<Record<string, string>>({
     name: "",
     city: "",
-    industry: "Dental & Healthcare",
+    industry: "Professional Services",
     website: "",
     phone: "",
     email: "",
@@ -144,8 +144,8 @@ export default function SettingsPage() {
 
   // User Account State
   const [userForm, setUserForm] = useState<{ name: string; email: string }>({
-    name: "Dr. Marcus Vance",
-    email: "marcus@dental-nobel.com",
+    name: "",
+    email: "",
   });
 
   // Password State
@@ -190,7 +190,7 @@ export default function SettingsPage() {
 
   // Generate real scannable TOTP QR code for Google Authenticator / Authy / 1Password
   useEffect(() => {
-    const userEmail = userForm.email || "marcus@dental-nobel.com";
+    const userEmail = userForm.email || "user@brandoseye.com";
     const label = encodeURIComponent(`BrandOS Eye (${userEmail})`);
     const issuer = encodeURIComponent("BrandOS Eye");
     const otpAuthUrl = `otpauth://totp/${label}?secret=${secretKey}&issuer=${issuer}&algorithm=SHA1&digits=6&period=30`;
@@ -224,6 +224,9 @@ export default function SettingsPage() {
       if (cached) {
         const parsed = JSON.parse(cached);
         if (parsed && typeof parsed === "object") {
+          if (parsed.industry === "Dental & Healthcare") {
+            parsed.industry = "Professional Services";
+          }
           setForm((prev) => ({ ...prev, ...parsed }));
           setSavedForm((prev) => ({ ...prev, ...parsed }));
           if (parsed.name || parsed.city || cachedSetup === "true") {
@@ -253,7 +256,7 @@ export default function SettingsPage() {
           const freshData: Record<string, string> = {
             name: b.name || "",
             city: b.city || "",
-            industry: b.industry || "Dental & Healthcare",
+            industry: b.industry || "Professional Services",
             website: b.website || "",
             phone: b.phone || "",
             email: b.email || "",
@@ -278,8 +281,8 @@ export default function SettingsPage() {
       .then((res) => {
         if (res?.user) {
           const freshUser = {
-            name: res.user.name || "Dr. Marcus Vance",
-            email: res.user.email || "marcus@dental-nobel.com",
+            name: res.user.name || "Business Owner",
+            email: res.user.email || "owner@brandoseye.com",
           };
           setUserForm(freshUser);
           try {
@@ -380,7 +383,7 @@ export default function SettingsPage() {
         const freshData: Record<string, string> = {
           name: updated.name || form.name || "",
           city: updated.city || form.city || "",
-          industry: updated.industry || form.industry || "Dental & Healthcare",
+          industry: updated.industry || form.industry || "Professional Services",
           website: updated.website || form.website || "",
           phone: updated.phone || form.phone || "",
           email: updated.email || form.email || "",
@@ -541,7 +544,7 @@ export default function SettingsPage() {
     VERTICALS.find((v) => (form.industry || "").toLowerCase().includes(v.id.toLowerCase().split(" ")[0])) ||
     VERTICALS[0];
 
-  const userInitials = (userForm.name || "Marcus Vance")
+  const userInitials = (userForm.name || userForm.email || "User")
     .split(" ")
     .map((n) => n[0])
     .join("")
@@ -688,7 +691,7 @@ export default function SettingsPage() {
                     <input
                       value={form.name}
                       onChange={(e) => setForm({ ...form, name: e.target.value })}
-                      placeholder="e.g. Nobel Dental Clinic"
+                      placeholder="e.g. Acme Growth Services"
                       className="w-full rounded-xl border border-slate-800 bg-slate-950/80 px-4 py-2.5 text-sm text-white placeholder-slate-600 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
                     />
                   </div>
@@ -698,7 +701,7 @@ export default function SettingsPage() {
                     <input
                       value={form.city}
                       onChange={(e) => setForm({ ...form, city: e.target.value })}
-                      placeholder="e.g. Tirana, Albania"
+                      placeholder="e.g. New York, NY"
                       className="w-full rounded-xl border border-slate-800 bg-slate-950/80 px-4 py-2.5 text-sm text-white placeholder-slate-600 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
                     />
                   </div>
@@ -708,7 +711,7 @@ export default function SettingsPage() {
                     <input
                       value={form.website}
                       onChange={(e) => setForm({ ...form, website: e.target.value })}
-                      placeholder="e.g. https://dental-nobel.com"
+                      placeholder="e.g. https://yourbusiness.com"
                       className="w-full rounded-xl border border-slate-800 bg-slate-950/80 px-4 py-2.5 text-sm text-white placeholder-slate-600 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
                     />
                   </div>
@@ -718,7 +721,7 @@ export default function SettingsPage() {
                     <input
                       value={form.phone}
                       onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                      placeholder="e.g. +355 4 222 3344"
+                      placeholder="e.g. +1 (555) 234-5678"
                       className="w-full rounded-xl border border-slate-800 bg-slate-950/80 px-4 py-2.5 text-sm text-white placeholder-slate-600 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
                     />
                   </div>
@@ -728,7 +731,7 @@ export default function SettingsPage() {
                     <input
                       value={form.email}
                       onChange={(e) => setForm({ ...form, email: e.target.value })}
-                      placeholder="e.g. info@dental-nobel.com"
+                      placeholder="e.g. contact@yourbusiness.com"
                       className="w-full rounded-xl border border-slate-800 bg-slate-950/80 px-4 py-2.5 text-sm text-white placeholder-slate-600 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
                     />
                   </div>
@@ -833,7 +836,7 @@ export default function SettingsPage() {
                         Account Owner
                       </span>
                     </div>
-                    <p className="text-xs text-slate-400 mt-0.5">{userForm.email} • {form.name || "Nobel Dental Clinic"}</p>
+                    <p className="text-xs text-slate-400 mt-0.5">{userForm.email} • {form.name || "Your Business"}</p>
                   </div>
                 </div>
 
@@ -850,7 +853,7 @@ export default function SettingsPage() {
                   <input
                     value={userForm.name}
                     onChange={(e) => setUserForm({ ...userForm, name: e.target.value })}
-                    placeholder="e.g. Dr. Marcus Vance"
+                    placeholder="e.g. Alex Morgan"
                     className="w-full rounded-xl border border-slate-800 bg-slate-950/80 px-4 py-2.5 text-sm text-white placeholder-slate-600 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
                   />
                 </div>
@@ -861,7 +864,7 @@ export default function SettingsPage() {
                     type="email"
                     value={userForm.email}
                     onChange={(e) => setUserForm({ ...userForm, email: e.target.value })}
-                    placeholder="e.g. user@dental-nobel.com"
+                    placeholder="e.g. alex@yourbusiness.com"
                     className="w-full rounded-xl border border-slate-800 bg-slate-950/80 px-4 py-2.5 text-sm text-white placeholder-slate-600 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
                   />
                 </div>

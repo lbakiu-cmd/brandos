@@ -21,7 +21,7 @@ import {
   Globe,
   Sparkles,
 } from "lucide-react";
-import { usersApi } from "@/lib/api";
+import { usersApi, adminApi } from "@/lib/api";
 
 type RoleType = "SUPER_ADMIN" | "OWNER" | "ADMIN" | "MEMBER" | "VIEWER";
 
@@ -67,16 +67,16 @@ const SEED_PLATFORM_USERS = [
     businesses: [{ id: "biz_hq", name: "BrandOS Global Headquarters", role: "SUPER_ADMIN" }],
   },
   {
-    id: "usr_marcus",
-    name: "Marcus Vance",
-    email: "marcus@nobeldental.com",
+    id: "usr_alex",
+    name: "Alex Morgan",
+    email: "alex@acmeconsulting.com",
     phone: "+15125550199",
     authProvider: "GOOGLE",
     status: "ACTIVE",
     isSuperAdmin: false,
     activeSessionsCount: 1,
     createdAt: new Date(Date.now() - 3600000 * 24 * 3).toISOString(),
-    businesses: [{ id: "biz_1", name: "Nobel Dental Clinic", role: "OWNER" }],
+    businesses: [{ id: "biz_1", name: "Acme Consulting Group", role: "OWNER" }],
   },
   {
     id: "usr_sarah",
@@ -247,7 +247,23 @@ export default function AdminUsersPage() {
     }
   };
 
-  // Handle Member Removal
+  // Handle Permanent User Deletion (Super Admin Authority)
+  const handleDeleteUser = async (user: any) => {
+    if (!confirm(`⚠️ PERMANENT ACCOUNT DELETION: Are you sure you want to completely delete user account "${user.email || user.name}" and any associated data?`)) {
+      return;
+    }
+    setErrorMsg("");
+    setSuccessMsg("");
+    try {
+      const res = await adminApi.deleteUser(user.id);
+      setSuccessMsg(res.message || `Deleted user account ${user.email || user.name}`);
+      loadData();
+    } catch (err: any) {
+      setErrorMsg(err.message || "Failed to delete user account.");
+    }
+  };
+
+  // Handle Member Removal from workspace
   const handleRemoveMember = async (userId: string, name: string) => {
     if (!confirm(`Are you sure you want to remove ${name} from this workspace?`)) return;
     setErrorMsg("");
@@ -608,6 +624,16 @@ export default function AdminUsersPage() {
                             <UserCheck className="h-4 w-4 text-emerald-400" />
                           )}
                         </button>
+
+                        {!u.isSuperAdmin && (
+                          <button
+                            onClick={() => handleDeleteUser(u)}
+                            title="Permanently delete user account"
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition"
+                          >
+                            <Trash2 className="h-4 w-4 text-red-400" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -794,7 +820,7 @@ export default function AdminUsersPage() {
                 <label className="block text-xs font-medium text-slate-300 mb-1">Full Name (Optional)</label>
                 <input
                   type="text"
-                  placeholder="e.g. Marcus Vance"
+                  placeholder="e.g. Alex Morgan"
                   value={inviteName}
                   onChange={(e) => setInviteName(e.target.value)}
                   className="w-full rounded-xl border border-slate-700 bg-slate-800 px-3.5 py-2.5 text-xs text-white placeholder-slate-500 outline-none focus:border-purple-500"

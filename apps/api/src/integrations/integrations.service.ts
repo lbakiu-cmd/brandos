@@ -104,13 +104,38 @@ export class IntegrationsService {
 
     const integrations = supportedProviders.map((sp) => {
       const existing = connectedMap.get(sp.provider as IntegrationProvider);
+      const isConnected = !!existing && existing.status === ConnectionStatus.CONNECTED;
+      const isWpConnected = sp.provider === "WORDPRESS" && Boolean(business.wordpressConnectedAt);
+
+      const effectiveMetrics = isConnected
+        ? existing?.metricsCache || this.generateSampleMetrics(sp.provider as IntegrationProvider, business)
+        : isWpConnected
+        ? business.wordpressTelemetry || null
+        : null;
+
+      // Auto-heal empty database cache in background
+      if (isConnected && existing && !existing.metricsCache && effectiveMetrics) {
+        prisma.integrationAccount
+          .update({
+            where: { id: existing.id },
+            data: { metricsCache: effectiveMetrics as any, lastSyncedAt: new Date() },
+          })
+          .catch(() => {});
+      }
+
       return {
         ...sp,
-        connected: !!existing && existing.status === ConnectionStatus.CONNECTED,
-        accountName: existing?.accountName || (sp.provider === "WORDPRESS" ? business.wordpressSiteName || business.website : `${business.name} (${sp.name})`),
-        status: existing?.status || (sp.provider === "WORDPRESS" && business.wordpressConnectedAt ? "CONNECTED" : "DISCONNECTED"),
-        lastSyncedAt: existing?.lastSyncedAt || (sp.provider === "WORDPRESS" ? business.wordpressLastSyncedAt : null),
-        metricsCache: existing?.metricsCache || (sp.provider === "WORDPRESS" ? business.wordpressTelemetry : this.generateSampleMetrics(sp.provider as IntegrationProvider, business)),
+        connected: isConnected || isWpConnected,
+        accountName:
+          existing?.accountName ||
+          (sp.provider === "WORDPRESS"
+            ? business.wordpressSiteName || business.website || "WordPress Site"
+            : isConnected
+            ? `${business.name} (${sp.name})`
+            : null),
+        status: isConnected || isWpConnected ? "CONNECTED" : "DISCONNECTED",
+        lastSyncedAt: existing?.lastSyncedAt || (isWpConnected ? business.wordpressLastSyncedAt : null),
+        metricsCache: effectiveMetrics,
       };
     });
 
@@ -241,7 +266,7 @@ export class IntegrationsService {
   generateSampleMetrics(provider: IntegrationProvider, business?: BusinessInfo | null): any {
     const bName = business?.name || "Local Enterprise";
     const bCity = business?.city || "your area";
-    const bIndustry = (business?.industry || "").toLowerCase();
+    const bIndustry = ((business?.industry || "") + " " + bName).toLowerCase();
     const bSite = business?.website || `https://${bName.toLowerCase().replace(/[^a-z0-9]/g, "")}.com`;
 
     // 1. Determine Industry Keywords, Landing Pages & Review Contexts

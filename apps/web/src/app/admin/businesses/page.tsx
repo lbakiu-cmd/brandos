@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import {
   Building2,
   Plus,
@@ -15,8 +14,10 @@ import {
   Mail,
   CheckCircle2,
   AlertCircle,
+  Trash2,
+  RotateCcw,
 } from "lucide-react";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, adminApi } from "@/lib/api";
 
 type BusinessItem = {
   id: string;
@@ -52,12 +53,12 @@ const SEED_BUSINESSES: BusinessItem[] = [
   },
   {
     id: "biz_1",
-    name: "Nobel Dental Clinic",
+    name: "Acme Growth Partners",
     city: "Austin, TX",
-    industry: "Dental & Healthcare",
-    website: "https://dental-nobel.com",
+    industry: "Professional Services",
+    website: "https://acmegrowth.com",
     phone: "(512) 555-0199",
-    email: "admin@dental-nobel.com",
+    email: "contact@acmegrowth.com",
     subscriptionTier: "PRO",
     role: "OWNER",
     latestScore: 78,
@@ -95,7 +96,7 @@ export default function AdminBusinessesPage() {
     name: "",
     website: "",
     city: "",
-    industry: "Dental & Healthcare",
+    industry: "Professional Services",
     phone: "",
     email: "",
   });
@@ -111,6 +112,36 @@ export default function AdminBusinessesPage() {
       console.error("Failed to load workspaces from API:", err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResetBusinessData = async (biz: BusinessItem) => {
+    if (!confirm(`Are you sure you want to wipe all audits, snapshots, and metrics for "${biz.name}"? This allows testing clean onboarding.`)) {
+      return;
+    }
+    setErrorMsg("");
+    setSuccessMsg("");
+    try {
+      const res = await adminApi.resetBusinessData(biz.id);
+      setSuccessMsg(res.message || `Reset audits for ${biz.name}`);
+      loadData();
+    } catch (err: any) {
+      setErrorMsg(err?.message || "Failed to reset business data.");
+    }
+  };
+
+  const handleDeleteBusiness = async (biz: BusinessItem) => {
+    if (!confirm(`⚠️ PERMANENT DELETION: Are you sure you want to completely delete workspace "${biz.name}" and all its users/audits?`)) {
+      return;
+    }
+    setErrorMsg("");
+    setSuccessMsg("");
+    try {
+      const res = await adminApi.deleteBusiness(biz.id);
+      setSuccessMsg(res.message || `Deleted workspace ${biz.name}`);
+      loadData();
+    } catch (err: any) {
+      setErrorMsg(err?.message || "Failed to delete business workspace.");
     }
   };
 
@@ -137,7 +168,7 @@ export default function AdminBusinessesPage() {
         name: "",
         website: "",
         city: "",
-        industry: "Dental & Healthcare",
+        industry: "Professional Services",
         phone: "",
         email: "",
       });
@@ -268,16 +299,46 @@ export default function AdminBusinessesPage() {
 
               <div className="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between">
                 <span className="text-[11px] text-slate-500">
-                  Score: <strong className="text-purple-400">{b.latestScore !== null ? `${b.latestScore}/100` : "Baseline (45)"}</strong>
+                  Score: <strong className="text-purple-400">{b.latestScore !== null ? `${b.latestScore}/100` : "Baseline"}</strong>
                 </span>
 
-                <Link
-                  href="/dashboard"
-                  className="flex items-center gap-1 text-xs font-semibold text-purple-400 hover:text-purple-300"
-                >
-                  <span>Open in App</span>
-                  <ExternalLink className="h-3.5 w-3.5" />
-                </Link>
+                <div className="flex items-center gap-2">
+                  {b.name !== "BrandOS Global Headquarters" && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => handleResetBusinessData(b)}
+                        title="Wipe audits & metrics for fresh testing"
+                        className="flex items-center gap-1 text-[11px] font-semibold text-amber-400 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 px-2 py-1 rounded-lg border border-amber-500/20 transition"
+                      >
+                        <RotateCcw className="h-3 w-3" />
+                        <span>Reset Data</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteBusiness(b)}
+                        title="Delete entire business workspace"
+                        className="flex items-center gap-1 text-[11px] font-semibold text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 px-2 py-1 rounded-lg border border-red-500/20 transition"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                        <span>Delete</span>
+                      </button>
+                    </>
+                  )}
+                  {b.website && (
+                    <a
+                      href={b.website.startsWith("http") ? b.website : `https://${b.website}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-xs font-semibold text-purple-400 hover:text-purple-300 transition"
+                      title={`Visit ${b.website}`}
+                    >
+                      <span>Website</span>
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </a>
+                  )}
+                </div>
               </div>
             </div>
           ))}
