@@ -213,8 +213,8 @@ export class AuthService {
       .sendWelcomeEmail(email, input.name || email.split("@")[0], businessName)
       .catch((err) => this.logger.warn(`Failed to dispatch welcome email: ${err.message}`));
 
-    // Enforce 2FA Setup
-    return this.initiate2faForUser(user, meta);
+    // Direct session issuance (no forced 2FA)
+    return this.issueSession(user.id, meta?.ip, meta?.userAgent);
   }
 
   /**
@@ -251,8 +251,12 @@ export class AuthService {
       data: { lastLoginAt: new Date() },
     });
 
-    // Enforce 2FA Step
-    return this.initiate2faForUser(user, meta);
+    // Only prompt 2FA if the account has explicitly enabled and configured it
+    if (user.twoFactorEnabled && user.twoFactorSecret) {
+      return this.initiate2faForUser(user, meta);
+    }
+
+    return this.issueSession(user.id, meta?.ip, meta?.userAgent);
   }
 
   /**
@@ -558,8 +562,12 @@ export class AuthService {
       userAgent: meta?.userAgent,
     });
 
-    // Enforce 2FA Step for Google Auth
-    return this.initiate2faForUser(user, meta);
+    // Only challenge 2FA if the account has explicitly enabled and configured it
+    if (user.twoFactorEnabled && user.twoFactorSecret) {
+      return this.initiate2faForUser(user, meta);
+    }
+
+    return this.issueSession(user.id, meta?.ip, meta?.userAgent);
   }
 
   /**

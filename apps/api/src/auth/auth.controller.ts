@@ -41,22 +41,30 @@ export class AuthController {
   @Post("register")
   async register(
     @Body() body: unknown,
-    @Req() req: FastifyRequest
+    @Req() req: FastifyRequest,
+    @Res({ passthrough: true }) reply: FastifyReply
   ) {
     const input: RegisterDto = parseRegister(body);
     const meta = extractReqMeta(req);
     const result = await this.auth.register(input, meta);
+    if ((result as any).token) {
+      this.setSessionCookie(reply, (result as any).token);
+    }
     return result;
   }
 
   @Post("login")
   async login(
     @Body() body: unknown,
-    @Req() req: FastifyRequest
+    @Req() req: FastifyRequest,
+    @Res({ passthrough: true }) reply: FastifyReply
   ) {
     const input: LoginDto = parseLogin(body);
     const meta = extractReqMeta(req);
     const result = await this.auth.login(input.email, input.password, meta);
+    if ((result as any).token) {
+      this.setSessionCookie(reply, (result as any).token);
+    }
     return result;
   }
 
