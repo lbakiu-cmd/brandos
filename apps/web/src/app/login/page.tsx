@@ -522,12 +522,6 @@ function LoginForm() {
                 </p>
               )}
             </div>
-
-            {/* Security Badge */}
-            <div className="mt-6 flex items-center justify-center gap-2 rounded-xl bg-slate-950/60 border border-slate-800/80 px-3 py-2 text-[11px] text-slate-400">
-              <ShieldCheck className="h-4 w-4 text-emerald-400" />
-              <span>Mandatory Google Authenticator 2FA Enforced</span>
-            </div>
           </>
         )}
 
