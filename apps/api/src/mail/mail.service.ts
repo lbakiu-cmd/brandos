@@ -111,9 +111,11 @@ export class MailService {
     }
 
     try {
+      const replyTo = process.env.SUPPORT_EMAIL || "support@onlinepresence.space";
       const info = await this.transporter.sendMail({
         from,
         to: opts.to,
+        replyTo,
         subject: opts.subject,
         html: opts.html,
         text: opts.text,
