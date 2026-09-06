@@ -28,7 +28,7 @@ export class GoogleOAuthService {
       customRedirectUri ||
       process.env.GOOGLE_AUTH_REDIRECT_URI ||
       process.env.GOOGLE_REDIRECT_URI ||
-      "https://brandoseye.com/api/oauth/google/callback";
+      "https://icandothat.online/api/oauth/google/callback";
 
     return { clientId, clientSecret, redirectUri };
   }

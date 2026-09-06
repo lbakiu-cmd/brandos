@@ -127,9 +127,7 @@ export class AuthController {
     const redirectUri =
       process.env.GOOGLE_AUTH_REDIRECT_URI ||
       process.env.GOOGLE_REDIRECT_URI ||
-      (process.env.GOOGLE_OAUTH_DIRECT === "true"
-        ? `${currentOrigin}/api/oauth/google/callback`
-        : "https://brandoseye.com/api/oauth/google/callback");
+      `${currentOrigin}/api/oauth/google/callback`;
 
     const scopes = ["openid", "email", "profile"].join(" ");
     const stateObj = {

@@ -90,9 +90,7 @@ export class OAuthController {
     const redirectUri =
       process.env.GOOGLE_AUTH_REDIRECT_URI ||
       process.env.GOOGLE_REDIRECT_URI ||
-      (process.env.GOOGLE_OAUTH_DIRECT === "true"
-        ? `${origin}/api/oauth/google/callback`
-        : "https://brandoseye.com/api/oauth/google/callback");
+      `${origin}/api/oauth/google/callback`;
     const authUrl = this.googleOAuth.generateAuthUrl(biz.id, returnUrl, redirectUri, origin);
     return { url: authUrl, redirectUri };
   }
@@ -115,9 +113,7 @@ export class OAuthController {
     const redirectUri =
       process.env.GOOGLE_AUTH_REDIRECT_URI ||
       process.env.GOOGLE_REDIRECT_URI ||
-      (process.env.GOOGLE_OAUTH_DIRECT === "true"
-        ? `${origin}/api/oauth/google/callback`
-        : "https://brandoseye.com/api/oauth/google/callback");
+      `${origin}/api/oauth/google/callback`;
     const authUrl = this.googleOAuth.generateAuthUrl(biz.id, returnUrl, redirectUri, origin);
     
     // Explicit 302 redirect for Fastify + HTML fallback
@@ -190,9 +186,9 @@ export class OAuthController {
         const redirectUri =
           process.env.GOOGLE_AUTH_REDIRECT_URI ||
           process.env.GOOGLE_REDIRECT_URI ||
-          (process.env.GOOGLE_OAUTH_DIRECT === "true"
-            ? `${targetOrigin}/api/oauth/google/callback`
-            : "https://brandoseye.com/api/oauth/google/callback");
+          (host?.includes("brandoseye")
+            ? "https://brandoseye.com/api/oauth/google/callback"
+            : `${targetOrigin}/api/oauth/google/callback`);
 
         const result = await this.authService.loginWithGoogle(
           { code, redirectUri },
@@ -279,9 +275,9 @@ export class OAuthController {
       const redirectUri =
         process.env.GOOGLE_AUTH_REDIRECT_URI ||
         process.env.GOOGLE_REDIRECT_URI ||
-        (process.env.GOOGLE_OAUTH_DIRECT === "true"
-          ? `${targetOrigin}/api/oauth/google/callback`
-          : "https://brandoseye.com/api/oauth/google/callback");
+        (host?.includes("brandoseye")
+          ? "https://brandoseye.com/api/oauth/google/callback"
+          : `${targetOrigin}/api/oauth/google/callback`);
 
       // 1. Exchange tokens
       const tokens = await this.googleOAuth.exchangeCode(code, redirectUri);
