@@ -23,6 +23,10 @@ import {
   RefreshCw,
   Bell,
   X,
+  Copy,
+  Download,
+  Check,
+  Code,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
@@ -125,6 +129,8 @@ type Business = {
   city: string | null;
   country: string | null;
   industry: string | null;
+  website?: string | null;
+  phone?: string | null;
 };
 
 type NotificationItem = {
@@ -231,6 +237,51 @@ export default function VisibilityPage() {
   const [liveAuditLoading, setLiveAuditLoading] = useState(false);
   const [liveAuditResults, setLiveAuditResults] = useState<any>(null);
   const [liveAuditError, setLiveAuditError] = useState<string | null>(null);
+
+  // Auto-Fix state
+  const [autoFixModalOpen, setAutoFixModalOpen] = useState(false);
+  const [autoFixLoading, setAutoFixLoading] = useState(false);
+  const [autoFixData, setAutoFixData] = useState<any>(null);
+  const [autoFixActiveTab, setAutoFixActiveTab] = useState<"schema" | "llms" | "robots" | "aeo" | "citation">("schema");
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  const copyToClipboard = (key: string, text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedKey(key);
+    setTimeout(() => setCopiedKey(null), 2500);
+  };
+
+  const downloadFile = (filename: string, content: string) => {
+    const element = document.createElement("a");
+    const file = new Blob([content], { type: "text/plain" });
+    element.href = URL.createObjectURL(file);
+    element.download = filename;
+    document.body.appendChild(element);
+    element.click();
+    document.body.removeChild(element);
+  };
+
+  async function handleGenerateAutoFix() {
+    setAutoFixLoading(true);
+    try {
+      const data = await apiFetch<any>("/ai-reports/auto-fix", {
+        method: "POST",
+        body: JSON.stringify({
+          businessName: liveAuditResults?.businessName || liveBizName || business?.name || "Smile Clinic",
+          city: liveAuditResults?.city || liveCity || business?.city || "Tiranë",
+          industry: liveAuditResults?.industry || liveIndustry || business?.industry || "Dental Clinic",
+          website: business?.website || "https://yourwebsite.com",
+          phone: business?.phone || "",
+        }),
+      });
+      setAutoFixData(data);
+      setAutoFixModalOpen(true);
+    } catch (err: any) {
+      alert("Failed to generate auto-fix package: " + err.message);
+    } finally {
+      setAutoFixLoading(false);
+    }
+  }
 
   // Competitor filter in tab 2
   const [compSearch, setCompSearch] = useState("");
@@ -1859,7 +1910,7 @@ export default function VisibilityPage() {
             {liveAuditResults && (
               <div className="space-y-4 pt-2 border-t border-[#EBE3D5] dark:border-zinc-800">
                 {/* Summary bar */}
-                <div className="flex items-center justify-between rounded-xl bg-[#FCFAF7] dark:bg-zinc-950 p-4 border border-[#E8DFD3] dark:border-zinc-800">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl bg-[#FCFAF7] dark:bg-zinc-950 p-4 border border-[#E8DFD3] dark:border-zinc-800 shadow-xs">
                   <div>
                     <h4 className="text-xs font-bold text-[#1C1917] dark:text-white">
                       Audit Results for &ldquo;{liveAuditResults.businessName}&rdquo; ({liveAuditResults.city})
@@ -1868,13 +1919,33 @@ export default function VisibilityPage() {
                       {liveAuditResults.mentionedCount} of {liveAuditResults.totalEngines} engines cited or referenced your business.
                     </p>
                   </div>
-                  <div className="text-right">
-                    <span className="text-lg font-black text-amber-600 dark:text-amber-400">
-                      {liveAuditResults.visibilityScore}%
-                    </span>
-                    <span className="block text-[10px] font-bold uppercase tracking-wider text-[#78716C] dark:text-zinc-400">
-                      Visibility
-                    </span>
+                  <div className="flex items-center gap-4">
+                    <div className="text-right">
+                      <span className="text-lg font-black text-amber-600 dark:text-amber-400">
+                        {liveAuditResults.visibilityScore}%
+                      </span>
+                      <span className="block text-[10px] font-bold uppercase tracking-wider text-[#78716C] dark:text-zinc-400">
+                        Visibility
+                      </span>
+                    </div>
+
+                    <button
+                      onClick={handleGenerateAutoFix}
+                      disabled={autoFixLoading}
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white px-3.5 py-2 text-xs font-bold shadow-md hover:shadow-lg transition cursor-pointer shrink-0 disabled:opacity-50"
+                    >
+                      {autoFixLoading ? (
+                        <>
+                          <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                          Generating Fix…
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="h-3.5 w-3.5" />
+                          ⚡ 1-Click Auto-Fix Gaps
+                        </>
+                      )}
+                    </button>
                   </div>
                 </div>
 
@@ -1915,6 +1986,251 @@ export default function VisibilityPage() {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ⚡ 1-Click Auto-Fix Solution Modal */}
+      {autoFixModalOpen && autoFixData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in">
+          <div className="w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-2xl border border-emerald-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6 space-y-6 shadow-2xl">
+            {/* Header */}
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-xs">
+                    <Sparkles className="h-3.5 w-3.5" />
+                  </span>
+                  <span className="text-xs font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
+                    Auto-Fix AI Visibility Package
+                  </span>
+                </div>
+                <h3 className="text-lg sm:text-xl font-extrabold text-[#1C1917] dark:text-white mt-1">
+                  Bridge ChatGPT & Claude Gaps for &ldquo;{autoFixData.businessName}&rdquo;
+                </h3>
+                <p className="text-xs text-[#78716C] dark:text-zinc-400 mt-0.5">
+                  Deploy these structured entity assets to ensure ChatGPT, Claude, and Perplexity index and cite your business.
+                </p>
+              </div>
+              <button
+                onClick={() => setAutoFixModalOpen(false)}
+                className="text-[#78716C] hover:text-[#1C1917] dark:hover:text-white p-1 rounded-lg hover:bg-[#F2E8DC]/60 transition"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Navigation Tabs */}
+            <div className="flex flex-wrap items-center gap-1.5 border-b border-[#E8DFD3] dark:border-zinc-800 pb-2">
+              <button
+                onClick={() => setAutoFixActiveTab("schema")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                  autoFixActiveTab === "schema"
+                    ? "bg-emerald-100 text-emerald-900 dark:bg-emerald-950/60 dark:text-emerald-300 shadow-xs"
+                    : "text-[#78716C] hover:bg-[#F4EEE5] dark:hover:bg-zinc-800"
+                }`}
+              >
+                <Code className="h-3.5 w-3.5" />
+                Schema.org JSON-LD
+              </button>
+
+              <button
+                onClick={() => setAutoFixActiveTab("llms")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                  autoFixActiveTab === "llms"
+                    ? "bg-emerald-100 text-emerald-900 dark:bg-emerald-950/60 dark:text-emerald-300 shadow-xs"
+                    : "text-[#78716C] hover:bg-[#F4EEE5] dark:hover:bg-zinc-800"
+                }`}
+              >
+                <FileText className="h-3.5 w-3.5" />
+                /llms.txt
+              </button>
+
+              <button
+                onClick={() => setAutoFixActiveTab("robots")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                  autoFixActiveTab === "robots"
+                    ? "bg-emerald-100 text-emerald-900 dark:bg-emerald-950/60 dark:text-emerald-300 shadow-xs"
+                    : "text-[#78716C] hover:bg-[#F4EEE5] dark:hover:bg-zinc-800"
+                }`}
+              >
+                <Globe className="h-3.5 w-3.5" />
+                Robots.txt Crawler Rules
+              </button>
+
+              <button
+                onClick={() => setAutoFixActiveTab("aeo")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                  autoFixActiveTab === "aeo"
+                    ? "bg-emerald-100 text-emerald-900 dark:bg-emerald-950/60 dark:text-emerald-300 shadow-xs"
+                    : "text-[#78716C] hover:bg-[#F4EEE5] dark:hover:bg-zinc-800"
+                }`}
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                AEO Answer Block
+              </button>
+
+              <button
+                onClick={() => setAutoFixActiveTab("citation")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                  autoFixActiveTab === "citation"
+                    ? "bg-emerald-100 text-emerald-900 dark:bg-emerald-950/60 dark:text-emerald-300 shadow-xs"
+                    : "text-[#78716C] hover:bg-[#F4EEE5] dark:hover:bg-zinc-800"
+                }`}
+              >
+                <Award className="h-3.5 w-3.5" />
+                AI Citation Pitch
+              </button>
+            </div>
+
+            {/* Tab 1: Schema.org */}
+            {autoFixActiveTab === "schema" && autoFixData.schemaFix && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-[#78716C] dark:text-zinc-400">
+                    {autoFixData.schemaFix.instructions}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => copyToClipboard("schema", autoFixData.schemaFix.code)}
+                      className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 dark:text-emerald-400 hover:underline cursor-pointer"
+                    >
+                      {copiedKey === "schema" ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                      {copiedKey === "schema" ? "Copied!" : "Copy Schema"}
+                    </button>
+                    <button
+                      onClick={() => downloadFile("schema.json", autoFixData.schemaFix.code)}
+                      className="inline-flex items-center gap-1 text-xs font-bold text-[#8A5333] dark:text-amber-400 hover:underline cursor-pointer"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      Download
+                    </button>
+                  </div>
+                </div>
+                <div className="rounded-xl bg-zinc-950 p-4 border border-zinc-800 max-h-96 overflow-y-auto">
+                  <pre className="text-[11px] font-mono text-zinc-200 leading-relaxed whitespace-pre">
+                    {autoFixData.schemaFix.code}
+                  </pre>
+                </div>
+              </div>
+            )}
+
+            {/* Tab 2: llms.txt */}
+            {autoFixActiveTab === "llms" && autoFixData.llmsFix && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-[#78716C] dark:text-zinc-400">
+                    {autoFixData.llmsFix.instructions}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => copyToClipboard("llms", autoFixData.llmsFix.code)}
+                      className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 dark:text-emerald-400 hover:underline cursor-pointer"
+                    >
+                      {copiedKey === "llms" ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                      {copiedKey === "llms" ? "Copied!" : "Copy Content"}
+                    </button>
+                    <button
+                      onClick={() => downloadFile("llms.txt", autoFixData.llmsFix.code)}
+                      className="inline-flex items-center gap-1 text-xs font-bold text-[#8A5333] dark:text-amber-400 hover:underline cursor-pointer"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      Download llms.txt
+                    </button>
+                  </div>
+                </div>
+                <div className="rounded-xl bg-zinc-950 p-4 border border-zinc-800 max-h-96 overflow-y-auto">
+                  <pre className="text-[11px] font-mono text-emerald-300 leading-relaxed whitespace-pre">
+                    {autoFixData.llmsFix.code}
+                  </pre>
+                </div>
+              </div>
+            )}
+
+            {/* Tab 3: Robots.txt */}
+            {autoFixActiveTab === "robots" && autoFixData.robotsFix && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-[#78716C] dark:text-zinc-400">
+                    Ensure AI search bots (GPTBot, ClaudeBot, PerplexityBot) can crawl your public pages.
+                  </p>
+                  <button
+                    onClick={() => copyToClipboard("robots", autoFixData.robotsFix.code)}
+                    className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 dark:text-emerald-400 hover:underline cursor-pointer"
+                  >
+                    {copiedKey === "robots" ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                    {copiedKey === "robots" ? "Copied!" : "Copy Robots.txt"}
+                  </button>
+                </div>
+                <div className="rounded-xl bg-zinc-950 p-4 border border-zinc-800 max-h-96 overflow-y-auto">
+                  <pre className="text-[11px] font-mono text-zinc-300 leading-relaxed whitespace-pre">
+                    {autoFixData.robotsFix.code}
+                  </pre>
+                </div>
+              </div>
+            )}
+
+            {/* Tab 4: AEO Snippet */}
+            {autoFixActiveTab === "aeo" && autoFixData.aeoFix && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-[#78716C] dark:text-zinc-400">
+                    Embed this concise 45-word blockquote into your homepage or About page for direct LLM quote extraction.
+                  </p>
+                  <button
+                    onClick={() => copyToClipboard("aeo", autoFixData.aeoFix.code)}
+                    className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 dark:text-emerald-400 hover:underline cursor-pointer"
+                  >
+                    {copiedKey === "aeo" ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                    {copiedKey === "aeo" ? "Copied!" : "Copy Snippet"}
+                  </button>
+                </div>
+                <div className="rounded-xl bg-zinc-950 p-4 border border-zinc-800 max-h-96 overflow-y-auto">
+                  <pre className="text-[11px] font-mono text-amber-200 leading-relaxed whitespace-pre-wrap">
+                    {autoFixData.aeoFix.code}
+                  </pre>
+                </div>
+              </div>
+            )}
+
+            {/* Tab 5: Citation Pitch */}
+            {autoFixActiveTab === "citation" && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-[#78716C] dark:text-zinc-400">
+                    AI-engineered citation strategy generated via OpenRouter for high-authority third-party indexing.
+                  </p>
+                  {autoFixData.aiEntityPitch && (
+                    <button
+                      onClick={() => copyToClipboard("citation", autoFixData.aiEntityPitch)}
+                      className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 dark:text-emerald-400 hover:underline cursor-pointer"
+                    >
+                      {copiedKey === "citation" ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                      {copiedKey === "citation" ? "Copied!" : "Copy Citation Guide"}
+                    </button>
+                  )}
+                </div>
+                <div className="rounded-xl bg-zinc-950 p-4 border border-zinc-800 max-h-96 overflow-y-auto">
+                  <pre className="text-[11px] font-mono text-zinc-200 leading-relaxed whitespace-pre-wrap">
+                    {autoFixData.aiEntityPitch || "Generating entity pitch..."}
+                  </pre>
+                </div>
+              </div>
+            )}
+
+            {/* Bottom notification */}
+            <div className="rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 p-3.5 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs font-semibold text-emerald-900 dark:text-emerald-300">
+                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                <span>Actionable recommendations have also been saved to your BrandOS workspace.</span>
+              </div>
+              <button
+                onClick={() => setAutoFixModalOpen(false)}
+                className="rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white px-4 py-1.5 text-xs font-bold shadow-xs transition cursor-pointer"
+              >
+                Done
+              </button>
+            </div>
           </div>
         </div>
       )}

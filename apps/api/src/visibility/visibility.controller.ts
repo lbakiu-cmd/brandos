@@ -32,4 +32,20 @@ export class VisibilityController {
   ) {
     return this.visibility.liveAuditMentions(req.user.id, body);
   }
+
+  @Post("auto-fix")
+  @UseGuards(AuthGuard)
+  autoFix(
+    @Req() req: any,
+    @Body()
+    body?: {
+      businessName?: string;
+      city?: string;
+      industry?: string;
+      website?: string;
+      phone?: string;
+    }
+  ) {
+    return this.visibility.generateAutoFixPackage(req.user.id, body);
+  }
 }
