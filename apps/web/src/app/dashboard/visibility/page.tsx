@@ -987,18 +987,38 @@ export default function VisibilityPage() {
             </p>
           </div>
 
-          <button
-            onClick={() => {
-              setLiveBizName(business?.name || "Smile Clinic");
-              setLiveCity(business?.city || "Tiranë");
-              setLiveIndustry(business?.industry || "Dental Clinic");
-              setLiveAuditModalOpen(true);
-            }}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white px-4 py-2.5 text-xs font-bold shadow-md hover:shadow-lg transition cursor-pointer shrink-0"
-          >
-            <Sparkles className="h-4 w-4" />
-            Live OpenRouter Audit
-          </button>
+          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+            <button
+              onClick={() => {
+                setLiveBizName(business?.name || "Smile Clinic");
+                setLiveCity(business?.city || "Tiranë");
+                setLiveIndustry(business?.industry || "Dental Clinic");
+                setLiveAuditModalOpen(true);
+              }}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white px-4 py-2.5 text-xs font-bold shadow-md hover:shadow-lg transition cursor-pointer"
+            >
+              <Sparkles className="h-4 w-4" />
+              Live OpenRouter Audit
+            </button>
+
+            <button
+              onClick={handleGenerateAutoFix}
+              disabled={autoFixLoading}
+              className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white px-4 py-2.5 text-xs font-bold shadow-md hover:shadow-lg transition cursor-pointer disabled:opacity-50"
+            >
+              {autoFixLoading ? (
+                <>
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                  Generating Fix…
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4" />
+                  ⚡ 1-Click Auto-Fix
+                </>
+              )}
+            </button>
+          </div>
         </div>
 
         {/* Step 1 & Step 2 Setup Card */}
