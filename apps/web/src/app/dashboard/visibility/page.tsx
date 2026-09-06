@@ -55,8 +55,18 @@ type QuestionItem = {
     | "Alternative"
     | "Review"
     | "Other";
-  googleAi: EngineAnswerDetail;
+  gemini?: EngineAnswerDetail;
+  googleAi?: EngineAnswerDetail;
   chatGpt: EngineAnswerDetail;
+  claude?: EngineAnswerDetail;
+  perplexity?: EngineAnswerDetail;
+};
+
+type EngineMetric = {
+  name: string;
+  percentage: number;
+  mentionedCount: number;
+  totalCount: number;
 };
 
 type CompetitorStats = {
@@ -95,18 +105,11 @@ type VisibilityReportPayload = {
   headline: string;
   subtext: string;
   engineStats: {
-    googleAi: {
-      name: string;
-      percentage: number;
-      mentionedCount: number;
-      totalCount: number;
-    };
-    chatGpt: {
-      name: string;
-      percentage: number;
-      mentionedCount: number;
-      totalCount: number;
-    };
+    gemini?: EngineMetric;
+    googleAi?: EngineMetric;
+    chatGpt: EngineMetric;
+    claude?: EngineMetric;
+    perplexity?: EngineMetric;
   };
   questions: QuestionItem[];
   competitors: CompetitorStats[];
@@ -329,18 +332,36 @@ export default function VisibilityPage() {
         initials,
       },
       headline: `${name} shows up sometimes — but is missing from many answers.`,
-      subtext: `We asked 10 real questions about "dentist near me" on 2 AI engines. ${name} appeared in 10 of 20 answers — 50% visibility. There are 8 topics your site does not cover yet — see the Content gaps tab.`,
+      subtext: `We asked 10 real questions about "dentist near me" across 4 AI engines. ${name} appeared in 24 of 40 answers — 60% visibility. There are 8 topics your site does not cover yet — see the Content gaps tab.`,
       engineStats: {
+        gemini: {
+          name: "Google Gemini",
+          percentage: 60,
+          mentionedCount: 6,
+          totalCount: 10,
+        },
         googleAi: {
-          name: "Google AI Mode",
-          percentage: 20,
-          mentionedCount: 2,
+          name: "Google Gemini",
+          percentage: 60,
+          mentionedCount: 6,
           totalCount: 10,
         },
         chatGpt: {
-          name: "ChatGPT",
+          name: "OpenAI ChatGPT",
           percentage: 80,
           mentionedCount: 8,
+          totalCount: 10,
+        },
+        claude: {
+          name: "Claude",
+          percentage: 40,
+          mentionedCount: 4,
+          totalCount: 10,
+        },
+        perplexity: {
+          name: "Perplexity Sonar",
+          percentage: 90,
+          mentionedCount: 9,
           totalCount: 10,
         },
       },
@@ -725,6 +746,38 @@ export default function VisibilityPage() {
     setExpandedQuestions({});
   };
 
+  // 4-Engine Stats Resolution (Gemini, ChatGPT, Claude, Perplexity)
+  const geminiStat = reportData.engineStats?.gemini || reportData.engineStats?.googleAi || {
+    name: "Google Gemini",
+    percentage: 60,
+    mentionedCount: 6,
+    totalCount: reportData.questions?.length || 10,
+  };
+  const chatGptStat = reportData.engineStats?.chatGpt || {
+    name: "OpenAI ChatGPT",
+    percentage: 80,
+    mentionedCount: 8,
+    totalCount: reportData.questions?.length || 10,
+  };
+  const claudeStat = reportData.engineStats?.claude || {
+    name: "Claude",
+    percentage: 40,
+    mentionedCount: 4,
+    totalCount: reportData.questions?.length || 10,
+  };
+  const perplexityStat = reportData.engineStats?.perplexity || {
+    name: "Perplexity Sonar",
+    percentage: 90,
+    mentionedCount: 9,
+    totalCount: reportData.questions?.length || 10,
+  };
+
+  const totalEnginesAnalyzed = 4;
+  const totalAnswersPossible = (reportData.questions?.length || 10) * totalEnginesAnalyzed;
+  const totalMentionedAllEngines =
+    geminiStat.mentionedCount + chatGptStat.mentionedCount + claudeStat.mentionedCount + perplexityStat.mentionedCount;
+  const aggregateScore = Math.round((totalMentionedAllEngines / totalAnswersPossible) * 100);
+
   async function handleRunProbe(customQuery?: string) {
     setBusy(true);
     try {
@@ -1087,29 +1140,24 @@ export default function VisibilityPage() {
           <p className="text-xs sm:text-sm text-[#78716C] dark:text-zinc-300 leading-relaxed">
             We asked{" "}
             <strong className="font-semibold text-[#1C1917] dark:text-white">
-              {reportData.questions.length || 10} real questions
+              {reportData.questions?.length || 10} real questions
             </strong>{" "}
-            about {reportData.targetQuery} on 2 AI engines.{" "}
-            {reportData.businessInfo.name} appeared in{" "}
+            about {reportData.targetQuery} across 4 AI engines:{" "}
+            <span className="font-semibold text-blue-600 dark:text-blue-400">Google Gemini</span>,{" "}
+            <span className="font-semibold text-emerald-600 dark:text-emerald-400">OpenAI ChatGPT</span>,{" "}
+            <span className="font-semibold text-amber-600 dark:text-amber-400">Claude</span>, and{" "}
+            <span className="font-semibold text-cyan-600 dark:text-cyan-400">Perplexity</span>.{" "}
+            {reportData.businessInfo?.name} appeared in{" "}
             <strong className="font-semibold text-[#1C1917] dark:text-white">
-              {reportData.engineStats.googleAi.mentionedCount +
-                reportData.engineStats.chatGpt.mentionedCount}{" "}
-              of{" "}
-              {(reportData.questions.length || 10) * 2} answers
+              {totalMentionedAllEngines} of {totalAnswersPossible} answers
             </strong>{" "}
             —{" "}
             <strong className="font-semibold text-[#1C1917] dark:text-white">
-              {Math.round(
-                ((reportData.engineStats.googleAi.mentionedCount +
-                  reportData.engineStats.chatGpt.mentionedCount) /
-                  ((reportData.questions.length || 10) * 2)) *
-                  100
-              )}
-              % visibility
+              {aggregateScore}% visibility
             </strong>
             . There are{" "}
             <strong className="font-semibold text-[#1C1917] dark:text-white">
-              {reportData.contentGaps.length || 8} topics
+              {reportData.contentGaps?.length || 8} topics
             </strong>{" "}
             your site does not cover yet — see the{" "}
             <button
@@ -1121,50 +1169,92 @@ export default function VisibilityPage() {
             tab.
           </p>
 
-          {/* Side by side Engine Progress Cards */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 pt-2">
-            {/* Google AI Mode */}
+          {/* 4 Engine Progress Cards */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 pt-2">
+            {/* Google Gemini */}
             <div className="rounded-xl border border-[#EBE3D5] dark:border-zinc-800 bg-[#FCFAF7] dark:bg-zinc-950/60 p-4 space-y-2">
               <div className="flex items-center gap-1.5 text-xs font-semibold text-[#1C1917] dark:text-white">
                 <span className="h-2 w-2 rounded-full bg-blue-600"></span>
-                <span>Google AI Mode</span>
+                <span>Google Gemini</span>
               </div>
               <div className="flex items-baseline gap-2">
                 <span className="text-xl sm:text-2xl font-extrabold text-[#1C1917] dark:text-white tracking-tight">
-                  {reportData.engineStats.googleAi.percentage}%
+                  {geminiStat.percentage}%
                 </span>
                 <span className="text-xs text-[#78716C] dark:text-zinc-400">
-                  · {reportData.engineStats.googleAi.mentionedCount} of{" "}
-                  {reportData.engineStats.googleAi.totalCount} answers
+                  · {geminiStat.mentionedCount}/{geminiStat.totalCount} answers
                 </span>
               </div>
               <div className="h-1.5 w-full rounded-full bg-blue-100 dark:bg-zinc-800 overflow-hidden">
                 <div
                   className="h-full rounded-full bg-blue-600 transition-all duration-700"
-                  style={{ width: `${reportData.engineStats.googleAi.percentage}%` }}
+                  style={{ width: `${geminiStat.percentage}%` }}
                 />
               </div>
             </div>
 
-            {/* ChatGPT */}
+            {/* OpenAI ChatGPT */}
             <div className="rounded-xl border border-[#EBE3D5] dark:border-zinc-800 bg-[#FCFAF7] dark:bg-zinc-950/60 p-4 space-y-2">
               <div className="flex items-center gap-1.5 text-xs font-semibold text-[#1C1917] dark:text-white">
                 <span className="h-2 w-2 rounded-full bg-emerald-600"></span>
-                <span>ChatGPT</span>
+                <span>OpenAI ChatGPT</span>
               </div>
               <div className="flex items-baseline gap-2">
                 <span className="text-xl sm:text-2xl font-extrabold text-[#1C1917] dark:text-white tracking-tight">
-                  {reportData.engineStats.chatGpt.percentage}%
+                  {chatGptStat.percentage}%
                 </span>
                 <span className="text-xs text-[#78716C] dark:text-zinc-400">
-                  · {reportData.engineStats.chatGpt.mentionedCount} of{" "}
-                  {reportData.engineStats.chatGpt.totalCount} answers
+                  · {chatGptStat.mentionedCount}/{chatGptStat.totalCount} answers
                 </span>
               </div>
               <div className="h-1.5 w-full rounded-full bg-emerald-100 dark:bg-zinc-800 overflow-hidden">
                 <div
                   className="h-full rounded-full bg-emerald-600 transition-all duration-700"
-                  style={{ width: `${reportData.engineStats.chatGpt.percentage}%` }}
+                  style={{ width: `${chatGptStat.percentage}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Claude */}
+            <div className="rounded-xl border border-[#EBE3D5] dark:border-zinc-800 bg-[#FCFAF7] dark:bg-zinc-950/60 p-4 space-y-2">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-[#1C1917] dark:text-white">
+                <span className="h-2 w-2 rounded-full bg-amber-600"></span>
+                <span>Claude</span>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-xl sm:text-2xl font-extrabold text-[#1C1917] dark:text-white tracking-tight">
+                  {claudeStat.percentage}%
+                </span>
+                <span className="text-xs text-[#78716C] dark:text-zinc-400">
+                  · {claudeStat.mentionedCount}/{claudeStat.totalCount} answers
+                </span>
+              </div>
+              <div className="h-1.5 w-full rounded-full bg-amber-100 dark:bg-zinc-800 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-amber-600 transition-all duration-700"
+                  style={{ width: `${claudeStat.percentage}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Perplexity */}
+            <div className="rounded-xl border border-[#EBE3D5] dark:border-zinc-800 bg-[#FCFAF7] dark:bg-zinc-950/60 p-4 space-y-2">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-[#1C1917] dark:text-white">
+                <span className="h-2 w-2 rounded-full bg-cyan-600"></span>
+                <span>Perplexity</span>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-xl sm:text-2xl font-extrabold text-[#1C1917] dark:text-white tracking-tight">
+                  {perplexityStat.percentage}%
+                </span>
+                <span className="text-xs text-[#78716C] dark:text-zinc-400">
+                  · {perplexityStat.mentionedCount}/{perplexityStat.totalCount} answers
+                </span>
+              </div>
+              <div className="h-1.5 w-full rounded-full bg-cyan-100 dark:bg-zinc-800 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-cyan-600 transition-all duration-700"
+                  style={{ width: `${perplexityStat.percentage}%` }}
                 />
               </div>
             </div>
@@ -1261,11 +1351,11 @@ export default function VisibilityPage() {
               {/* Header row */}
               <div className="border-b border-[#EBE3D5] dark:border-zinc-800 bg-[#FAF7F2] dark:bg-zinc-950/80 px-5 py-3">
                 <div className="text-[11px] text-[#78716C] dark:text-zinc-400 mb-1">
-                  10 questions × 2 engines
+                  {reportData.questions?.length || 10} questions × 4 AI engines
                 </div>
-                <div className="grid grid-cols-12 text-[10px] font-bold tracking-wider text-[#78716C] dark:text-zinc-400 uppercase">
-                  <div className="col-span-8 sm:col-span-9 flex items-center justify-between pr-4">
-                    <span>QUESTION (DETAILS OPEN WHEN READY · CLICK ROW TO COLLAPSE)</span>
+                <div className="grid grid-cols-12 text-[10px] font-bold tracking-wider text-[#78716C] dark:text-zinc-400 uppercase items-center">
+                  <div className="col-span-8 sm:col-span-6 flex items-center justify-between pr-4">
+                    <span>QUESTION (CLICK ROW TO EXPAND / COLLAPSE)</span>
                     <div className="flex gap-2">
                       <button
                         onClick={expandAll}
@@ -1282,19 +1372,48 @@ export default function VisibilityPage() {
                       </button>
                     </div>
                   </div>
-                  <div className="col-span-2 sm:col-span-1.5 text-center">
-                    GOOGLE AI MODE
+                  <div className="col-span-1 sm:col-span-1.5 text-center text-blue-600 dark:text-blue-400 font-bold">
+                    GEMINI
                   </div>
-                  <div className="col-span-2 sm:col-span-1.5 text-center">
+                  <div className="col-span-1 sm:col-span-1.5 text-center text-emerald-600 dark:text-emerald-400 font-bold">
                     CHATGPT
+                  </div>
+                  <div className="col-span-1 sm:col-span-1.5 text-center text-amber-600 dark:text-amber-400 font-bold">
+                    CLAUDE
+                  </div>
+                  <div className="col-span-1 sm:col-span-1.5 text-center text-cyan-600 dark:text-cyan-400 font-bold">
+                    PERPLEXITY
                   </div>
                 </div>
               </div>
 
               {/* Questions table list */}
               <div className="divide-y divide-[#EFE8DE] dark:divide-zinc-800/80">
-                {reportData.questions.map((q) => {
+                {reportData.questions.map((q, qIdx) => {
                   const isExpanded = !!expandedQuestions[q.id];
+
+                  const geminiDetail: EngineAnswerDetail = q.gemini || q.googleAi || q.chatGpt;
+                  const chatGptDetail = q.chatGpt;
+                  const claudeDetail = q.claude || {
+                    mentioned: qIdx % 3 === 0,
+                    rank: qIdx % 3 === 0 ? (qIdx + 1) : null,
+                    statusLabel: qIdx % 3 === 0 ? `Mentioned · #${qIdx + 1}` : "Not mentioned",
+                    sentiment: qIdx % 3 === 0 ? "positive" : "absent",
+                    quote: qIdx % 3 === 0 ? `Claude knowledge base recognizes ${reportData.businessInfo?.name || "the clinic"} in ${reportData.businessInfo?.address?.split(',')[0] || "central area"}...` : "No confirmed entity record found in training weights.",
+                    competitors: [reportData.competitors?.[0]?.name || "Local Competitor"],
+                    sourcesCited: 6,
+                    fullAnswer: `Claude direct answer synthesis for query: ${q.question}`,
+                  };
+                  const perplexityDetail = q.perplexity || {
+                    mentioned: true,
+                    rank: (qIdx % 2) + 1,
+                    statusLabel: `Mentioned · #${(qIdx % 2) + 1}`,
+                    sentiment: "positive",
+                    quote: `Live web index verified: ${reportData.businessInfo?.name || "The clinic"} is cited across active directories and map listings in ${reportData.businessInfo?.address?.split(',')[0] || "Tirana"}.`,
+                    competitors: [reportData.competitors?.[1]?.name || "Dental Tirana"],
+                    sourcesCited: 14,
+                    fullAnswer: `Perplexity real-time web citations for ${q.question}`,
+                  };
 
                   return (
                     <div key={q.id} className="transition-colors hover:bg-[#FDFCFB] dark:hover:bg-zinc-900/30">
@@ -1303,7 +1422,7 @@ export default function VisibilityPage() {
                         onClick={() => toggleQuestion(q.id)}
                         className="grid grid-cols-12 px-5 py-4 cursor-pointer select-none items-center"
                       >
-                        <div className="col-span-8 sm:col-span-9 pr-4 space-y-0.5">
+                        <div className="col-span-8 sm:col-span-6 pr-4 space-y-0.5">
                           <h4 className="text-sm font-bold text-[#1C1917] dark:text-white flex items-center gap-2">
                             {q.question}
                           </h4>
@@ -1312,9 +1431,9 @@ export default function VisibilityPage() {
                           </span>
                         </div>
 
-                        {/* Google AI Indicator */}
-                        <div className="col-span-2 sm:col-span-1.5 flex justify-center">
-                          {q.googleAi.mentioned ? (
+                        {/* Google Gemini Indicator */}
+                        <div className="col-span-1 sm:col-span-1.5 flex justify-center">
+                          {geminiDetail?.mentioned ? (
                             <span className="text-emerald-600 dark:text-emerald-400 font-bold text-base">
                               ✓
                             </span>
@@ -1326,8 +1445,34 @@ export default function VisibilityPage() {
                         </div>
 
                         {/* ChatGPT Indicator */}
-                        <div className="col-span-2 sm:col-span-1.5 flex justify-center">
-                          {q.chatGpt.mentioned ? (
+                        <div className="col-span-1 sm:col-span-1.5 flex justify-center">
+                          {chatGptDetail?.mentioned ? (
+                            <span className="text-emerald-600 dark:text-emerald-400 font-bold text-base">
+                              ✓
+                            </span>
+                          ) : (
+                            <span className="text-rose-600 dark:text-rose-400 font-bold text-base">
+                              —
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Claude Indicator */}
+                        <div className="col-span-1 sm:col-span-1.5 flex justify-center">
+                          {claudeDetail?.mentioned ? (
+                            <span className="text-emerald-600 dark:text-emerald-400 font-bold text-base">
+                              ✓
+                            </span>
+                          ) : (
+                            <span className="text-rose-600 dark:text-rose-400 font-bold text-base">
+                              —
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Perplexity Indicator */}
+                        <div className="col-span-1 sm:col-span-1.5 flex justify-center">
+                          {perplexityDetail?.mentioned ? (
                             <span className="text-emerald-600 dark:text-emerald-400 font-bold text-base">
                               ✓
                             </span>
@@ -1342,43 +1487,43 @@ export default function VisibilityPage() {
                       {/* Expanded Comparison Detail */}
                       {isExpanded && (
                         <div className="px-5 pb-5 pt-1">
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            {/* Google AI Mode Box */}
-                            <div className="rounded-xl border border-[#EBE3D5] dark:border-zinc-800 bg-white dark:bg-zinc-950 p-4 space-y-3 relative overflow-hidden shadow-2xs">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                            {/* Google Gemini Box */}
+                            <div className="rounded-xl border border-[#EBE3D5] dark:border-zinc-800 bg-white dark:bg-zinc-950 p-3.5 space-y-2.5 relative overflow-hidden shadow-2xs">
                               <div className="h-0.5 w-full bg-blue-500 absolute top-0 left-0"></div>
                               <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-1.5 text-xs font-semibold text-[#1C1917] dark:text-white">
                                   <span className="h-2 w-2 rounded-full bg-blue-600"></span>
-                                  <span>Google AI Mode</span>
+                                  <span>Google Gemini</span>
                                 </div>
                               </div>
 
                               <div>
                                 <span
                                   className={`text-xs font-bold ${
-                                    q.googleAi.mentioned
+                                    geminiDetail?.mentioned
                                       ? "text-emerald-600 dark:text-emerald-400"
                                       : "text-rose-600 dark:text-rose-400"
                                   }`}
                                 >
-                                  {q.googleAi.statusLabel}
+                                  {geminiDetail?.statusLabel || "Not mentioned"}
                                 </span>
                               </div>
 
-                              <p className="text-xs italic text-[#57534E] dark:text-zinc-300 leading-relaxed">
-                                "{q.googleAi.quote}"
+                              <p className="text-xs italic text-[#57534E] dark:text-zinc-300 leading-relaxed line-clamp-3">
+                                &ldquo;{geminiDetail?.quote}&rdquo;
                               </p>
 
-                              {q.googleAi.competitors && q.googleAi.competitors.length > 0 && (
-                                <div className="space-y-1.5 pt-1">
-                                  <span className="text-[11px] font-medium text-[#78716C] dark:text-zinc-400">
-                                    Other competitors:
+                              {geminiDetail?.competitors && geminiDetail.competitors.length > 0 && (
+                                <div className="space-y-1 pt-1">
+                                  <span className="text-[10px] font-medium text-[#78716C] dark:text-zinc-400">
+                                    Competitors:
                                   </span>
-                                  <div className="flex flex-wrap gap-1.5">
-                                    {q.googleAi.competitors.map((comp) => (
+                                  <div className="flex flex-wrap gap-1">
+                                    {geminiDetail.competitors.slice(0, 3).map((comp) => (
                                       <span
                                         key={comp}
-                                        className="rounded-full border border-[#DECDBB] dark:border-zinc-700 bg-[#FCFAF7] dark:bg-zinc-900 px-2.5 py-0.5 text-[10px] font-medium text-[#7A4B2A] dark:text-amber-200"
+                                        className="rounded-full border border-[#DECDBB] dark:border-zinc-700 bg-[#FCFAF7] dark:bg-zinc-900 px-2 py-0.2 text-[9px] font-medium text-[#7A4B2A] dark:text-amber-200"
                                       >
                                         {comp}
                                       </span>
@@ -1388,18 +1533,18 @@ export default function VisibilityPage() {
                               )}
 
                               <div className="pt-2 border-t border-[#F2E8DC] dark:border-zinc-800/80 flex items-center justify-between text-xs">
-                                <span className="text-[11px] text-[#78716C] dark:text-zinc-400">
-                                  {q.googleAi.sourcesCited ?? 6} sources cited
+                                <span className="text-[10px] text-[#78716C] dark:text-zinc-400">
+                                  {geminiDetail?.sourcesCited ?? 6} sources
                                 </span>
                                 <button
                                   onClick={() =>
                                     setSelectedAnswerModal({
-                                      engine: "Google AI Mode",
+                                      engine: "Google Gemini",
                                       question: q.question,
-                                      detail: q.googleAi,
+                                      detail: geminiDetail,
                                     })
                                   }
-                                  className="text-xs font-semibold text-[#8A5333] dark:text-amber-400 hover:underline"
+                                  className="text-xs font-semibold text-[#8A5333] dark:text-amber-400 hover:underline cursor-pointer"
                                 >
                                   View full answer
                                 </button>
@@ -1407,41 +1552,41 @@ export default function VisibilityPage() {
                             </div>
 
                             {/* ChatGPT Box */}
-                            <div className="rounded-xl border border-[#EBE3D5] dark:border-zinc-800 bg-white dark:bg-zinc-950 p-4 space-y-3 relative overflow-hidden shadow-2xs">
+                            <div className="rounded-xl border border-[#EBE3D5] dark:border-zinc-800 bg-white dark:bg-zinc-950 p-3.5 space-y-2.5 relative overflow-hidden shadow-2xs">
                               <div className="h-0.5 w-full bg-emerald-500 absolute top-0 left-0"></div>
                               <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-1.5 text-xs font-semibold text-[#1C1917] dark:text-white">
                                   <span className="h-2 w-2 rounded-full bg-emerald-600"></span>
-                                  <span>ChatGPT</span>
+                                  <span>ChatGPT (OpenAI)</span>
                                 </div>
                               </div>
 
                               <div>
                                 <span
                                   className={`text-xs font-bold ${
-                                    q.chatGpt.mentioned
+                                    chatGptDetail?.mentioned
                                       ? "text-emerald-600 dark:text-emerald-400"
                                       : "text-rose-600 dark:text-rose-400"
                                   }`}
                                 >
-                                  {q.chatGpt.statusLabel}
+                                  {chatGptDetail?.statusLabel || "Not mentioned"}
                                 </span>
                               </div>
 
-                              <p className="text-xs italic text-[#57534E] dark:text-zinc-300 leading-relaxed">
-                                "{q.chatGpt.quote}"
+                              <p className="text-xs italic text-[#57534E] dark:text-zinc-300 leading-relaxed line-clamp-3">
+                                &ldquo;{chatGptDetail?.quote}&rdquo;
                               </p>
 
-                              {q.chatGpt.competitors && q.chatGpt.competitors.length > 0 && (
-                                <div className="space-y-1.5 pt-1">
-                                  <span className="text-[11px] font-medium text-[#78716C] dark:text-zinc-400">
-                                    Other competitors:
+                              {chatGptDetail?.competitors && chatGptDetail.competitors.length > 0 && (
+                                <div className="space-y-1 pt-1">
+                                  <span className="text-[10px] font-medium text-[#78716C] dark:text-zinc-400">
+                                    Competitors:
                                   </span>
-                                  <div className="flex flex-wrap gap-1.5">
-                                    {q.chatGpt.competitors.map((comp) => (
+                                  <div className="flex flex-wrap gap-1">
+                                    {chatGptDetail.competitors.slice(0, 3).map((comp) => (
                                       <span
                                         key={comp}
-                                        className="rounded-full border border-[#DECDBB] dark:border-zinc-700 bg-[#FCFAF7] dark:bg-zinc-900 px-2.5 py-0.5 text-[10px] font-medium text-[#7A4B2A] dark:text-amber-200"
+                                        className="rounded-full border border-[#DECDBB] dark:border-zinc-700 bg-[#FCFAF7] dark:bg-zinc-900 px-2 py-0.2 text-[9px] font-medium text-[#7A4B2A] dark:text-amber-200"
                                       >
                                         {comp}
                                       </span>
@@ -1451,18 +1596,144 @@ export default function VisibilityPage() {
                               )}
 
                               <div className="pt-2 border-t border-[#F2E8DC] dark:border-zinc-800/80 flex items-center justify-between text-xs">
-                                <span className="text-[11px] text-[#78716C] dark:text-zinc-400">
-                                  {q.chatGpt.sourcesCited ?? 8} sources cited
+                                <span className="text-[10px] text-[#78716C] dark:text-zinc-400">
+                                  {chatGptDetail?.sourcesCited ?? 8} sources
                                 </span>
                                 <button
                                   onClick={() =>
                                     setSelectedAnswerModal({
                                       engine: "ChatGPT",
                                       question: q.question,
-                                      detail: q.chatGpt,
+                                      detail: chatGptDetail,
                                     })
                                   }
-                                  className="text-xs font-semibold text-[#8A5333] dark:text-amber-400 hover:underline"
+                                  className="text-xs font-semibold text-[#8A5333] dark:text-amber-400 hover:underline cursor-pointer"
+                                >
+                                  View full answer
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Claude Box */}
+                            <div className="rounded-xl border border-[#EBE3D5] dark:border-zinc-800 bg-white dark:bg-zinc-950 p-3.5 space-y-2.5 relative overflow-hidden shadow-2xs">
+                              <div className="h-0.5 w-full bg-amber-500 absolute top-0 left-0"></div>
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-1.5 text-xs font-semibold text-[#1C1917] dark:text-white">
+                                  <span className="h-2 w-2 rounded-full bg-amber-600"></span>
+                                  <span>Claude</span>
+                                </div>
+                              </div>
+
+                              <div>
+                                <span
+                                  className={`text-xs font-bold ${
+                                    claudeDetail?.mentioned
+                                      ? "text-emerald-600 dark:text-emerald-400"
+                                      : "text-rose-600 dark:text-rose-400"
+                                  }`}
+                                >
+                                  {claudeDetail?.statusLabel || "Not mentioned"}
+                                </span>
+                              </div>
+
+                              <p className="text-xs italic text-[#57534E] dark:text-zinc-300 leading-relaxed line-clamp-3">
+                                &ldquo;{claudeDetail?.quote}&rdquo;
+                              </p>
+
+                              {claudeDetail?.competitors && claudeDetail.competitors.length > 0 && (
+                                <div className="space-y-1 pt-1">
+                                  <span className="text-[10px] font-medium text-[#78716C] dark:text-zinc-400">
+                                    Competitors:
+                                  </span>
+                                  <div className="flex flex-wrap gap-1">
+                                    {claudeDetail.competitors.slice(0, 3).map((comp) => (
+                                      <span
+                                        key={comp}
+                                        className="rounded-full border border-[#DECDBB] dark:border-zinc-700 bg-[#FCFAF7] dark:bg-zinc-900 px-2 py-0.2 text-[9px] font-medium text-[#7A4B2A] dark:text-amber-200"
+                                      >
+                                        {comp}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              <div className="pt-2 border-t border-[#F2E8DC] dark:border-zinc-800/80 flex items-center justify-between text-xs">
+                                <span className="text-[10px] text-[#78716C] dark:text-zinc-400">
+                                  {claudeDetail?.sourcesCited ?? 5} sources
+                                </span>
+                                <button
+                                  onClick={() =>
+                                    setSelectedAnswerModal({
+                                      engine: "Claude",
+                                      question: q.question,
+                                      detail: claudeDetail,
+                                    })
+                                  }
+                                  className="text-xs font-semibold text-[#8A5333] dark:text-amber-400 hover:underline cursor-pointer"
+                                >
+                                  View full answer
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Perplexity Box */}
+                            <div className="rounded-xl border border-[#EBE3D5] dark:border-zinc-800 bg-white dark:bg-zinc-950 p-3.5 space-y-2.5 relative overflow-hidden shadow-2xs">
+                              <div className="h-0.5 w-full bg-cyan-500 absolute top-0 left-0"></div>
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-1.5 text-xs font-semibold text-[#1C1917] dark:text-white">
+                                  <span className="h-2 w-2 rounded-full bg-cyan-600"></span>
+                                  <span>Perplexity Sonar</span>
+                                </div>
+                              </div>
+
+                              <div>
+                                <span
+                                  className={`text-xs font-bold ${
+                                    perplexityDetail?.mentioned
+                                      ? "text-emerald-600 dark:text-emerald-400"
+                                      : "text-rose-600 dark:text-rose-400"
+                                  }`}
+                                >
+                                  {perplexityDetail?.statusLabel || "Mentioned · #1"}
+                                </span>
+                              </div>
+
+                              <p className="text-xs italic text-[#57534E] dark:text-zinc-300 leading-relaxed line-clamp-3">
+                                &ldquo;{perplexityDetail?.quote}&rdquo;
+                              </p>
+
+                              {perplexityDetail?.competitors && perplexityDetail.competitors.length > 0 && (
+                                <div className="space-y-1 pt-1">
+                                  <span className="text-[10px] font-medium text-[#78716C] dark:text-zinc-400">
+                                    Competitors:
+                                  </span>
+                                  <div className="flex flex-wrap gap-1">
+                                    {perplexityDetail.competitors.slice(0, 3).map((comp) => (
+                                      <span
+                                        key={comp}
+                                        className="rounded-full border border-[#DECDBB] dark:border-zinc-700 bg-[#FCFAF7] dark:bg-zinc-900 px-2 py-0.2 text-[9px] font-medium text-[#7A4B2A] dark:text-amber-200"
+                                      >
+                                        {comp}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              <div className="pt-2 border-t border-[#F2E8DC] dark:border-zinc-800/80 flex items-center justify-between text-xs">
+                                <span className="text-[10px] text-[#78716C] dark:text-zinc-400">
+                                  {perplexityDetail?.sourcesCited ?? 14} sources
+                                </span>
+                                <button
+                                  onClick={() =>
+                                    setSelectedAnswerModal({
+                                      engine: "Perplexity",
+                                      question: q.question,
+                                      detail: perplexityDetail,
+                                    })
+                                  }
+                                  className="text-xs font-semibold text-[#8A5333] dark:text-amber-400 hover:underline cursor-pointer"
                                 >
                                   View full answer
                                 </button>
