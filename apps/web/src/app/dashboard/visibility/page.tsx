@@ -307,434 +307,31 @@ export default function VisibilityPage() {
   }, [refresh]);
 
   const latest = reports[0] ?? null;
-
-  // Extract structured report payload (or construct fallback from business context)
-  const reportData: VisibilityReportPayload = useMemo(() => {
-    if (latest?.mentions && latest.mentions.questions && Array.isArray(latest.mentions.questions)) {
+  // Extract structured report payload strictly from real database reports (no mock static data)
+  const reportData: VisibilityReportPayload | null = useMemo(() => {
+    if (latest?.mentions && (latest.mentions as any).questions && Array.isArray((latest.mentions as any).questions)) {
       return latest.mentions as VisibilityReportPayload;
     }
-
-    // Default fallback baseline matching user's business
-    const name = business?.name || "Nobel Dental Clinic";
-    const city = business?.city || "Tiranë";
-    const country = business?.country || "Albania";
-    const industry = (business?.industry || "dentist").toLowerCase();
-    const address = `Vesa Center, Rruga Abdyl Frashëri, ${city}, ${country}`;
-    const words = name.split(/\s+/).filter(Boolean);
-    const initials = words.length >= 2 ? (words[0][0] + words[1][0]).toUpperCase() : name.slice(0, 2).toUpperCase();
-
-    return {
-      targetQuery: '"dentist near me"',
-      businessInfo: {
-        name,
-        address,
-        tags: ["dentist", "dental clinic"],
-        initials,
-      },
-      headline: `${name} shows up sometimes — but is missing from many answers.`,
-      subtext: `We asked 10 real questions about "dentist near me" across 4 AI engines. ${name} appeared in 24 of 40 answers — 60% visibility. There are 8 topics your site does not cover yet — see the Content gaps tab.`,
-      engineStats: {
-        gemini: {
-          name: "Google Gemini",
-          percentage: 60,
-          mentionedCount: 6,
-          totalCount: 10,
-        },
-        googleAi: {
-          name: "Google Gemini",
-          percentage: 60,
-          mentionedCount: 6,
-          totalCount: 10,
-        },
-        chatGpt: {
-          name: "OpenAI ChatGPT",
-          percentage: 80,
-          mentionedCount: 8,
-          totalCount: 10,
-        },
-        claude: {
-          name: "Claude",
-          percentage: 40,
-          mentionedCount: 4,
-          totalCount: 10,
-        },
-        perplexity: {
-          name: "Perplexity Sonar",
-          percentage: 90,
-          mentionedCount: 9,
-          totalCount: 10,
-        },
-      },
-      questions: [
-        {
-          id: "q1",
-          question: "Dentist near me?",
-          category: "Seed",
-          googleAi: {
-            mentioned: false,
-            rank: null,
-            statusLabel: "Not mentioned",
-            sentiment: "absent",
-            quote: `Here are the top-rated dental clinics located right on or extremely close to Vesa Center and Rruga Abdyl Frashëri in Tirana: CallDirectionsWebsiteLocated direc...`,
-            competitors: ["Dental Tirana", "Dental Tirana.al", "Wilson Dental Center", "Dental Tirana | Implantology & Dental Aesthetics", "Tirana Dental Hospital"],
-            sourcesCited: 12,
-            fullAnswer: `Here are the top-rated dental clinics located right on or extremely close to Vesa Center and Rruga Abdyl Frashëri in Tirana:\n\n1. Dental Tirana — Located 150m away. Comprehensive diagnostics, walk-in availability.\n2. Dental Tirana.al — Situated on the main boulevard. Known for multilingual specialists.\n3. Wilson Dental Center — Cosmetic and reconstructive practice at Wilson Square.\n4. Dental Tirana | Implantology & Dental Aesthetics — Digital imaging and 3D scanners.\n5. Tirana Dental Hospital — Full-service surgical center.`,
-          },
-          chatGpt: {
-            mentioned: true,
-            rank: 6,
-            statusLabel: "Mentioned · #6",
-            sentiment: "positive",
-            quote: `Here are dentists **at or very close to your location at Vesa Center, Rruga Abdyl Frashëri, Tirana**: - **Dental Nobel** — **inside Vesa Center, 3rd floor**. O...`,
-            competitors: ["Dental Tirana", "Empire Dental Clinic"],
-            sourcesCited: 8,
-            fullAnswer: `Here are dentists **at or very close to your location at Vesa Center, Rruga Abdyl Frashëri, Tirana**:\n\n1. Dental Tirana — High reputation, specialized in pain-free procedures.\n2. Empire Dental Clinic — Located in Ish-Blloku.\n3. Dental Nobel — **inside Vesa Center, 3rd floor**. Highly convenient location with positive patient feedback regarding cleanliness and modern equipment.`,
-          },
-        },
-        {
-          id: "q2",
-          question: "Which dentists nearby have the best patient reviews?",
-          category: "Comparison",
-          googleAi: {
-            mentioned: false,
-            rank: null,
-            statusLabel: "Not mentioned",
-            sentiment: "absent",
-            quote: `The top-rated dental clinic located directly on or immediately adjacent to Rruga Abdyl Frashëri near the Vesa Center in Tirana with exceptional patient feedback...`,
-            competitors: ["Dental Tirana | Implantology & Dental Aesthetics"],
-            sourcesCited: 6,
-            fullAnswer: `Patient reviews highlight:\n\n- Dental Tirana | Implantology & Dental Aesthetics (4.98★ / 420 reviews) — Patients consistently highlight immaculate sterilization and gentle bedside manner.`,
-          },
-          chatGpt: {
-            mentioned: true,
-            rank: 3,
-            statusLabel: "Mentioned · #3",
-            sentiment: "positive",
-            quote: `Here are the strongest nearby options based on publicly listed patient-review scores: 1. **Dental Nobel** — **inside Vesa Center**, 3rd f...`,
-            competitors: ["TDA Clinic (Tirana Dental Aesthetic)", "DentX Clinic – Dr. Gjergj Dilo", "Dental Center Albania (DCA)"],
-            sourcesCited: 10,
-            fullAnswer: `When looking for clinics with standout patient sentiment in this immediate district:\n\n1. TDA Clinic (Tirana Dental Aesthetic)\n2. DentX Clinic – Dr. Gjergj Dilo\n3. Dental Nobel — inside Vesa Center. Patients note clear communication from doctors and convenient parking.`,
-          },
-        },
-        {
-          id: "q3",
-          question: "What affordable dental clinics are near me?",
-          category: "Budget",
-          googleAi: {
-            mentioned: false,
-            rank: null,
-            statusLabel: "Not mentioned",
-            sentiment: "absent",
-            quote: `Several highly-rated and affordable dental clinics are located directly on or just a short walk from Vesa Center in Tirana. Location:...`,
-            competitors: ["Dental Tirana", "Dental Tirana.al", "Wilson Dental Center", "Dental Tirana | Implantology & Dental Aesthetics"],
-            sourcesCited: 12,
-            fullAnswer: `Budget-friendly dental options near Vesa Center with published pricing for cleanings and routine restorative treatments.`,
-          },
-          chatGpt: {
-            mentioned: true,
-            rank: 6,
-            statusLabel: "Mentioned · #6",
-            sentiment: "positive",
-            quote: `Here are nearby dental clinics around **Vesa Center, Rruga Abdyl Frashëri**, so likely the most affordable and central: - **Dental Nobel** — **inside Vesa Center, 3rd floor**...`,
-            competitors: ["Empire Dental Clinic – Ish-Blloku", "Denti+ Albania", "Medent Studio"],
-            sourcesCited: 9,
-            fullAnswer: `Affordable options nearby:\n\n- Empire Dental Clinic\n- Denti+ Albania\n- Dental Nobel — inside Vesa Center. Patients report very reasonable rates for regular checkups and preventative cleanings.`,
-          },
-        },
-        {
-          id: "q4",
-          question: "Which nearby dentist is best for nervous patients?",
-          category: "Persona",
-          googleAi: {
-            mentioned: false,
-            rank: null,
-            statusLabel: "Not mentioned",
-            sentiment: "absent",
-            quote: `For patients experiencing nervousness or dental anxiety right around the Vesa Center on Rruga Abdyl Frashëri, ÇEÇI Dental Group Clinic & Laboratory is located d...`,
-            competitors: ["ÇEÇI Dental Group Clinic & Laboratory"],
-            sourcesCited: 12,
-            fullAnswer: `ÇEÇI Dental Group Clinic & Laboratory explicitly advertises conscious sedation protocols and relaxation techniques for dental anxiety.`,
-          },
-          chatGpt: {
-            mentioned: true,
-            rank: 11,
-            statusLabel: "Mentioned · #11",
-            sentiment: "neutral",
-            quote: `Best nearby choice: Empire Dental Clinic: very close to Vesa Center, and specifically advertises medication-assisted relax...`,
-            competitors: ["Empire Dental Clinic"],
-            sourcesCited: 7,
-            fullAnswer: `For nervous patients, Empire Dental Clinic advertises medication-assisted relaxation and gentle dentistry protocols. Dental Nobel also provides warm patient care.`,
-          },
-        },
-        {
-          id: "q5",
-          question: "How do I find a reliable dentist nearby?",
-          category: "How to",
-          googleAi: {
-            mentioned: false,
-            rank: null,
-            statusLabel: "Not mentioned",
-            sentiment: "absent",
-            quote: `If you are at or near Vesa Center on Rruga Abdyl Frashëri in Tirana, you are in a very central location with several highly rated dental clinics within immediat...`,
-            competitors: ["Dental Tirana", "Dental Tirana.al", "Wilson Dental Center", "Tirana Dental Hospital"],
-            sourcesCited: 12,
-            fullAnswer: `Guide to finding a reliable dentist in central Tirana:\n\n1. Check licensing and credentials.\n2. Inquire about panoramic 3D imaging.\n3. Check clinics like Dental Tirana and Wilson Dental Center.`,
-          },
-          chatGpt: {
-            mentioned: true,
-            rank: 4,
-            statusLabel: "Mentioned · #4",
-            sentiment: "positive",
-            quote: `From **Vesa Center, Rruga Abdyl Frashëri**, you can start with clinics on the same street: - **Nobel Clinic Tirana** — located inside **Vesa Center, 3rd floor**...`,
-            competitors: ["Dental Tirana", "Empire Dental Clinic", "Elite Dental"],
-            sourcesCited: 11,
-            fullAnswer: `To find a reliable dentist nearby:\n\n- Start with Nobel Clinic inside Vesa Center, 3rd floor.\n- Confirm hygiene standards.\n- Read verified Google reviews.`,
-          },
-        },
-        {
-          id: "q6",
-          question: "What is the best dental clinic near me?",
-          category: "Best",
-          googleAi: {
-            mentioned: true,
-            rank: 3,
-            statusLabel: "Mentioned · #3",
-            sentiment: "positive",
-            quote: `Prominent practices in the Blloku/Vesa Center area include **Nobel Dental Clinic**, recognized for modern cosmetic and preventive treatments...`,
-            competitors: ["Dental Tirana", "Wilson Dental Center"],
-            sourcesCited: 8,
-            fullAnswer: `Top clinics near your location:\n\n1. Dental Tirana\n2. Wilson Dental Center\n3. Nobel Dental Clinic — located directly in Vesa Center.`,
-          },
-          chatGpt: {
-            mentioned: true,
-            rank: 2,
-            statusLabel: "Mentioned · #2",
-            sentiment: "positive",
-            quote: `If you want the best options within immediate walking distance: 1. Dental Tirana, 2. **Dental Nobel** inside Vesa Center...`,
-            competitors: ["Dental Tirana", "Wilson Dental Center"],
-            sourcesCited: 9,
-            fullAnswer: `Top recommendations within walking distance:\n\n1. Dental Tirana\n2. Dental Nobel — inside Vesa Center, distinguished by high cleanliness ratings and gentle patient care.`,
-          },
-        },
-        {
-          id: "q7",
-          question: "Can you find dentists open near me right now?",
-          category: "Near me",
-          googleAi: {
-            mentioned: true,
-            rank: 15,
-            statusLabel: "Mentioned · #15 - positive",
-            sentiment: "positive",
-            quote: `Finding an open dental clinic right now on a Sunday in the immediate vicinity of Vesa Center presents limited options, as most standard clinics in the area are...`,
-            competitors: ["Dental Tirana", "Dental Tirana.al", "Denti+ Albania", "Tirana Dental Hospital"],
-            sourcesCited: 5,
-            fullAnswer: `Emergency and open clinics near Vesa Center:\n\n- Nobel Dental Clinic maintains on-call availability for acute emergencies inside Vesa Center.\n- Tirana Dental Hospital emergency ward.`,
-          },
-          chatGpt: {
-            mentioned: true,
-            rank: 6,
-            statusLabel: "Mentioned · #6 - positive",
-            sentiment: "positive",
-            quote: `It's Sunday in Tirana. Closest option at your exact location: - **Dental Nobel** — inside **Vesa Center, Rruga Abdy...`,
-            competitors: ["Diamond Dental Hospital", "Mat Dental", "Duraj Dental"],
-            sourcesCited: 6,
-            fullAnswer: `Clinics open or on-call:\n\n- Dental Nobel — inside Vesa Center. Emergency contact available for tooth pain and dislodged restorations.\n- Diamond Dental Hospital open 24/7.`,
-          },
-        },
-        {
-          id: "q8",
-          question: "What are alternatives to my current nearby dentist?",
-          category: "Alternative",
-          googleAi: {
-            mentioned: false,
-            rank: null,
-            statusLabel: "Not mentioned",
-            sentiment: "absent",
-            quote: `If you are looking for alternative dental clinics close to the Vesa Center on Rruga Abdyl Frashëri in Tiranë, there are several highly-rated options within a ve...`,
-            competitors: ["DentalCare One", "Idrizi Dental Clinic"],
-            sourcesCited: 12,
-            fullAnswer: `Alternative clinics located within 300 meters:\n\n- DentalCare One\n- Idrizi Dental Clinic`,
-          },
-          chatGpt: {
-            mentioned: false,
-            rank: null,
-            statusLabel: "Not mentioned",
-            sentiment: "absent",
-            quote: `Here are good alternatives near **Vesa Center, Rruga Abdyl Frashëri, Tirana**: - **Dental Tirana** — on **Rruga Abdyl Frashëri**, about 100 m from Wilson Squar...`,
-            competitors: ["Dental Tirana", "DentX Clinic – Dr. Gjergj Dilo", "Ledismile Dental Clinic", "Gaia Dental Clinic"],
-            sourcesCited: 8,
-            fullAnswer: `Alternative practices in the neighborhood:\n\n- Dental Tirana\n- DentX Clinic\n- Ledismile Dental Clinic\n- Gaia Dental Clinic`,
-          },
-        },
-        {
-          id: "q9",
-          question: "How do patients review dentists in my area?",
-          category: "Review",
-          googleAi: {
-            mentioned: false,
-            rank: null,
-            statusLabel: "Not mentioned",
-            sentiment: "absent",
-            quote: `Patients typically review and find information about dental clinics around the Vesa Center and Rruga Abdyl Frashëri area in Tiranë through a mix of online platf...`,
-            competitors: ["ÇEÇI Dental Group Clinic & Laboratory", "Dental Tirana | Implantology & Dental Aesthetics", "Idrizi Dental Clinic"],
-            sourcesCited: 3,
-            fullAnswer: `Patients primarily review clinics through Google Maps, WhatClinic, and local Facebook groups.`,
-          },
-          chatGpt: {
-            mentioned: true,
-            rank: 7,
-            statusLabel: "Mentioned · #7",
-            sentiment: "positive",
-            quote: `Near **Vesa Center, Rruga Abdyl Frashëri**, patient feedback is generally very positive, especially for: - **Dental Tirana.al** — Reviews commonly praise profe...`,
-            competitors: ["Dental Tirana.al", "London Smile", "Wilson Dental Center"],
-            sourcesCited: 7,
-            fullAnswer: `Patient reviews praise Dental Nobel and London Smile for gentle bedside manner, punctuality, and sterile clinics.`,
-          },
-        },
-        {
-          id: "q10",
-          question: "Which nearby dentists accept my insurance?",
-          category: "Other",
-          googleAi: {
-            mentioned: false,
-            rank: null,
-            statusLabel: "Not mentioned",
-            sentiment: "absent",
-            quote: `Dental clinics in Albania generally operate on a direct-pay or out-of-pocket model rather than processing international or private health insurance provider net...`,
-            competitors: ["Dental Tirana", "Dental Tirana.al", "Denti+ Albania", "Dental Tirana | Implantology & Dental Aesthetics"],
-            sourcesCited: 3,
-            fullAnswer: `Clinics in Albania operate on direct-pay. Itemized documentation is provided for insurance reimbursement.`,
-          },
-          chatGpt: {
-            mentioned: false,
-            rank: null,
-            statusLabel: "Not mentioned",
-            sentiment: "absent",
-            quote: `I can't confirm a specific in-network dentist without knowing **your insurance company and plan**. In Tirana, many clinics either require payment upfront or hel...`,
-            competitors: ["Dental Tirana", "Dr. Erta Dental Clinic", "Tirana Dental Hospital"],
-            sourcesCited: 4,
-            fullAnswer: `Most clinics require upfront settlement and provide stamped English/Italian invoices for international insurance reimbursement.`,
-          },
-        },
-      ],
-      competitors: [
-        { name: "Dental Tirana", mentionsCount: 8, shareOfVoice: 40, engines: ["Google AI Mode", "ChatGPT"], categories: ["Seed", "Budget", "Best", "How to"] },
-        { name: "Dental Tirana.al", mentionsCount: 5, shareOfVoice: 25, engines: ["Google AI Mode", "ChatGPT"], categories: ["Seed", "Budget", "Review"] },
-        { name: "Wilson Dental Center", mentionsCount: 5, shareOfVoice: 25, engines: ["Google AI Mode", "ChatGPT"], categories: ["Seed", "Best", "How to"] },
-        { name: "Dental Tirana | Implantology & Dental Aesthetics", mentionsCount: 4, shareOfVoice: 20, engines: ["Google AI Mode"], categories: ["Seed", "Comparison"] },
-        { name: "Tirana Dental Hospital", mentionsCount: 4, shareOfVoice: 20, engines: ["Google AI Mode", "ChatGPT"], categories: ["Seed", "Near me", "Other"] },
-        { name: "Empire Dental Clinic", mentionsCount: 4, shareOfVoice: 20, engines: ["ChatGPT"], categories: ["Seed", "Budget", "Persona"] },
-        { name: "ÇEÇI Dental Group Clinic & Laboratory", mentionsCount: 2, shareOfVoice: 10, engines: ["Google AI Mode"], categories: ["Persona", "Review"] },
-        { name: "DentX Clinic – Dr. Gjergj Dilo", mentionsCount: 2, shareOfVoice: 10, engines: ["ChatGPT"], categories: ["Comparison", "Alternative"] },
-        { name: "Denti+ Albania", mentionsCount: 2, shareOfVoice: 10, engines: ["Google AI Mode", "ChatGPT"], categories: ["Budget", "Near me"] },
-        { name: "TDA Clinic (Tirana Dental Aesthetic)", mentionsCount: 1, shareOfVoice: 5, engines: ["ChatGPT"], categories: ["Comparison"] },
-        { name: "Dental Center Albania (DCA)", mentionsCount: 1, shareOfVoice: 5, engines: ["ChatGPT"], categories: ["Comparison"] },
-        { name: "Idrizi Dental Clinic", mentionsCount: 2, shareOfVoice: 10, engines: ["Google AI Mode"], categories: ["Alternative", "Review"] },
-        { name: "DentalCare One", mentionsCount: 1, shareOfVoice: 5, engines: ["Google AI Mode"], categories: ["Alternative"] },
-        { name: "London Smile", mentionsCount: 1, shareOfVoice: 5, engines: ["ChatGPT"], categories: ["Review"] },
-        { name: "Diamond Dental Hospital", mentionsCount: 1, shareOfVoice: 5, engines: ["ChatGPT"], categories: ["Near me"] },
-        { name: "Mat Dental", mentionsCount: 1, shareOfVoice: 5, engines: ["ChatGPT"], categories: ["Near me"] },
-        { name: "Duraj Dental", mentionsCount: 1, shareOfVoice: 5, engines: ["ChatGPT"], categories: ["Near me"] },
-        { name: "Ledismile Dental Clinic", mentionsCount: 1, shareOfVoice: 5, engines: ["ChatGPT"], categories: ["Alternative"] },
-        { name: "Gaia Dental Clinic", mentionsCount: 1, shareOfVoice: 5, engines: ["ChatGPT"], categories: ["Alternative"] },
-        { name: "Dr. Erta Dental Clinic", mentionsCount: 1, shareOfVoice: 5, engines: ["ChatGPT"], categories: ["Other"] },
-        { name: "Elite Dental", mentionsCount: 1, shareOfVoice: 5, engines: ["ChatGPT"], categories: ["How to"] },
-        { name: "Medent Studio", mentionsCount: 1, shareOfVoice: 5, engines: ["ChatGPT"], categories: ["Budget"] },
-        { name: "Albanian Dental Tourism", mentionsCount: 1, shareOfVoice: 5, engines: ["ChatGPT"], categories: ["Seed"] },
-        { name: "Klinika Dentare Blloku", mentionsCount: 1, shareOfVoice: 5, engines: ["Google AI Mode"], categories: ["Seed"] },
-      ],
-      referrals: [
-        { domain: "maps.google.com", title: "Google Local Maps / Places", citationsCount: 16, category: "Maps", status: "linked" },
-        { domain: "tripadvisor.com", title: "Tripadvisor Medical & Dental Tourism", citationsCount: 9, category: "Reviews", status: "linked" },
-        { domain: "whatclinic.com", title: "WhatClinic Global Healthcare Directory", citationsCount: 7, category: "Directory", status: "missing" },
-        { domain: "dentaltourismofficial.com", title: "Albanian Dental Tourism Association Guide", citationsCount: 5, category: "Industry Guide", status: "missing" },
-        { domain: "yellowpages.al", title: "Faqet e Verdha Albania Local Directory", citationsCount: 4, category: "Directory", status: "linked" },
-      ],
-      contentGaps: [
-        {
-          topic: "Sedation dentistry & dental anxiety protocols",
-          category: "Persona",
-          impact: "HIGH",
-          description: "ChatGPT and Google AI Mode favored Empire Dental Clinic and ÇEÇI Dental Group because they explicitly advertise medication-assisted relaxation and nitrous oxide. Your website does not mention dental anxiety or sedation.",
-          recommendation: "Create a dedicated 'Gentle & Sedation Dentistry for Anxious Patients' service page with FAQ Schema markup.",
-          competitorsCovering: ["Empire Dental Clinic", "ÇEÇI Dental Group"],
-        },
-        {
-          topic: "Insurance reimbursement & direct billing explanation",
-          category: "Other",
-          impact: "HIGH",
-          description: "Both AI engines answered that clinics in this city only accept direct out-of-pocket payment because no explicit insurance guidance was indexed on your website.",
-          recommendation: "Publish an 'Insurance, Financing & International Claims' page detailing itemized invoice assistance for Bupa, Cigna, and Allianz.",
-          competitorsCovering: ["Dental Tirana", "Dr. Erta Dental Clinic"],
-        },
-        {
-          topic: "Real-time emergency & weekend hours indexing",
-          category: "Near me",
-          impact: "HIGH",
-          description: "When asked about clinics open 'right now', Google AI Mode prioritized competitors with explicit OpeningHoursSpecification schema and active Sunday hours.",
-          recommendation: "Add OpeningHoursSpecification JSON-LD schema with special emergency on-call contact details to your homepage.",
-          competitorsCovering: ["Tirana Dental Hospital", "Diamond Dental Hospital"],
-        },
-        {
-          topic: "Transparent price list & affordable care packages",
-          category: "Budget",
-          impact: "MEDIUM",
-          description: "Google AI Mode ranked Dental Tirana.al and Dental Tirana for budget queries due to their published price ranges for cleanings and fillings.",
-          recommendation: "Publish starting price ranges or package consultation pricing on your website to qualify for 'Affordable' customer queries.",
-          competitorsCovering: ["Dental Tirana", "Dental Tirana.al"],
-        },
-        {
-          topic: "Comparison guide vs. other regional clinics",
-          category: "Comparison",
-          impact: "MEDIUM",
-          description: "AI engines rely on comparative review sentiment. Competitors have hundreds of structured patient review keywords mentioning hygiene and painless procedures.",
-          recommendation: "Add structured Review / AggregateRating schema to highlight 5-star patient testimonials directly on the site.",
-          competitorsCovering: ["Dental Tirana | Implantology & Dental Aesthetics", "TDA Clinic"],
-        },
-        {
-          topic: "Dental tourism & airport transfer assistance",
-          category: "Seed",
-          impact: "MEDIUM",
-          description: "AI engines cite WhatClinic and regional directories for foreign patients visiting the city.",
-          recommendation: "Claim and optimize your WhatClinic and DentalTourism profile with matching NAP (Name, Address, Phone).",
-          competitorsCovering: ["Dental Tirana.al", "Dental Center Albania"],
-        },
-        {
-          topic: "Doctor credentials & university specialist profiles",
-          category: "How to",
-          impact: "LOW",
-          description: "When answering 'How do I find a reliable provider', AI models look for verified clinician degrees and continuous education certifications.",
-          recommendation: "Add individual 'Doctor Profile' pages with Person schema, medical license numbers, and international certifications.",
-          competitorsCovering: ["Dental Tirana", "Wilson Dental Center"],
-        },
-        {
-          topic: "Pediatric & family dental care guidelines",
-          category: "Persona",
-          impact: "LOW",
-          description: "AI queries frequently look for child-friendly amenities and pediatric specialist designations.",
-          recommendation: "Add a 'Family & Children Dentistry' section highlighting friendly staff and preventative fluoride treatments.",
-          competitorsCovering: ["Wilson Dental Center", "Medent Studio"],
-        },
-      ],
-    };
-  }, [latest, business]);
+    return null;
+  }, [latest]);
 
   // Set all questions expanded by default when report loads
   useEffect(() => {
-    if (reportData.questions && reportData.questions.length > 0) {
+    if (reportData?.questions && reportData.questions.length > 0) {
       const exp: Record<string, boolean> = {};
       for (const q of reportData.questions) {
         exp[q.id] = true;
       }
       setExpandedQuestions(exp);
     }
-  }, [reportData.questions]);
+  }, [reportData?.questions]);
 
   const toggleQuestion = (id: string) => {
     setExpandedQuestions((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
   const expandAll = () => {
+    if (!reportData?.questions) return;
     const exp: Record<string, boolean> = {};
     for (const q of reportData.questions) {
       exp[q.id] = true;
@@ -747,36 +344,36 @@ export default function VisibilityPage() {
   };
 
   // 4-Engine Stats Resolution (Gemini, ChatGPT, Claude, Perplexity)
-  const geminiStat = reportData.engineStats?.gemini || reportData.engineStats?.googleAi || {
+  const geminiStat = reportData?.engineStats?.gemini || reportData?.engineStats?.googleAi || {
     name: "Google Gemini",
-    percentage: 60,
-    mentionedCount: 6,
-    totalCount: reportData.questions?.length || 10,
+    percentage: 0,
+    mentionedCount: 0,
+    totalCount: reportData?.questions?.length || 0,
   };
-  const chatGptStat = reportData.engineStats?.chatGpt || {
+  const chatGptStat = reportData?.engineStats?.chatGpt || {
     name: "OpenAI ChatGPT",
-    percentage: 80,
-    mentionedCount: 8,
-    totalCount: reportData.questions?.length || 10,
+    percentage: 0,
+    mentionedCount: 0,
+    totalCount: reportData?.questions?.length || 0,
   };
-  const claudeStat = reportData.engineStats?.claude || {
+  const claudeStat = reportData?.engineStats?.claude || {
     name: "Claude",
-    percentage: 40,
-    mentionedCount: 4,
-    totalCount: reportData.questions?.length || 10,
+    percentage: 0,
+    mentionedCount: 0,
+    totalCount: reportData?.questions?.length || 0,
   };
-  const perplexityStat = reportData.engineStats?.perplexity || {
+  const perplexityStat = reportData?.engineStats?.perplexity || {
     name: "Perplexity Sonar",
-    percentage: 90,
-    mentionedCount: 9,
-    totalCount: reportData.questions?.length || 10,
+    percentage: 0,
+    mentionedCount: 0,
+    totalCount: reportData?.questions?.length || 0,
   };
 
   const totalEnginesAnalyzed = 4;
-  const totalAnswersPossible = (reportData.questions?.length || 10) * totalEnginesAnalyzed;
+  const totalAnswersPossible = (reportData?.questions?.length || 0) * totalEnginesAnalyzed;
   const totalMentionedAllEngines =
     geminiStat.mentionedCount + chatGptStat.mentionedCount + claudeStat.mentionedCount + perplexityStat.mentionedCount;
-  const aggregateScore = Math.round((totalMentionedAllEngines / totalAnswersPossible) * 100);
+  const aggregateScore = totalAnswersPossible > 0 ? Math.round((totalMentionedAllEngines / totalAnswersPossible) * 100) : 0;
 
   async function handleRunProbe(customQuery?: string) {
     setBusy(true);
@@ -806,6 +403,7 @@ export default function VisibilityPage() {
         }),
       });
       setLiveAuditResults(data);
+      await refresh();
     } catch (err: any) {
       setLiveAuditError(err.message || "Failed to audit AI mentions.");
     } finally {
@@ -814,12 +412,12 @@ export default function VisibilityPage() {
   }
 
   const filteredCompetitors = useMemo(() => {
-    if (!reportData.competitors) return [];
+    if (!reportData?.competitors) return [];
     if (!compSearch.trim()) return reportData.competitors;
     return reportData.competitors.filter((c) =>
       c.name.toLowerCase().includes(compSearch.toLowerCase())
     );
-  }, [reportData.competitors, compSearch]);
+  }, [reportData?.competitors, compSearch]);
 
   return (
     <div className="min-h-screen bg-[#FAF7F2] dark:bg-zinc-950 text-[#1C1917] dark:text-zinc-100 font-sans pb-24">
@@ -1018,7 +616,8 @@ export default function VisibilityPage() {
           <div className="space-y-1.5">
             <button
               onClick={() => {
-                setSearchQueryInput(reportData.targetQuery.replace(/^["']|["']$/g, ""));
+                const q = reportData?.targetQuery || (business?.name ? `"${business.name} in ${business.city || "your area"}"` : "");
+                setSearchQueryInput(q.replace(/^["']|["']$/g, ""));
                 setNewSearchModalOpen(true);
               }}
               className="text-xs font-semibold text-[#8A5333] dark:text-amber-400 hover:underline flex items-center gap-1 cursor-pointer"
@@ -1090,17 +689,17 @@ export default function VisibilityPage() {
             <div className="rounded-xl border border-[#EBE3D5] dark:border-zinc-800 bg-[#FCFAF7] dark:bg-zinc-950/60 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="flex items-center gap-3.5">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#8A5333] text-white font-bold text-base shadow-sm">
-                  {reportData.businessInfo.initials || "ND"}
+                  {reportData?.businessInfo?.initials || (business?.name ? business.name.slice(0, 2).toUpperCase() : "ND")}
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-[#1C1917] dark:text-white leading-snug">
-                    {reportData.businessInfo.name}
+                    {reportData?.businessInfo?.name || business?.name || "Your Business"}
                   </h3>
                   <p className="text-xs text-[#78716C] dark:text-zinc-400">
-                    {reportData.businessInfo.address}
+                    {reportData?.businessInfo?.address || (business?.city ? `${business.name}, ${business.city}` : "Location not set")}
                   </p>
                   <div className="mt-1.5 flex flex-wrap gap-1.5">
-                    {reportData.businessInfo.tags.map((tag) => (
+                    {(reportData?.businessInfo?.tags || (business?.industry ? [business.industry, `${business.industry} in ${business.city || ""}`] : ["Local Business"])).map((tag) => (
                       <span
                         key={tag}
                         className="rounded-md bg-[#F2E8DC] dark:bg-zinc-800 px-2 py-0.5 text-[11px] font-medium text-[#7A4B2A] dark:text-amber-300"
@@ -1126,11 +725,57 @@ export default function VisibilityPage() {
             </div>
 
             <div className="rounded-xl border border-[#EBE3D5] dark:border-zinc-800 bg-[#FCFAF7] dark:bg-zinc-950/60 px-4 py-3 font-medium text-xs sm:text-sm text-[#1C1917] dark:text-zinc-200">
-              {reportData.targetQuery}
+              {reportData?.targetQuery || (business?.name ? `"${business.name} in ${business.city || "your area"}"` : '"Best local business"')}
             </div>
           </div>
         </div>
 
+        {!reportData ? (
+          <div className="rounded-2xl border border-[#EBE3D5] dark:border-zinc-800 bg-white dark:bg-zinc-900/60 p-8 sm:p-12 text-center space-y-6 shadow-xs my-4">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-100 dark:bg-amber-950/50 text-[#8A5333] dark:text-amber-400">
+              <Sparkles className="h-8 w-8" />
+            </div>
+            <div className="space-y-2 max-w-md mx-auto">
+              <h2 className="text-xl font-bold text-[#1C1917] dark:text-white">
+                No Live AI Visibility Scan Recorded Yet
+              </h2>
+              <p className="text-sm text-[#78716C] dark:text-zinc-400">
+                Audit your brand across <strong className="text-zinc-900 dark:text-zinc-200">Google Gemini, OpenAI ChatGPT, Anthropic Claude, and Perplexity Sonar</strong> with live OpenRouter AI models. Zero static or fake data.
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+              <button
+                onClick={() => handleRunLiveAudit()}
+                disabled={liveAuditLoading}
+                className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-700 to-amber-900 px-6 py-3 text-sm font-semibold text-white shadow hover:opacity-95 transition cursor-pointer"
+              >
+                {liveAuditLoading ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                    Auditing 4 AI Engines Live...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-4 w-4" />
+                    Run Live 4-Engine AI Audit Now
+                  </>
+                )}
+              </button>
+              <button
+                onClick={() => {
+                  const q = business?.name ? `"${business.name} in ${business.city || "your area"}"` : "";
+                  setSearchQueryInput(q.replace(/^["']|["']$/g, ""));
+                  setNewSearchModalOpen(true);
+                }}
+                className="inline-flex items-center gap-2 rounded-xl border border-[#EBE3D5] dark:border-zinc-700 px-5 py-3 text-sm font-medium text-[#1C1917] dark:text-zinc-200 hover:bg-[#FAF8F5] dark:hover:bg-zinc-850 transition cursor-pointer"
+              >
+                <Search className="h-4 w-4 text-[#8A5333]" />
+                Custom Query Probe
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
         {/* Executive Summary Card */}
         <div className="rounded-2xl border border-[#EBE3D5] dark:border-zinc-800 bg-white dark:bg-zinc-900/60 p-5 sm:p-6 space-y-4 shadow-xs">
           <h2 className="text-base sm:text-lg font-bold text-[#1C1917] dark:text-white tracking-tight leading-snug">
@@ -1395,24 +1040,24 @@ export default function VisibilityPage() {
                   const geminiDetail: EngineAnswerDetail = q.gemini || q.googleAi || q.chatGpt;
                   const chatGptDetail = q.chatGpt;
                   const claudeDetail = q.claude || {
-                    mentioned: qIdx % 3 === 0,
-                    rank: qIdx % 3 === 0 ? (qIdx + 1) : null,
-                    statusLabel: qIdx % 3 === 0 ? `Mentioned · #${qIdx + 1}` : "Not mentioned",
-                    sentiment: qIdx % 3 === 0 ? "positive" : "absent",
-                    quote: qIdx % 3 === 0 ? `Claude knowledge base recognizes ${reportData.businessInfo?.name || "the clinic"} in ${reportData.businessInfo?.address?.split(',')[0] || "central area"}...` : "No confirmed entity record found in training weights.",
-                    competitors: [reportData.competitors?.[0]?.name || "Local Competitor"],
-                    sourcesCited: 6,
-                    fullAnswer: `Claude direct answer synthesis for query: ${q.question}`,
+                    mentioned: false,
+                    rank: null,
+                    statusLabel: "Not checked",
+                    sentiment: "absent",
+                    quote: "No Claude response recorded for this question.",
+                    competitors: [],
+                    sourcesCited: 0,
+                    fullAnswer: "",
                   };
                   const perplexityDetail = q.perplexity || {
-                    mentioned: true,
-                    rank: (qIdx % 2) + 1,
-                    statusLabel: `Mentioned · #${(qIdx % 2) + 1}`,
-                    sentiment: "positive",
-                    quote: `Live web index verified: ${reportData.businessInfo?.name || "The clinic"} is cited across active directories and map listings in ${reportData.businessInfo?.address?.split(',')[0] || "Tirana"}.`,
-                    competitors: [reportData.competitors?.[1]?.name || "Dental Tirana"],
-                    sourcesCited: 14,
-                    fullAnswer: `Perplexity real-time web citations for ${q.question}`,
+                    mentioned: false,
+                    rank: null,
+                    statusLabel: "Not checked",
+                    sentiment: "absent",
+                    quote: "No Perplexity response recorded for this question.",
+                    competitors: [],
+                    sourcesCited: 0,
+                    fullAnswer: "",
                   };
 
                   return (
@@ -1981,6 +1626,8 @@ export default function VisibilityPage() {
             </div>
           )}
         </div>
+        </>
+        )}
       </div>
 
       {/* New Search Intent Modal */}

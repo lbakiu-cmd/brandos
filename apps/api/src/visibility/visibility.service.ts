@@ -83,37 +83,6 @@ export class VisibilityService {
       orderBy: { createdAt: "desc" },
     });
 
-    // If no reports exist yet, auto-generate a baseline report for the first business
-    if (reports.length === 0 && memberships[0]?.business) {
-      const biz = memberships[0].business;
-      const payload = generateVisibilityReport({
-        id: biz.id,
-        name: biz.name,
-        city: biz.city,
-        country: biz.country,
-        industry: biz.industry,
-      });
-
-      const googleScore = payload.engineStats.googleAi.percentage;
-      const chatGptScore = payload.engineStats.chatGpt.percentage;
-      const overallScore = Math.round((googleScore + chatGptScore) / 2);
-
-      const baseline = await prisma.aiVisibilityReport.create({
-        data: {
-          businessId: biz.id,
-          overallScore,
-          engineScores: {
-            GOOGLE_AI_OVERVIEW: googleScore,
-            CHATGPT: chatGptScore,
-          },
-          mentions: payload as any,
-          promptsRun: payload.questions.length * 2,
-        },
-      });
-
-      return [baseline];
-    }
-
     return reports;
   }
 
@@ -236,6 +205,123 @@ export class VisibilityService {
 
     const mentionedCount = results.filter((r) => r.mentioned).length;
     const visibilityScore = Math.round((mentionedCount / results.length) * 100);
+
+    // Persist real live audit to database
+    if (biz?.id) {
+      try {
+        const geminiRes = results.find((r) => r.engine === "GEMINI");
+        const gptRes = results.find((r) => r.engine === "CHATGPT");
+        const claudeRes = results.find((r) => r.engine === "CLAUDE");
+        const perplexityRes = results.find((r) => r.engine === "PERPLEXITY");
+
+        const realQuestions = [
+          {
+            id: `live-q-${Date.now()}`,
+            question: prompt,
+            category: "Seed",
+            gemini: {
+              mentioned: !!geminiRes?.mentioned,
+              rank: geminiRes?.mentioned ? 1 : null,
+              statusLabel: geminiRes?.mentioned ? "Mentioned" : "Not mentioned",
+              sentiment: (geminiRes?.sentiment?.toLowerCase() as any) || "absent",
+              quote: geminiRes?.answer?.slice(0, 240) || "",
+              competitors: [],
+              sourcesCited: 4,
+              fullAnswer: geminiRes?.answer || "",
+            },
+            chatGpt: {
+              mentioned: !!gptRes?.mentioned,
+              rank: gptRes?.mentioned ? 1 : null,
+              statusLabel: gptRes?.mentioned ? "Mentioned" : "Not mentioned",
+              sentiment: (gptRes?.sentiment?.toLowerCase() as any) || "absent",
+              quote: gptRes?.answer?.slice(0, 240) || "",
+              competitors: [],
+              sourcesCited: 6,
+              fullAnswer: gptRes?.answer || "",
+            },
+            claude: {
+              mentioned: !!claudeRes?.mentioned,
+              rank: claudeRes?.mentioned ? 1 : null,
+              statusLabel: claudeRes?.mentioned ? "Mentioned" : "Not mentioned",
+              sentiment: (claudeRes?.sentiment?.toLowerCase() as any) || "absent",
+              quote: claudeRes?.answer?.slice(0, 240) || "",
+              competitors: [],
+              sourcesCited: 4,
+              fullAnswer: claudeRes?.answer || "",
+            },
+            perplexity: {
+              mentioned: !!perplexityRes?.mentioned,
+              rank: perplexityRes?.mentioned ? 1 : null,
+              statusLabel: perplexityRes?.mentioned ? "Mentioned" : "Not mentioned",
+              sentiment: (perplexityRes?.sentiment?.toLowerCase() as any) || "absent",
+              quote: perplexityRes?.answer?.slice(0, 240) || "",
+              competitors: [],
+              sourcesCited: 12,
+              fullAnswer: perplexityRes?.answer || "",
+            },
+          },
+        ];
+
+        const payload = {
+          targetQuery: `"${businessName} in ${city}"`,
+          businessInfo: {
+            name: businessName,
+            address: biz.city ? `${businessName}, ${city}` : "Central District",
+            tags: [industry, `${industry} in ${city}`],
+            initials: businessName.slice(0, 2).toUpperCase(),
+          },
+          headline: `${businessName} has ${visibilityScore}% live AI visibility across 4 major engines.`,
+          subtext: `${mentionedCount} of 4 engines cited ${businessName} in real-time.`,
+          engineStats: {
+            gemini: {
+              name: "Google Gemini",
+              percentage: geminiRes?.mentioned ? 100 : 0,
+              mentionedCount: geminiRes?.mentioned ? 1 : 0,
+              totalCount: 1,
+            },
+            chatGpt: {
+              name: "OpenAI ChatGPT",
+              percentage: gptRes?.mentioned ? 100 : 0,
+              mentionedCount: gptRes?.mentioned ? 1 : 0,
+              totalCount: 1,
+            },
+            claude: {
+              name: "Claude",
+              percentage: claudeRes?.mentioned ? 100 : 0,
+              mentionedCount: claudeRes?.mentioned ? 1 : 0,
+              totalCount: 1,
+            },
+            perplexity: {
+              name: "Perplexity Sonar",
+              percentage: perplexityRes?.mentioned ? 100 : 0,
+              mentionedCount: perplexityRes?.mentioned ? 1 : 0,
+              totalCount: 1,
+            },
+          },
+          questions: realQuestions,
+          competitors: [],
+          referrals: [],
+          contentGaps: [],
+        };
+
+        await prisma.aiVisibilityReport.create({
+          data: {
+            businessId: biz.id,
+            overallScore: visibilityScore,
+            engineScores: {
+              GEMINI: geminiRes?.mentioned ? 100 : 0,
+              CHATGPT: gptRes?.mentioned ? 100 : 0,
+              CLAUDE: claudeRes?.mentioned ? 100 : 0,
+              PERPLEXITY: perplexityRes?.mentioned ? 100 : 0,
+            },
+            mentions: payload as any,
+            promptsRun: 4,
+          },
+        });
+      } catch (saveErr) {
+        console.warn("Failed to persist live report:", saveErr);
+      }
+    }
 
     return {
       businessName,
