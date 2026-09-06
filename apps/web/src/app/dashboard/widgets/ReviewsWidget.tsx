@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Star, Sparkles, Check, Send, MessageSquare } from "lucide-react";
+import { apiFetch } from "@/lib/api";
 import { TimeRangeFilter } from "@/components/TimeRangeFilter";
 import { TimeRangeKey, getTimeRangeLabel } from "@/lib/timeRanges";
 
@@ -78,17 +79,59 @@ export function ReviewsWidget({ data, onRemove, initialTimeRange = "7D" }: Revie
   const displayedReviews = filteredReviews.length > 0 ? filteredReviews : rawReviews.slice(0, 2);
 
   const [reviews, setReviews] = useState<any[]>(displayedReviews);
+  const [approvingId, setApprovingId] = useState<string | null>(null);
 
   useEffect(() => {
-    setReviews(displayedReviews);
+    let list = displayedReviews;
+    try {
+      const storedReplies = JSON.parse(localStorage.getItem("brandos_approved_reviews") || "{}");
+      list = list.map((r: any, idx: number) => {
+        const authorKey = (r.author || "").toLowerCase();
+        const idKey = r.id || idx.toString();
+        const stored = storedReplies[idKey] || (authorKey && storedReplies[authorKey]);
+        if (stored) {
+          return {
+            ...r,
+            replied: true,
+            reply: stored,
+            aiDraft: undefined,
+          };
+        }
+        return r;
+      });
+    } catch {}
+    setReviews(list);
   }, [timeRange, data?.recentReviews]);
 
-  const handleSendReply = (id: string, replyText: string) => {
+  const handleSendReply = async (id: string, replyText: string, author?: string) => {
+    setApprovingId(id);
+
+    try {
+      const stored = JSON.parse(localStorage.getItem("brandos_approved_reviews") || "{}");
+      stored[id] = replyText;
+      if (author) stored[author.toLowerCase()] = replyText;
+      localStorage.setItem("brandos_approved_reviews", JSON.stringify(stored));
+    } catch {}
+
     setReviews((prev: any[]) =>
-      prev.map((r) =>
-        r.id === id ? { ...r, replied: true, reply: replyText, aiDraft: undefined } : r
+      prev.map((r, i) =>
+        r.id === id || i.toString() === id || (author && r.author === author)
+          ? { ...r, replied: true, reply: replyText, aiDraft: undefined }
+          : r
       )
     );
+
+    try {
+      const targetId = id || author || "review";
+      await apiFetch(`/reviews/${encodeURIComponent(targetId)}/reply`, {
+        method: "PATCH",
+        body: JSON.stringify({ replyText }),
+      });
+    } catch (err) {
+      console.error("Failed to approve review on server:", err);
+    } finally {
+      setApprovingId(null);
+    }
   };
 
   return (
@@ -131,16 +174,16 @@ export function ReviewsWidget({ data, onRemove, initialTimeRange = "7D" }: Revie
       {/* Review List */}
       <div className="flex-1 space-y-3 py-3 overflow-y-auto max-h-[340px] pr-1">
         {reviews.length > 0 ? (
-          reviews.map((r) => (
-            <div key={r.id} className="rounded-xl bg-slate-950/60 p-4 border border-slate-800/60 space-y-2.5">
+          reviews.map((r, idx) => (
+            <div key={r.id || idx} className="rounded-xl bg-slate-950/60 p-4 border border-slate-800/60 space-y-2.5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
                   <div className="h-7 w-7 rounded-full bg-slate-800 flex items-center justify-center font-bold text-xs text-white">
-                    {r.author[0]}
+                    {r.author ? r.author[0] : "C"}
                   </div>
-                  <span className="text-xs sm:text-sm font-bold text-white">{r.author}</span>
+                  <span className="text-xs sm:text-sm font-bold text-white">{r.author || "Customer"}</span>
                   <div className="flex items-center text-amber-400">
-                    {Array.from({ length: r.rating }).map((_, i) => (
+                    {Array.from({ length: r.rating || 5 }).map((_, i) => (
                       <Star key={i} className="h-3.5 w-3.5 fill-amber-400" />
                     ))}
                   </div>
@@ -166,10 +209,12 @@ export function ReviewsWidget({ data, onRemove, initialTimeRange = "7D" }: Revie
                   </div>
                   <p className="text-xs sm:text-sm text-slate-200">{r.aiDraft}</p>
                   <button
-                    onClick={() => handleSendReply(r.id, r.aiDraft)}
-                    className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-indigo-500 shadow-md shadow-indigo-600/30 transition"
+                    onClick={() => handleSendReply(r.id || idx.toString(), r.aiDraft || "Thank you for your feedback!", r.author)}
+                    disabled={approvingId === (r.id || idx.toString())}
+                    className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-indigo-500 shadow-md shadow-indigo-600/30 transition disabled:opacity-50"
                   >
-                    <Send className="h-3.5 w-3.5" /> Approve & Post to Google
+                    <Send className="h-3.5 w-3.5" />
+                    <span>{approvingId === (r.id || idx.toString()) ? "Publishing to Google..." : "Approve & Post to Google"}</span>
                   </button>
                 </div>
               )}

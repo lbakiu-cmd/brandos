@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Req, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Post, Req, UseGuards } from "@nestjs/common";
 import { AuthGuard } from "../auth/auth.guard";
 import { VisibilityService } from "./visibility.service";
 
@@ -8,8 +8,8 @@ export class VisibilityController {
 
   @Post()
   @UseGuards(AuthGuard)
-  start(@Req() req: any) {
-    return this.visibility.start(req.user.id);
+  start(@Req() req: any, @Body("query") query?: string) {
+    return this.visibility.start(req.user.id, query);
   }
 
   @Get()

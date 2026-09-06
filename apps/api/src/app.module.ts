@@ -15,6 +15,7 @@ import { CopilotModule } from "./copilot/copilot.module";
 import { WordpressModule } from "./wordpress/wordpress.module";
 import { OAuthModule } from "./oauth/oauth.module";
 import { MailModule } from "./mail/mail.module";
+import { LocalSeoToolsModule } from "./local-seo-tools/local-seo-tools.module";
 
 @Module({
   controllers: [AppController],
@@ -34,6 +35,7 @@ import { MailModule } from "./mail/mail.module";
     BillingModule,
     CopilotModule,
     WordpressModule,
+    LocalSeoToolsModule,
   ],
 })
 export class AppModule {}

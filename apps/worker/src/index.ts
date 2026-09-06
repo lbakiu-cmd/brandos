@@ -26,7 +26,7 @@ const socialWorker = new Worker("social-audit", async (job) => {
 
 const aiWorker = new Worker("ai-visibility", async (job) => {
   console.log("🔮 ai-visibility job:", job.id);
-  await runAiVisibilityReport(String(job.data.reportId));
+  await runAiVisibilityReport(String(job.data.reportId), job.data.query);
 }, { connection: redisConnection() });
 
 auditWorker.on("failed", (job, err) => {

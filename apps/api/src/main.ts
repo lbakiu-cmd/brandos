@@ -70,6 +70,8 @@ async function bootstrap() {
       "https://www.onlinepresence.space",
       "https://brandoseye.com",
       "https://www.brandoseye.com",
+      "https://icandothat.online",
+      "https://www.icandothat.online",
     ],
     credentials: true,
   });

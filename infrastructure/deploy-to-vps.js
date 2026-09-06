@@ -275,6 +275,22 @@ EOF`
     email support@onlinepresence.space
 }
 
+icandothat.online, www.icandothat.online {
+    handle_path /api/* {
+        reverse_proxy 127.0.0.1:3001
+    }
+
+    handle /wordpress/* {
+        reverse_proxy 127.0.0.1:3001
+    }
+
+    handle {
+        reverse_proxy 127.0.0.1:3000
+    }
+
+    encode gzip zstd
+}
+
 onlinepresence.space, www.onlinepresence.space {
     handle_path /api/* {
         reverse_proxy 127.0.0.1:3001

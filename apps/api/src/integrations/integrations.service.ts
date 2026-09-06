@@ -272,7 +272,7 @@ export class IntegrationsService {
     // 1. Determine Industry Keywords, Landing Pages & Review Contexts
     let keywords: Array<{ query: string; clicks: number; impressions: number; ctr: number; position: number; intent: string }>;
     let landingPages: Array<{ path: string; views: number; bounceRate: number }>;
-    let reviewSnippets: Array<{ author: string; rating: number; time: string; comment: string; replied: boolean; reply?: string; aiDraft?: string }>;
+    let reviewSnippets: Array<{ id: string; author: string; rating: number; time: string; comment: string; replied: boolean; reply?: string; aiDraft?: string }>;
 
     if (bIndustry.includes("law") || bIndustry.includes("legal") || bIndustry.includes("attorney")) {
       keywords = [
@@ -288,9 +288,9 @@ export class IntegrationsService {
         { path: "/attorney-profiles", views: 2180, bounceRate: 24.5 },
       ];
       reviewSnippets = [
-        { author: "Michael T.", rating: 5, time: "2 days ago", comment: `Outstanding counsel from ${bName}! Handled our case with top precision.`, replied: true, reply: `Thank you Michael! It was an honor representing your interests.` },
-        { author: "Sarah W.", rating: 5, time: "4 days ago", comment: `Very responsive legal team. Transparent pricing and great outcome.`, replied: true, reply: `Thank you Sarah for trusting our firm.` },
-        { author: "Robert H.", rating: 5, time: "1 week ago", comment: `Best legal consultation in ${bCity}. Highly recommend ${bName}.`, replied: false, aiDraft: `Thank you Robert! We are dedicated to providing premier legal guidance in ${bCity}.` },
+        { id: "rev_law_1", author: "Michael T.", rating: 5, time: "2 days ago", comment: `Outstanding counsel from ${bName}! Handled our case with top precision.`, replied: true, reply: `Thank you Michael! It was an honor representing your interests.` },
+        { id: "rev_law_2", author: "Sarah W.", rating: 5, time: "4 days ago", comment: `Very responsive legal team. Transparent pricing and great outcome.`, replied: true, reply: `Thank you Sarah for trusting our firm.` },
+        { id: "rev_law_3", author: "Robert H.", rating: 5, time: "1 week ago", comment: `Best legal consultation in ${bCity}. Highly recommend ${bName}.`, replied: false, aiDraft: `Thank you Robert! We are dedicated to providing premier legal guidance in ${bCity}.` },
       ];
     } else if (bIndustry.includes("restaurant") || bIndustry.includes("food") || bIndustry.includes("cafe") || bIndustry.includes("dining")) {
       keywords = [
@@ -305,9 +305,9 @@ export class IntegrationsService {
         { path: "/private-dining", views: 2310, bounceRate: 22.0 },
       ];
       reviewSnippets = [
-        { author: "Jessica M.", rating: 5, time: "2 days ago", comment: `The food at ${bName} is incredible! Best dining experience in ${bCity}.`, replied: true, reply: `Thank you Jessica! We look forward to welcoming you back soon.` },
-        { author: "Chef Anthony", rating: 5, time: "5 days ago", comment: `Exceptional flavors and top-tier service. 10/10 recommendation!`, replied: true, reply: `Thanks Anthony! Our kitchen team appreciates the high praise.` },
-        { author: "Daniel B.", rating: 4, time: "1 week ago", comment: `Great cocktails and appetizers, slightly loud during peak dinner rush.`, replied: false, aiDraft: `Thanks Daniel! We appreciate your visit and feedback on acoustic comfort during rush hours.` },
+        { id: "rev_food_1", author: "Jessica M.", rating: 5, time: "2 days ago", comment: `The food at ${bName} is incredible! Best dining experience in ${bCity}.`, replied: true, reply: `Thank you Jessica! We look forward to welcoming you back soon.` },
+        { id: "rev_food_2", author: "Chef Anthony", rating: 5, time: "5 days ago", comment: `Exceptional flavors and top-tier service. 10/10 recommendation!`, replied: true, reply: `Thanks Anthony! Our kitchen team appreciates the high praise.` },
+        { id: "rev_food_3", author: "Daniel B.", rating: 4, time: "1 week ago", comment: `Great cocktails and appetizers, slightly loud during peak dinner rush.`, replied: false, aiDraft: `Thanks Daniel! We appreciate your visit and feedback on acoustic comfort during rush hours.` },
       ];
     } else if (bIndustry.includes("roof") || bIndustry.includes("plumb") || bIndustry.includes("hvac") || bIndustry.includes("contractor") || bIndustry.includes("home") || bIndustry.includes("electric")) {
       keywords = [
@@ -322,9 +322,9 @@ export class IntegrationsService {
         { path: "/warranty-and-financing", views: 2190, bounceRate: 20.4 },
       ];
       reviewSnippets = [
-        { author: "George P.", rating: 5, time: "2 days ago", comment: `${bName} showed up within 30 minutes and did an exceptional repair job!`, replied: true, reply: `Thanks George! Fast, dependable service is our top priority.` },
-        { author: "Linda K.", rating: 5, time: "4 days ago", comment: `Very honest pricing, no hidden fees. Highly recommend in ${bCity}.`, replied: true, reply: `Thank you Linda! We appreciate your business and trust.` },
-        { author: "Marcus S.", rating: 5, time: "1 week ago", comment: `Professional crew, cleaned up everything after completing work.`, replied: false, aiDraft: `Thank you Marcus! We take great pride in delivering clean, reliable craftsmanship.` },
+        { id: "rev_hvac_1", author: "George P.", rating: 5, time: "2 days ago", comment: `${bName} showed up within 30 minutes and did an exceptional repair job!`, replied: true, reply: `Thanks George! Fast, dependable service is our top priority.` },
+        { id: "rev_hvac_2", author: "Linda K.", rating: 5, time: "4 days ago", comment: `Very honest pricing, no hidden fees. Highly recommend in ${bCity}.`, replied: true, reply: `Thank you Linda! We appreciate your business and trust.` },
+        { id: "rev_hvac_3", author: "Marcus S.", rating: 5, time: "1 week ago", comment: `Professional crew, cleaned up everything after completing work.`, replied: false, aiDraft: `Thank you Marcus! We take great pride in delivering clean, reliable craftsmanship.` },
       ];
     } else if (bIndustry.includes("real estate") || bIndustry.includes("realty") || bIndustry.includes("property")) {
       keywords = [
@@ -339,9 +339,9 @@ export class IntegrationsService {
         { path: "/neighborhood-guides", views: 2890, bounceRate: 26.1 },
       ];
       reviewSnippets = [
-        { author: "Emily R.", rating: 5, time: "3 days ago", comment: `${bName} helped us find our dream home in ${bCity}! Seamless closing.`, replied: true, reply: `Congratulations Emily! It was an absolute joy finding your new home.` },
-        { author: "James & Karen", rating: 5, time: "1 week ago", comment: `Sold our property in under 2 weeks over asking price!`, replied: true, reply: `Thank you both! We are thrilled with the fantastic outcome.` },
-        { author: "Peter V.", rating: 5, time: "2 weeks ago", comment: `Expert market knowledge and negotiations.`, replied: false, aiDraft: `Thank you Peter! We are proud to deliver top market results for our clients.` },
+        { id: "rev_re_1", author: "Emily R.", rating: 5, time: "3 days ago", comment: `${bName} helped us find our dream home in ${bCity}! Seamless closing.`, replied: true, reply: `Congratulations Emily! It was an absolute joy finding your new home.` },
+        { id: "rev_re_2", author: "James & Karen", rating: 5, time: "1 week ago", comment: `Sold our property in under 2 weeks over asking price!`, replied: true, reply: `Thank you both! We are thrilled with the fantastic outcome.` },
+        { id: "rev_re_3", author: "Peter V.", rating: 5, time: "2 weeks ago", comment: `Expert market knowledge and negotiations.`, replied: false, aiDraft: `Thank you Peter! We are proud to deliver top market results for our clients.` },
       ];
     } else if (bIndustry.includes("dental") || bIndustry.includes("medical") || bIndustry.includes("clinic") || bIndustry.includes("health")) {
       keywords = [
@@ -356,9 +356,9 @@ export class IntegrationsService {
         { path: "/our-specialists", views: 2190, bounceRate: 25.4 },
       ];
       reviewSnippets = [
-        { author: "Elena R.", rating: 5, time: "2 days ago", comment: `Outstanding care at ${bName}! Gentle treatment and high-tech equipment.`, replied: true, reply: `Thank you Elena! We are thrilled to provide premier dental care.` },
-        { author: "Marcus V.", rating: 5, time: "4 days ago", comment: `The staff and booking were super fast and gentle. Highly recommend.`, replied: true, reply: `Thanks Marcus! We appreciate your trust in our team.` },
-        { author: "Sarah K.", rating: 4, time: "1 week ago", comment: `Great experience overall, treatment was 10/10.`, replied: false, aiDraft: `Thank you Sarah! We look forward to keeping your smile bright.` },
+        { id: "rev_dental_1", author: "Elena R.", rating: 5, time: "2 days ago", comment: `Outstanding care at ${bName}! Gentle treatment and high-tech equipment.`, replied: true, reply: `Thank you Elena! We are thrilled to provide premier dental care.` },
+        { id: "rev_dental_2", author: "Marcus V.", rating: 5, time: "4 days ago", comment: `The staff and booking were super fast and gentle. Highly recommend.`, replied: true, reply: `Thanks Marcus! We appreciate your trust in our team.` },
+        { id: "rev_dental_3", author: "Sarah K.", rating: 4, time: "1 week ago", comment: `Great experience overall, treatment was 10/10.`, replied: false, aiDraft: `Thank you Sarah! We look forward to keeping your smile bright.` },
       ];
     } else {
       // General B2B / SaaS / Agency / Business
@@ -374,9 +374,9 @@ export class IntegrationsService {
         { path: "/case-studies", views: 2410, bounceRate: 22.1 },
       ];
       reviewSnippets = [
-        { author: "Alex P.", rating: 5, time: "2 days ago", comment: `Outstanding results working with ${bName}. Professional, timely and verified quality.`, replied: true, reply: `Thank you Alex! It has been a pleasure collaborating with your team.` },
-        { author: "Maria G.", rating: 5, time: "5 days ago", comment: `Top-notch execution and clear communication from day one.`, replied: true, reply: `Thanks Maria! We value your partnership.` },
-        { author: "Chris D.", rating: 5, time: "1 week ago", comment: `Best service provider in ${bCity}. Will definitely use again!`, replied: false, aiDraft: `Thank you Chris! We are committed to delivering top results in ${bCity}.` },
+        { id: "rev_gen_1", author: "Alex P.", rating: 5, time: "2 days ago", comment: `Outstanding results working with ${bName}. Professional, timely and verified quality.`, replied: true, reply: `Thank you Alex! It has been a pleasure collaborating with your team.` },
+        { id: "rev_gen_2", author: "Maria G.", rating: 5, time: "5 days ago", comment: `Top-notch execution and clear communication from day one.`, replied: true, reply: `Thanks Maria! We value your partnership.` },
+        { id: "rev_gen_3", author: "Chris D.", rating: 5, time: "1 week ago", comment: `Best service provider in ${bCity}. Will definitely use again!`, replied: false, aiDraft: `Thank you Chris! We are committed to delivering top results in ${bCity}.` },
       ];
     }
 

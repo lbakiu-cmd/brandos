@@ -124,15 +124,90 @@ export class ReviewsService {
       throw new BadRequestException("Reply text cannot be empty.");
     }
 
-    const review = await prisma.googleReview.findFirst({
-      where: { id: reviewId, businessId: membership.businessId },
-    });
-    if (!review) throw new NotFoundException("Review not found.");
+    const businessId = membership.businessId;
+    const cleanReply = replyText.trim();
 
-    return prisma.googleReview.update({
-      where: { id: reviewId },
+    // 1. Try finding review in database by ID or author name
+    let review = await prisma.googleReview.findFirst({
+      where: {
+        businessId,
+        OR: [
+          { id: reviewId },
+          { authorName: { equals: reviewId, mode: "insensitive" } },
+        ],
+      },
+    });
+
+    // 2. Also check if the business has a GOOGLE_BUSINESS_PROFILE IntegrationAccount with metricsCache.recentReviews
+    let matchedSnippet: any = null;
+    try {
+      const gbpAccount = await prisma.integrationAccount.findFirst({
+        where: {
+          businessId,
+          provider: "GOOGLE_BUSINESS_PROFILE" as any,
+        },
+      });
+
+      if (gbpAccount && gbpAccount.metricsCache) {
+        const cache: any = JSON.parse(JSON.stringify(gbpAccount.metricsCache));
+        if (Array.isArray(cache.recentReviews)) {
+          let cacheUpdated = false;
+          cache.recentReviews = cache.recentReviews.map((r: any, idx: number) => {
+            const isMatch =
+              r.id === reviewId ||
+              idx.toString() === reviewId ||
+              (r.author && (
+                r.author.toLowerCase() === reviewId.toLowerCase() ||
+                reviewId.toLowerCase().includes(r.author.toLowerCase()) ||
+                r.author.toLowerCase().includes(reviewId.toLowerCase())
+              ));
+
+            if (isMatch) {
+              matchedSnippet = r;
+              cacheUpdated = true;
+              return {
+                ...r,
+                replied: true,
+                reply: cleanReply,
+                aiDraft: undefined,
+              };
+            }
+            return r;
+          });
+
+          if (cacheUpdated) {
+            await prisma.integrationAccount.update({
+              where: { id: gbpAccount.id },
+              data: { metricsCache: cache },
+            });
+          }
+        }
+      }
+    } catch (err) {
+      // Non-blocking for metrics cache updates
+    }
+
+    // 3. Update database record if it already exists
+    if (review) {
+      return prisma.googleReview.update({
+        where: { id: review.id },
+        data: {
+          replyText: cleanReply,
+          repliedAt: new Date(),
+          aiReplyDraft: null,
+        },
+      });
+    }
+
+    // 4. If review wasn't found in google_reviews table, persist it as a permanent record
+    const authorName = matchedSnippet?.author || (reviewId.startsWith("rev_") ? "Customer Review" : reviewId);
+    return prisma.googleReview.create({
       data: {
-        replyText: replyText.trim(),
+        businessId,
+        authorName,
+        rating: matchedSnippet?.rating ? Number(matchedSnippet.rating) : 5,
+        comment: matchedSnippet?.comment || null,
+        replyText: cleanReply,
         repliedAt: new Date(),
         aiReplyDraft: null,
       },
