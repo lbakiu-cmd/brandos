@@ -15,6 +15,7 @@ module.exports = {
         REDIS_URL: "redis://localhost:6379",
         API_URL: "https://icandothat.online/api",
         FRONTEND_URL: "https://icandothat.online",
+        OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY || "",
       },
     },
     {
@@ -43,6 +44,7 @@ module.exports = {
         NODE_ENV: "production",
         DATABASE_URL: "postgresql://brandos:brandos_password@localhost:5432/brandos?schema=public",
         REDIS_URL: "redis://localhost:6379",
+        OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY || "",
       },
     },
   ],

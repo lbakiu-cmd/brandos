@@ -24,7 +24,53 @@ function buildPrompt(q: EngineQuery): string {
 
 // ---------------- Live providers ----------------
 
+export async function askOpenRouter(
+  model: string,
+  prompt: string,
+  maxTokens: number = 500
+): Promise<string | null> {
+  const key = process.env.OPENROUTER_API_KEY;
+  if (!key) return null;
+
+  try {
+    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${key}`,
+        "HTTP-Referer": process.env.FRONTEND_URL || "https://icandothat.online",
+        "X-Title": "BrandOS",
+      },
+      body: JSON.stringify({
+        model,
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: maxTokens,
+      }),
+    });
+
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => null);
+      console.error(
+        `❌ OpenRouter [${model}] HTTP ${res.status}:`,
+        errJson?.error?.message || res.statusText
+      );
+      return null;
+    }
+
+    const json: any = await res.json();
+    return json?.choices?.[0]?.message?.content ?? null;
+  } catch (err: any) {
+    console.error(`❌ OpenRouter [${model}] network error:`, err.message);
+    return null;
+  }
+}
+
 async function askOpenAI(q: EngineQuery): Promise<string | null> {
+  if (process.env.OPENROUTER_API_KEY) {
+    const model = process.env.OPENROUTER_CHATGPT_MODEL || "openai/gpt-4o-mini";
+    return askOpenRouter(model, buildPrompt(q));
+  }
+
   const key = process.env.OPENAI_API_KEY;
   if (!key) return null;
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -42,6 +88,11 @@ async function askOpenAI(q: EngineQuery): Promise<string | null> {
 }
 
 async function askPerplexity(q: EngineQuery): Promise<string | null> {
+  if (process.env.OPENROUTER_API_KEY) {
+    const model = process.env.OPENROUTER_PERPLEXITY_MODEL || "perplexity/sonar";
+    return askOpenRouter(model, buildPrompt(q));
+  }
+
   const key = process.env.PERPLEXITY_API_KEY;
   if (!key) return null;
   const res = await fetch("https://api.perplexity.ai/chat/completions", {
@@ -58,6 +109,11 @@ async function askPerplexity(q: EngineQuery): Promise<string | null> {
 }
 
 async function askAnthropic(q: EngineQuery): Promise<string | null> {
+  if (process.env.OPENROUTER_API_KEY) {
+    const model = process.env.OPENROUTER_CLAUDE_MODEL || "anthropic/claude-3-haiku";
+    return askOpenRouter(model, buildPrompt(q));
+  }
+
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) return null;
   const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -79,6 +135,11 @@ async function askAnthropic(q: EngineQuery): Promise<string | null> {
 }
 
 async function askGemini(q: EngineQuery): Promise<string | null> {
+  if (process.env.OPENROUTER_API_KEY) {
+    const model = process.env.OPENROUTER_GEMINI_MODEL || "google/gemini-2.5-flash";
+    return askOpenRouter(model, buildPrompt(q));
+  }
+
   const key = process.env.GEMINI_API_KEY;
   if (!key) {
     console.warn("⚠️ GEMINI_API_KEY is missing in worker environment.");

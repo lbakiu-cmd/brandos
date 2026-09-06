@@ -179,11 +179,7 @@ export class LocalSeoToolsService {
     const topic = params.topic || "Routine Checkups & Cleanings";
     const tone = params.tone || "Friendly & Authoritative";
 
-    // Attempt Gemini call if API key present
-    const geminiKey = process.env.GEMINI_API_KEY;
-    if (geminiKey) {
-      try {
-        const prompt = `Write a high-converting Google Business Profile Post for "${biz.name}", a ${biz.industry} located in ${biz.city}, ${biz.country}.
+    const prompt = `Write a high-converting Google Business Profile Post for "${biz.name}", a ${biz.industry} located in ${biz.city}, ${biz.country}.
 Post Type: ${postType}
 Topic: ${topic}
 Tone: ${tone}
@@ -204,6 +200,41 @@ Requirements:
   "geoAnchors": ["${biz.city}"]
 }`;
 
+    // 1. Attempt OpenRouter call if API key present
+    const openRouterKey = process.env.OPENROUTER_API_KEY;
+    if (openRouterKey) {
+      try {
+        const model = process.env.OPENROUTER_GBP_MODEL || "google/gemini-2.5-flash";
+        const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${openRouterKey}`,
+            "HTTP-Referer": process.env.FRONTEND_URL || "https://icandothat.online",
+            "X-Title": "BrandOS",
+          },
+          body: JSON.stringify({
+            model,
+            messages: [{ role: "user", content: prompt }],
+            response_format: { type: "json_object" },
+          }),
+        });
+
+        if (res.ok) {
+          const json: any = await res.json();
+          const rawText = json?.choices?.[0]?.message?.content;
+          if (rawText) {
+            const cleanJson = rawText.replace(/```json/g, "").replace(/```/g, "").trim();
+            return JSON.parse(cleanJson);
+          }
+        }
+      } catch {}
+    }
+
+    // 2. Attempt direct Gemini call if API key present
+    const geminiKey = process.env.GEMINI_API_KEY;
+    if (geminiKey) {
+      try {
         const res = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`,
           {

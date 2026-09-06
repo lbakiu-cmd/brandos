@@ -17,4 +17,19 @@ export class VisibilityController {
   list(@Req() req: any) {
     return this.visibility.list(req.user.id);
   }
+
+  @Post("live-check")
+  @UseGuards(AuthGuard)
+  liveCheck(
+    @Req() req: any,
+    @Body()
+    body?: {
+      businessName?: string;
+      city?: string;
+      industry?: string;
+      customPrompt?: string;
+    }
+  ) {
+    return this.visibility.liveAuditMentions(req.user.id, body);
+  }
 }

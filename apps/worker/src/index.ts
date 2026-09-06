@@ -1,4 +1,8 @@
-import "dotenv/config";
+import dotenv from "dotenv";
+import path from "node:path";
+dotenv.config();
+dotenv.config({ path: path.resolve(__dirname, "../../.env") });
+dotenv.config({ path: path.resolve(__dirname, "../../../.env") });
 import { Worker } from "bullmq";
 import { runWebsiteAudit, runGbpAudit, runSocialAudit } from "./audit-runner";
 import { runAiVisibilityReport } from "./ai-visibility-runner";

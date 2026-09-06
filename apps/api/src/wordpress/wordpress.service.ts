@@ -517,7 +517,8 @@ export class WordpressService {
       ? "Restaurant"
       : "LocalBusiness";
 
-    // 1. Check for live OpenAI / Gemini / Anthropic API keys
+    // 1. Check for live OpenRouter / OpenAI / Gemini / Anthropic API keys
+    const openRouterKey = process.env.OPENROUTER_API_KEY;
     const openAiKey = process.env.OPENAI_API_KEY;
     const geminiKey = process.env.GEMINI_API_KEY;
     const anthropicKey = process.env.ANTHROPIC_API_KEY;
@@ -537,7 +538,32 @@ Format the article with clean Markdown:
 - A dedicated FAQ section with 3 distinct questions and answers
 - A natural call-to-action encouraging readers in ${city} to contact ${name} via ${website} or ${phone}`;
 
-    if (openAiKey) {
+    if (openRouterKey) {
+      try {
+        const model = process.env.OPENROUTER_BLOG_MODEL || "openai/gpt-4o-mini";
+        const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${openRouterKey}`,
+            "HTTP-Referer": process.env.FRONTEND_URL || "https://icandothat.online",
+            "X-Title": "BrandOS",
+          },
+          body: JSON.stringify({
+            model,
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: `Write the full blog article about: "${targetTopic}" focusing on category "${primaryCategory}".` },
+            ],
+            max_tokens: 1500,
+          }),
+        });
+        if (res.ok) {
+          const json: any = await res.json();
+          aiGeneratedContent = json?.choices?.[0]?.message?.content ?? null;
+        }
+      } catch {}
+    } else if (openAiKey) {
       try {
         const res = await fetch("https://api.openai.com/v1/chat/completions", {
           method: "POST",
