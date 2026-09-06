@@ -223,6 +223,15 @@ export default function VisibilityPage() {
     detail: EngineAnswerDetail;
   } | null>(null);
 
+  // Live OpenRouter Mention Audit Modal
+  const [liveAuditModalOpen, setLiveAuditModalOpen] = useState(false);
+  const [liveBizName, setLiveBizName] = useState("");
+  const [liveCity, setLiveCity] = useState("");
+  const [liveIndustry, setLiveIndustry] = useState("");
+  const [liveAuditLoading, setLiveAuditLoading] = useState(false);
+  const [liveAuditResults, setLiveAuditResults] = useState<any>(null);
+  const [liveAuditError, setLiveAuditError] = useState<string | null>(null);
+
   // Competitor filter in tab 2
   const [compSearch, setCompSearch] = useState("");
 
@@ -680,6 +689,26 @@ export default function VisibilityPage() {
     }
   }
 
+  async function handleRunLiveAudit() {
+    setLiveAuditLoading(true);
+    setLiveAuditError(null);
+    try {
+      const data = await apiFetch<any>("/ai-reports/live-check", {
+        method: "POST",
+        body: JSON.stringify({
+          businessName: liveBizName.trim() || business?.name || "Smile Clinic",
+          city: liveCity.trim() || business?.city || "Tiranë",
+          industry: liveIndustry.trim() || business?.industry || "Dental Clinic",
+        }),
+      });
+      setLiveAuditResults(data);
+    } catch (err: any) {
+      setLiveAuditError(err.message || "Failed to audit AI mentions.");
+    } finally {
+      setLiveAuditLoading(false);
+    }
+  }
+
   const filteredCompetitors = useMemo(() => {
     if (!reportData.competitors) return [];
     if (!compSearch.trim()) return reportData.competitors;
@@ -881,29 +910,44 @@ export default function VisibilityPage() {
         </div>
 
         {/* Action / Title Section */}
-        <div className="space-y-1.5 pt-1">
-          <button
-            onClick={() => {
-              setSearchQueryInput(reportData.targetQuery.replace(/^["']|["']$/g, ""));
-              setNewSearchModalOpen(true);
-            }}
-            className="text-xs font-semibold text-[#8A5333] dark:text-amber-400 hover:underline flex items-center gap-1"
-          >
-            ← New search
-          </button>
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[#1C1917] dark:text-white">
-            Your visibility report
-          </h1>
-          <p className="text-xs text-[#78716C] dark:text-zinc-400">
-            Business and intent are locked for this report. Start a fresh run with{" "}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-1">
+          <div className="space-y-1.5">
             <button
-              onClick={() => setNewSearchModalOpen(true)}
-              className="font-semibold text-[#8A5333] dark:text-amber-400 hover:underline inline"
+              onClick={() => {
+                setSearchQueryInput(reportData.targetQuery.replace(/^["']|["']$/g, ""));
+                setNewSearchModalOpen(true);
+              }}
+              className="text-xs font-semibold text-[#8A5333] dark:text-amber-400 hover:underline flex items-center gap-1 cursor-pointer"
             >
               ← New search
             </button>
-            .
-          </p>
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[#1C1917] dark:text-white">
+              Your visibility report
+            </h1>
+            <p className="text-xs text-[#78716C] dark:text-zinc-400">
+              Business and intent are locked for this report. Start a fresh run with{" "}
+              <button
+                onClick={() => setNewSearchModalOpen(true)}
+                className="font-semibold text-[#8A5333] dark:text-amber-400 hover:underline inline cursor-pointer"
+              >
+                ← New search
+              </button>
+              .
+            </p>
+          </div>
+
+          <button
+            onClick={() => {
+              setLiveBizName(business?.name || "Smile Clinic");
+              setLiveCity(business?.city || "Tiranë");
+              setLiveIndustry(business?.industry || "Dental Clinic");
+              setLiveAuditModalOpen(true);
+            }}
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white px-4 py-2.5 text-xs font-bold shadow-md hover:shadow-lg transition cursor-pointer shrink-0"
+          >
+            <Sparkles className="h-4 w-4" />
+            Live OpenRouter Audit
+          </button>
         </div>
 
         {/* Step 1 & Step 2 Setup Card */}
@@ -1706,6 +1750,171 @@ export default function VisibilityPage() {
                 Close Answer
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Live OpenRouter Mention Audit Modal */}
+      {liveAuditModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-in fade-in">
+          <div className="w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl border border-[#EBE3D5] dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6 space-y-6 shadow-2xl">
+            {/* Header */}
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-gradient-to-r from-amber-600 to-orange-600 text-white shadow-xs">
+                    <Sparkles className="h-3.5 w-3.5" />
+                  </span>
+                  <span className="text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                    OpenRouter.ai Live Gateway
+                  </span>
+                </div>
+                <h3 className="text-lg sm:text-xl font-extrabold text-[#1C1917] dark:text-white mt-1">
+                  Live AI Mention Auditor
+                </h3>
+                <p className="text-xs text-[#78716C] dark:text-zinc-400 mt-0.5">
+                  Query Perplexity Sonar, ChatGPT, Claude 3, and Google Gemini simultaneously using your single OpenRouter key.
+                </p>
+              </div>
+              <button
+                onClick={() => setLiveAuditModalOpen(false)}
+                className="text-[#78716C] hover:text-[#1C1917] dark:hover:text-white p-1 rounded-lg hover:bg-[#F2E8DC]/60 transition"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Inputs */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="block text-[11px] font-bold text-[#78716C] dark:text-zinc-400 mb-1">
+                  Business Name
+                </label>
+                <input
+                  type="text"
+                  value={liveBizName}
+                  onChange={(e) => setLiveBizName(e.target.value)}
+                  placeholder="e.g. Smile Clinic"
+                  className="w-full rounded-xl border border-[#E8DFD3] dark:border-zinc-700 bg-[#FCFAF7] dark:bg-zinc-800 px-3 py-2 text-xs text-[#1C1917] dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold text-[#78716C] dark:text-zinc-400 mb-1">
+                  City / Location
+                </label>
+                <input
+                  type="text"
+                  value={liveCity}
+                  onChange={(e) => setLiveCity(e.target.value)}
+                  placeholder="e.g. Tirana"
+                  className="w-full rounded-xl border border-[#E8DFD3] dark:border-zinc-700 bg-[#FCFAF7] dark:bg-zinc-800 px-3 py-2 text-xs text-[#1C1917] dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold text-[#78716C] dark:text-zinc-400 mb-1">
+                  Industry / Service
+                </label>
+                <input
+                  type="text"
+                  value={liveIndustry}
+                  onChange={(e) => setLiveIndustry(e.target.value)}
+                  placeholder="e.g. Dental Clinic"
+                  className="w-full rounded-xl border border-[#E8DFD3] dark:border-zinc-700 bg-[#FCFAF7] dark:bg-zinc-800 px-3 py-2 text-xs text-[#1C1917] dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+            </div>
+
+            {/* Run Button */}
+            <div className="flex items-center justify-between pt-1">
+              <span className="text-[11px] text-[#78716C] dark:text-zinc-400">
+                Audits 4 models: <code className="font-mono text-[10px] bg-amber-50 dark:bg-zinc-800 px-1 py-0.5 rounded">perplexity/sonar</code>, <code className="font-mono text-[10px] bg-amber-50 dark:bg-zinc-800 px-1 py-0.5 rounded">gpt-4o-mini</code>, <code className="font-mono text-[10px] bg-amber-50 dark:bg-zinc-800 px-1 py-0.5 rounded">claude-3-haiku</code>, <code className="font-mono text-[10px] bg-amber-50 dark:bg-zinc-800 px-1 py-0.5 rounded">gemini-2.5-flash</code>
+              </span>
+              <button
+                onClick={handleRunLiveAudit}
+                disabled={liveAuditLoading}
+                className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white px-4 py-2 text-xs font-bold shadow-md transition disabled:opacity-50 cursor-pointer"
+              >
+                {liveAuditLoading ? (
+                  <>
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                    Querying 4 AI Engines…
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-3.5 w-3.5" />
+                    Audit All 4 Engines
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Error message */}
+            {liveAuditError && (
+              <div className="rounded-xl border border-rose-200 bg-rose-50 dark:bg-rose-950/40 p-3 text-xs text-rose-700 dark:text-rose-300">
+                {liveAuditError}
+              </div>
+            )}
+
+            {/* Results Grid */}
+            {liveAuditResults && (
+              <div className="space-y-4 pt-2 border-t border-[#EBE3D5] dark:border-zinc-800">
+                {/* Summary bar */}
+                <div className="flex items-center justify-between rounded-xl bg-[#FCFAF7] dark:bg-zinc-950 p-4 border border-[#E8DFD3] dark:border-zinc-800">
+                  <div>
+                    <h4 className="text-xs font-bold text-[#1C1917] dark:text-white">
+                      Audit Results for &ldquo;{liveAuditResults.businessName}&rdquo; ({liveAuditResults.city})
+                    </h4>
+                    <p className="text-[11px] text-[#78716C] dark:text-zinc-400 mt-0.5">
+                      {liveAuditResults.mentionedCount} of {liveAuditResults.totalEngines} engines cited or referenced your business.
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-lg font-black text-amber-600 dark:text-amber-400">
+                      {liveAuditResults.visibilityScore}%
+                    </span>
+                    <span className="block text-[10px] font-bold uppercase tracking-wider text-[#78716C] dark:text-zinc-400">
+                      Visibility
+                    </span>
+                  </div>
+                </div>
+
+                {/* 4 Cards Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {liveAuditResults.results?.map((res: any, idx: number) => (
+                    <div
+                      key={idx}
+                      className="rounded-xl border border-[#E8DFD3] dark:border-zinc-800 bg-[#FCFAF7] dark:bg-zinc-950 p-4 space-y-2.5 shadow-xs"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-[#1C1917] dark:text-white">
+                          {res.name}
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                              res.mentioned
+                                ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
+                                : "bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300"
+                            }`}
+                          >
+                            {res.mentioned ? "✓ Mentioned" : "✗ Not Found"}
+                          </span>
+                          <span className="text-[10px] text-[#78716C] dark:text-zinc-400 font-mono">
+                            {(res.latencyMs / 1000).toFixed(1)}s
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="rounded-lg bg-white dark:bg-zinc-900 border border-[#EBE3D5] dark:border-zinc-800/80 p-3 max-h-48 overflow-y-auto">
+                        <p className="text-[11px] leading-relaxed text-[#57534E] dark:text-zinc-300 whitespace-pre-wrap">
+                          {res.answer}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
