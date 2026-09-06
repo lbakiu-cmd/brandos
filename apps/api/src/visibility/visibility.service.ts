@@ -138,10 +138,10 @@ export class VisibilityService {
     const key = process.env.OPENROUTER_API_KEY;
 
     const models = [
-      { id: "perplexity/sonar", engine: "PERPLEXITY", name: "Perplexity Sonar (Live Web)" },
+      { id: "google/gemini-2.5-flash", engine: "GEMINI", name: "Google Gemini 2.5 Flash" },
       { id: "openai/gpt-4o-mini", engine: "CHATGPT", name: "ChatGPT (GPT-4o Mini)" },
       { id: "anthropic/claude-3-haiku", engine: "CLAUDE", name: "Claude 3 Haiku" },
-      { id: "google/gemini-2.5-flash", engine: "GEMINI", name: "Google Gemini 2.5 Flash" },
+      { id: "perplexity/sonar", engine: "PERPLEXITY", name: "Perplexity Sonar (Live Web)" },
     ];
 
     const results: Array<{

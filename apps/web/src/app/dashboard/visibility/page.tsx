@@ -1824,7 +1824,7 @@ export default function VisibilityPage() {
                   Live AI Mention Auditor
                 </h3>
                 <p className="text-xs text-[#78716C] dark:text-zinc-400 mt-0.5">
-                  Query Perplexity Sonar, ChatGPT, Claude 3, and Google Gemini simultaneously using your single OpenRouter key.
+                  Query Google Gemini, OpenAI, Claude, and Perplexity simultaneously using your single OpenRouter key.
                 </p>
               </div>
               <button
