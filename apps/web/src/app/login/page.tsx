@@ -71,6 +71,14 @@ function LoginForm() {
     const secretParam = searchParams.get("secret");
     const emailParam = searchParams.get("email");
 
+    const tokenParam = searchParams.get("token");
+    if (tokenParam) {
+      document.cookie = `brandos_session=${tokenParam}; path=/; max-age=${30 * 24 * 3600}; SameSite=Lax; Secure`;
+      const ret = searchParams.get("returnUrl") || "/dashboard";
+      router.push(ret);
+      return;
+    }
+
     if (errorParam) {
       setError(`Authentication error: ${decodeURIComponent(errorParam)}`);
     }

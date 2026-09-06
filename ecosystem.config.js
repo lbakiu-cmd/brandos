@@ -13,8 +13,8 @@ module.exports = {
         PORT: 3001,
         DATABASE_URL: "postgresql://brandos:brandos_password@localhost:5432/brandos?schema=public",
         REDIS_URL: "redis://localhost:6379",
-        API_URL: "https://onlinepresence.space/api",
-        FRONTEND_URL: "https://onlinepresence.space",
+        API_URL: "https://icandothat.online/api",
+        FRONTEND_URL: "https://icandothat.online",
       },
     },
     {

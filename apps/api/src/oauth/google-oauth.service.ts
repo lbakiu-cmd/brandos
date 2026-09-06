@@ -21,11 +21,14 @@ export interface GscSiteItem {
 export class GoogleOAuthService {
   private readonly logger = new Logger(GoogleOAuthService.name);
 
-  private getCredentials() {
+  private getCredentials(customRedirectUri?: string) {
     const clientId = process.env.GOOGLE_CLIENT_ID || "";
     const clientSecret = process.env.GOOGLE_CLIENT_SECRET || "";
     const redirectUri =
-      process.env.GOOGLE_REDIRECT_URI || "https://brandoseye.com/api/oauth/google/callback";
+      customRedirectUri ||
+      process.env.GOOGLE_AUTH_REDIRECT_URI ||
+      process.env.GOOGLE_REDIRECT_URI ||
+      "https://brandoseye.com/api/oauth/google/callback";
 
     return { clientId, clientSecret, redirectUri };
   }
@@ -33,8 +36,13 @@ export class GoogleOAuthService {
   /**
    * Generate Google OAuth 2.0 Consent URL
    */
-  generateAuthUrl(businessId: string, returnUrl?: string): string {
-    const { clientId, redirectUri } = this.getCredentials();
+  generateAuthUrl(
+    businessId: string,
+    returnUrl?: string,
+    customRedirectUri?: string,
+    origin?: string
+  ): string {
+    const { clientId, redirectUri } = this.getCredentials(customRedirectUri);
 
     if (!clientId) {
       this.logger.warn("GOOGLE_CLIENT_ID is not configured in environment.");
@@ -52,6 +60,7 @@ export class GoogleOAuthService {
     const stateObj = {
       bId: businessId,
       ret: returnUrl || "/dashboard/integrations",
+      origin: origin || "https://icandothat.online",
       t: Date.now(),
     };
     const state = Buffer.from(JSON.stringify(stateObj)).toString("base64url");
@@ -73,8 +82,8 @@ export class GoogleOAuthService {
   /**
    * Exchange authorization code for access and refresh tokens
    */
-  async exchangeCode(code: string): Promise<GoogleTokens> {
-    const { clientId, clientSecret, redirectUri } = this.getCredentials();
+  async exchangeCode(code: string, customRedirectUri?: string): Promise<GoogleTokens> {
+    const { clientId, clientSecret, redirectUri } = this.getCredentials(customRedirectUri);
 
     const params = new URLSearchParams({
       code,

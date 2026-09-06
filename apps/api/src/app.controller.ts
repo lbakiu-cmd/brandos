@@ -184,7 +184,7 @@ export class AppController {
       timestamp: new Date().toISOString(),
       vps: {
         host: "169.58.227.157",
-        domain: process.env.APP_DOMAIN || "onlinepresence.space",
+        domain: process.env.APP_DOMAIN || "icandothat.online",
         platform: os.platform(),
         arch: os.arch(),
         release: os.release(),

@@ -114,15 +114,30 @@ export class AuthController {
   }
 
   @Get("google/url")
-  getGoogleAuthUrl(@Query("returnUrl") returnUrl?: string) {
+  getGoogleAuthUrl(
+    @Req() req: FastifyRequest,
+    @Query("returnUrl") returnUrl?: string,
+    @Query("origin") customOrigin?: string
+  ) {
     const clientId = process.env.GOOGLE_CLIENT_ID || "";
+    const host = (req.headers["x-forwarded-host"] as string) || req.headers["host"] || "";
+    const proto = (req.headers["x-forwarded-proto"] as string) || "https";
+    const currentOrigin = customOrigin || (host ? `${proto}://${host}` : "https://icandothat.online");
+
     const redirectUri =
       process.env.GOOGLE_AUTH_REDIRECT_URI ||
       process.env.GOOGLE_REDIRECT_URI ||
-      "https://brandoseye.com/api/oauth/google/callback";
+      (process.env.GOOGLE_OAUTH_DIRECT === "true"
+        ? `${currentOrigin}/api/oauth/google/callback`
+        : "https://brandoseye.com/api/oauth/google/callback");
 
     const scopes = ["openid", "email", "profile"].join(" ");
-    const stateObj = { auth: true, ret: returnUrl || "/dashboard", t: Date.now() };
+    const stateObj = {
+      auth: true,
+      ret: returnUrl || "/dashboard",
+      origin: currentOrigin,
+      t: Date.now(),
+    };
     const state = Buffer.from(JSON.stringify(stateObj)).toString("base64url");
 
     const params = new URLSearchParams({
@@ -138,7 +153,26 @@ export class AuthController {
     return {
       url: `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`,
       clientId,
+      redirectUri,
     };
+  }
+
+  @Get("session-transfer")
+  sessionTransfer(
+    @Query("token") token: string,
+    @Query("returnUrl") returnUrl: string,
+    @Res() res: FastifyReply
+  ) {
+    if (!token) {
+      res.status(302);
+      res.header("Location", "/login?error=missing_transfer_token");
+      return res.send();
+    }
+
+    this.setSessionCookie(res, token);
+    res.status(302);
+    res.header("Location", returnUrl || "/dashboard");
+    return res.send();
   }
 
   @Get("me")

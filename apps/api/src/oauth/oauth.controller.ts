@@ -78,10 +78,23 @@ export class OAuthController {
    */
   @Get("google/url")
   @UseGuards(AuthGuard)
-  async getGoogleAuthUrl(@Req() req: any, @Query("returnUrl") returnUrl?: string) {
+  async getGoogleAuthUrl(
+    @Req() req: any,
+    @Query("returnUrl") returnUrl?: string,
+    @Query("origin") customOrigin?: string
+  ) {
     const biz = await this.business.get(req.user.id, req.user.activeBusinessId);
-    const authUrl = this.googleOAuth.generateAuthUrl(biz.id, returnUrl);
-    return { url: authUrl };
+    const host = req.headers?.["x-forwarded-host"] || req.headers?.["host"];
+    const proto = req.headers?.["x-forwarded-proto"] || "https";
+    const origin = customOrigin || (host ? `${proto}://${host}` : "https://icandothat.online");
+    const redirectUri =
+      process.env.GOOGLE_AUTH_REDIRECT_URI ||
+      process.env.GOOGLE_REDIRECT_URI ||
+      (process.env.GOOGLE_OAUTH_DIRECT === "true"
+        ? `${origin}/api/oauth/google/callback`
+        : "https://brandoseye.com/api/oauth/google/callback");
+    const authUrl = this.googleOAuth.generateAuthUrl(biz.id, returnUrl, redirectUri, origin);
+    return { url: authUrl, redirectUri };
   }
 
   /**
@@ -92,10 +105,20 @@ export class OAuthController {
   async googleAuthorize(
     @Req() req: any,
     @Res() res: any,
-    @Query("returnUrl") returnUrl?: string
+    @Query("returnUrl") returnUrl?: string,
+    @Query("origin") customOrigin?: string
   ) {
     const biz = await this.business.get(req.user.id, req.user.activeBusinessId);
-    const authUrl = this.googleOAuth.generateAuthUrl(biz.id, returnUrl);
+    const host = req.headers?.["x-forwarded-host"] || req.headers?.["host"];
+    const proto = req.headers?.["x-forwarded-proto"] || "https";
+    const origin = customOrigin || (host ? `${proto}://${host}` : "https://icandothat.online");
+    const redirectUri =
+      process.env.GOOGLE_AUTH_REDIRECT_URI ||
+      process.env.GOOGLE_REDIRECT_URI ||
+      (process.env.GOOGLE_OAUTH_DIRECT === "true"
+        ? `${origin}/api/oauth/google/callback`
+        : "https://brandoseye.com/api/oauth/google/callback");
+    const authUrl = this.googleOAuth.generateAuthUrl(biz.id, returnUrl, redirectUri, origin);
     
     // Explicit 302 redirect for Fastify + HTML fallback
     res.status(302);
@@ -108,14 +131,14 @@ export class OAuthController {
           <script>window.location.href = "${authUrl}";</script>
         </head>
         <body>
-          <p>Redirecting to Google Sign-In... <a href="${authUrl}">Click here if not redirected automatically</a>.</p>
+          <p>Redirecting to Google...</p>
         </body>
       </html>
     `);
   }
 
   /**
-   * 2. Google OAuth: Callback Endpoint
+   * 2. Google OAuth: Callback
    */
   @Get("google/callback")
   async googleCallback(
@@ -127,7 +150,7 @@ export class OAuthController {
   ) {
     const host = req.headers["x-forwarded-host"] || req.headers["host"];
     const proto = req.headers["x-forwarded-proto"] || "https";
-    const frontendBase = host ? `${proto}://${host}` : (process.env.FRONTEND_URL || "https://onlinepresence.space");
+    const frontendBase = host ? `${proto}://${host}` : (process.env.FRONTEND_URL || "https://icandothat.online");
 
     if (error || !code) {
       this.logger.warn(`Google OAuth error or cancellation: ${error}`);
@@ -146,6 +169,8 @@ export class OAuthController {
         this.logger.warn(`Could not parse OAuth state: ${state}`);
       }
 
+      const targetOrigin = stateData.origin || frontendBase;
+
       // Check if this is a USER LOGIN / AUTHENTICATION request
       const isAuthFlow =
         stateData.auth === true ||
@@ -162,12 +187,12 @@ export class OAuthController {
           userAgent: (req.headers["user-agent"] as string) || "Unknown Device",
         };
 
-        const host = req.headers["x-forwarded-host"] || req.headers["host"];
-        const proto = req.headers["x-forwarded-proto"] || "https";
         const redirectUri =
           process.env.GOOGLE_AUTH_REDIRECT_URI ||
           process.env.GOOGLE_REDIRECT_URI ||
-          (host ? `${proto}://${host}/api/oauth/google/callback` : "https://onlinepresence.space/api/oauth/google/callback");
+          (process.env.GOOGLE_OAUTH_DIRECT === "true"
+            ? `${targetOrigin}/api/oauth/google/callback`
+            : "https://brandoseye.com/api/oauth/google/callback");
 
         const result = await this.authService.loginWithGoogle(
           { code, redirectUri },
@@ -183,7 +208,7 @@ export class OAuthController {
             res.status(302);
             res.header(
               "Location",
-              `${frontendBase}/login?setup2fa=1&tempToken=${encodeURIComponent(
+              `${targetOrigin}/login?setup2fa=1&tempToken=${encodeURIComponent(
                 r.tempToken
               )}&secret=${encodeURIComponent(r.secret || "")}&email=${encodeURIComponent(
                 r.user?.email || ""
@@ -197,12 +222,29 @@ export class OAuthController {
             res.status(302);
             res.header(
               "Location",
-              `${frontendBase}/login?verify2fa=1&tempToken=${encodeURIComponent(
+              `${targetOrigin}/login?verify2fa=1&tempToken=${encodeURIComponent(
                 r.tempToken
               )}&email=${encodeURIComponent(r.user?.email || "")}`
             );
             return res.send();
           }
+        }
+
+        const destination = stateData.ret || "/dashboard";
+
+        // If login was initiated from a different origin than this callback host, bridge the session cookie!
+        if (stateData.origin && !stateData.origin.includes(host)) {
+          this.logger.log(
+            `Google user login successful: ${(result as any).user?.email}, bridging session to ${stateData.origin}`
+          );
+          res.status(302);
+          res.header(
+            "Location",
+            `${stateData.origin}/api/auth/session-transfer?token=${encodeURIComponent(
+              (result as any).token
+            )}&returnUrl=${encodeURIComponent(destination)}`
+          );
+          return res.send();
         }
 
         if ((result as any).token) {
@@ -215,7 +257,6 @@ export class OAuthController {
           });
         }
 
-        const destination = stateData.ret || "/dashboard";
         this.logger.log(
           `Google user login successful: ${(result as any).user?.email}, redirecting to ${destination}`
         );
@@ -233,10 +274,17 @@ export class OAuthController {
       }
 
       const business = await prisma.business.findUnique({ where: { id: businessId } });
-      const siteUrl = business?.website || "https://brandoseye.com";
+      const siteUrl = business?.website || targetOrigin;
+
+      const redirectUri =
+        process.env.GOOGLE_AUTH_REDIRECT_URI ||
+        process.env.GOOGLE_REDIRECT_URI ||
+        (process.env.GOOGLE_OAUTH_DIRECT === "true"
+          ? `${targetOrigin}/api/oauth/google/callback`
+          : "https://brandoseye.com/api/oauth/google/callback");
 
       // 1. Exchange tokens
-      const tokens = await this.googleOAuth.exchangeCode(code);
+      const tokens = await this.googleOAuth.exchangeCode(code, redirectUri);
 
       // 2. Fetch live metrics in parallel, filtering precisely by the business domain and name
       const [gscMetrics, ga4Metrics, gbpMetrics] = await Promise.all([

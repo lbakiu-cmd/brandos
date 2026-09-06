@@ -119,8 +119,16 @@ export const authApi = {
       user?: any;
       token?: string;
     }>("/auth/google/verify", { method: "POST", body: JSON.stringify(data) }),
-  getGoogleAuthUrl: (returnUrl?: string) =>
-    apiFetch<{ url: string; clientId: string }>(`/auth/google/url${returnUrl ? `?returnUrl=${encodeURIComponent(returnUrl)}` : ""}`),
+  getGoogleAuthUrl: (returnUrl?: string) => {
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    const params = new URLSearchParams();
+    if (returnUrl) params.set("returnUrl", returnUrl);
+    if (origin) params.set("origin", origin);
+    const qs = params.toString();
+    return apiFetch<{ url: string; clientId: string; redirectUri?: string }>(
+      `/auth/google/url${qs ? `?${qs}` : ""}`
+    );
+  },
   me: () => apiFetch<{ user: any }>("/auth/me"),
   updateProfile: (data: { name?: string; email?: string; phone?: string }) =>
     apiFetch<{ user: any }>("/auth/profile", { method: "POST", body: JSON.stringify(data) }),
