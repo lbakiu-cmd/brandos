@@ -123,7 +123,7 @@ export default function CompetitorsPage() {
             </span>
           </div>
           <p className="mt-1 text-xs text-slate-400">
-            Compare your brand's AI search visibility and Share of Voice (SOV) head-to-head against local competitors in ChatGPT, Gemini, Perplexity, and Claude.
+            Compare your brand's AI search visibility and Share of Voice (SOV) head-to-head against local competitors in ChatGPT and Google Gemini.
           </p>
         </div>
 

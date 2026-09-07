@@ -1,7 +1,8 @@
-import { Controller, Get } from "@nestjs/common";
+import { Controller, Get, Post } from "@nestjs/common";
 import * as os from "os";
 import * as fs from "fs";
 import { execSync } from "child_process";
+import { purgeAllSimulations } from "./seed-superadmin";
 
 @Controller()
 export class AppController {
@@ -14,6 +15,16 @@ export class AppController {
       status: "ok",
       service: "brandos-api",
       time: new Date().toISOString(),
+    };
+  }
+
+  @Post("system/purge-simulations")
+  async purgeSimulations() {
+    await purgeAllSimulations();
+    return {
+      success: true,
+      message: "All simulations purged across all accounts.",
+      timestamp: new Date().toISOString(),
     };
   }
 

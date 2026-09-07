@@ -105,32 +105,20 @@ export default function GscPage() {
   const bName = business?.name || "Your Business";
   const multiplier = getTimeRangeMultiplier(timeRange);
 
-  const baseClicks = gscData?.totalClicks ?? 2640;
-  const baseImpressions = gscData?.totalImpressions ?? 48900;
+  const baseClicks = isConnected && gscData?.totalClicks ? gscData.totalClicks : 0;
+  const baseImpressions = isConnected && gscData?.totalImpressions ? gscData.totalImpressions : 0;
   const clicks = Math.round(baseClicks * multiplier);
   const impressions = Math.round(baseImpressions * multiplier);
-  const ctr = gscData?.averageCtr ?? 5.4;
-  const position = gscData?.averagePosition ?? 2.8;
+  const ctr = isConnected && gscData?.averageCtr ? gscData.averageCtr : 0;
+  const position = isConnected && gscData?.averagePosition ? gscData.averagePosition : 0;
 
-  const defaultQueries = [
-    { query: `${bName} booking and reviews`, clicks: 610, impressions: 6800, ctr: 8.97, position: 1.1, intent: "Branded Trust" },
-    { query: `dentist near me in ${business?.city || "Downtown"}`.trim(), clicks: 840, impressions: 14200, ctr: 5.92, position: 2.1, intent: "Local High Intent" },
-    { query: `emergency dentist open today ${business?.city || ""}`.trim(), clicks: 490, impressions: 9800, ctr: 5.0, position: 2.4, intent: "Urgent Medical" },
-    { query: `teeth whitening and dental implants cost`, clicks: 390, impressions: 12100, ctr: 3.22, position: 4.8, intent: "Commercial" },
-    { query: `best rated cosmetic dental clinic`, clicks: 210, impressions: 8400, ctr: 2.50, position: 7.3, intent: "Discovery" },
-    { query: `affordable root canal procedure price`, clicks: 175, impressions: 4600, ctr: 3.80, position: 9.1, intent: "Commercial" },
-    { query: `how often should you get teeth cleaning`, clicks: 95, impressions: 3200, ctr: 2.96, position: 14.5, intent: "Informational" },
-    { query: `dental insurance covered checkup`, clicks: 60, impressions: 2800, ctr: 2.14, position: 18.2, intent: "Informational" },
-    { query: `top rated oral surgeon recommendations`, clicks: 45, impressions: 2100, ctr: 2.14, position: 23.4, intent: "Discovery" },
-  ];
-
-  const rawQueries = (gscData?.topQueries && gscData.topQueries.length > 0)
+  const rawQueries = (isConnected && gscData?.topQueries && gscData.topQueries.length > 0)
     ? gscData.topQueries
-    : defaultQueries;
+    : [];
   const queries = rawQueries.map((q: any) => ({
     ...q,
-    clicks: Math.round(q.clicks * multiplier),
-    impressions: Math.round(q.impressions * multiplier),
+    clicks: Math.round((q.clicks || 0) * multiplier),
+    impressions: Math.round((q.impressions || 0) * multiplier),
   }));
 
   const filtered = queries.filter((q: any) => {
@@ -234,22 +222,17 @@ export default function GscPage() {
         </div>
       </div>
 
-      {/* Demo Banner when not connected */}
+      {/* Connection Notice when not connected */}
       {!isConnected && (
-        <div className="rounded-2xl border border-blue-500/30 bg-gradient-to-r from-blue-950/40 via-slate-900/80 to-blue-950/30 p-4 backdrop-blur-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xl">
+        <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-4 backdrop-blur-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xl">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-500/20 text-blue-400 border border-blue-500/30 shrink-0 shadow-lg shadow-blue-500/10">
-              <Sparkles className="h-5 w-5 animate-pulse" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20 shrink-0">
+              <Search className="h-5 w-5" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-sm font-bold text-white">Interactive GSC Demo Mode</h3>
-                <span className="rounded-full bg-blue-500/20 px-2 py-0.5 text-[10px] font-semibold text-blue-300 border border-blue-500/30">
-                  Simulated Property
-                </span>
-              </div>
-              <p className="text-xs text-slate-300 mt-0.5">
-                Exploring simulated search console analytics for <strong className="text-white">{bName}</strong>. Connect your verified Google domain to stream live clicks, real search terms and ranking updates.
+              <h3 className="text-sm font-bold text-white">Google Search Console Not Connected</h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Connect your verified Google Search Console account in Integrations to view real clicks, queries, impressions, and ranking trends.
               </p>
             </div>
           </div>

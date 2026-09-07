@@ -171,11 +171,12 @@ async function askGemini(q: EngineQuery): Promise<string | null> {
 
 const PROVIDERS: Record<string, (q: EngineQuery) => Promise<string | null>> = {
   CHATGPT: askOpenAI,
-  PERPLEXITY: askPerplexity,
-  CLAUDE: askAnthropic,
   GEMINI: askGemini,
   GOOGLE_AI_OVERVIEW: askGemini,
   BING_COPILOT: askOpenAI,
+  // Deprecated expensive engines routed to OpenAI
+  PERPLEXITY: askOpenAI,
+  CLAUDE: askOpenAI,
 };
 
 // ---------------- Answer analysis ----------------
@@ -210,19 +211,17 @@ function analyze(engine: string, raw: string, q: EngineQuery): EngineResult {
   };
 }
 
-// ---------------- Mock fallback (deterministic) ----------------
+// ---------------- Fallback when engine is unavailable ----------------
 
-function mockResult(engine: string, q: EngineQuery): EngineResult {
-  const seed = (engine + q.businessName)
-    .split("")
-    .reduce((s, ch) => s + ch.charCodeAt(0), 0);
-  const mentioned = seed % 10 < 6;
-  const rank = mentioned ? (seed % 3) + 1 : null;
-  const sentiment = mentioned ? (seed % 5 === 0 ? "NEUTRAL" : "POSITIVE") : "ABSENT";
-  const quote = mentioned
-    ? q.businessName + " is a well-regarded " + q.industry + " provider in " + q.city + ". Customers frequently mention professional service."
-    : "I don't have specific information about " + q.businessName + " in " + q.city + ". Consider checking local directories.";
-  return { engine, mentioned, rank, sentiment, quote, source: "mock" };
+function absentResult(engine: string): EngineResult {
+  return {
+    engine,
+    mentioned: false,
+    rank: null,
+    sentiment: "ABSENT",
+    quote: "No response returned from " + engine,
+    source: "live",
+  };
 }
 
 // ---------------- Entry point ----------------
@@ -234,8 +233,8 @@ export async function queryEngine(engine: string, q: EngineQuery): Promise<Engin
       const raw = await provider(q);
       if (raw) return analyze(engine, raw, q);
     } catch {
-      // fall through to mock on any network/API error
+      // Return absent result on network or API error
     }
   }
-  return mockResult(engine, q);
+  return absentResult(engine);
 }

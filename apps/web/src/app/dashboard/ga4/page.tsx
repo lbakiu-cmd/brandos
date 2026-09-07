@@ -59,28 +59,22 @@ export default function Ga4Page() {
   const bName = business?.name || "Your Business";
   const multiplier = getTimeRangeMultiplier(timeRange);
 
-  const baseTotalUsers = ga4Data?.totalUsers || (isConnected ? 3420 : 0);
-  const baseAiSessions = ga4Data?.aiReferralSessions || (isConnected ? 395 : 0);
-  const aiShare = ga4Data?.aiReferralShare || (isConnected ? 8.1 : 0);
-  const baseSocialSessions = ga4Data?.socialReferralSessions || (isConnected ? 620 : 0);
-  const socialShare = ga4Data?.socialReferralShare || (isConnected ? 12.7 : 0);
+  const baseTotalUsers = isConnected && ga4Data?.totalUsers ? ga4Data.totalUsers : 0;
+  const baseAiSessions = isConnected && ga4Data?.aiReferralSessions ? ga4Data.aiReferralSessions : 0;
+  const aiShare = isConnected && ga4Data?.aiReferralShare ? ga4Data.aiReferralShare : 0;
+  const baseSocialSessions = isConnected && ga4Data?.socialReferralSessions ? ga4Data.socialReferralSessions : 0;
+  const socialShare = isConnected && ga4Data?.socialReferralShare ? ga4Data.socialReferralShare : 0;
 
   const totalUsers = Math.round(baseTotalUsers * multiplier);
   const aiSessions = Math.round(baseAiSessions * multiplier);
   const socialSessions = Math.round(baseSocialSessions * multiplier);
 
-  const defaultEngines = [
-    { engine: "ChatGPT", sessions: 215, growth: 34.2, avgTime: "2m 45s", goalConvRate: 11.2 },
-    { engine: "Perplexity", sessions: 112, growth: 48.0, avgTime: "3m 12s", goalConvRate: 14.8 },
-    { engine: "Google Gemini", sessions: 57, growth: 22.1, avgTime: "1m 55s", goalConvRate: 8.9 },
-    { engine: "Claude.ai", sessions: 11, growth: 19.5, avgTime: "2m 10s", goalConvRate: 7.5 },
-  ];
-  const engines = (ga4Data?.aiEngines && ga4Data.aiEngines.length > 0)
+  const engines = (isConnected && ga4Data?.aiEngines && ga4Data.aiEngines.length > 0)
     ? ga4Data.aiEngines
-    : isConnected
-    ? defaultEngines
     : [];
-  const socialSources = ga4Data?.socialSources || [];
+  const socialSources = (isConnected && ga4Data?.socialSources && ga4Data.socialSources.length > 0)
+    ? ga4Data.socialSources
+    : [];
 
   return (
     <main className="p-8 max-w-7xl mx-auto space-y-6">

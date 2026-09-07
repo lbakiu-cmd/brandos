@@ -39,42 +39,6 @@ export default function InboxPage() {
     setMessages(msgs);
   }
 
-  async function simulateIncoming() {
-    setBusy(true);
-    try {
-      const account = await apiFetch<any>("/inbox/connect-fake-instagram", {
-        method: "POST",
-      });
-      const rand = Math.random().toString(36).slice(2, 8);
-      await apiFetch("/webhooks/meta", {
-        method: "POST",
-        body: JSON.stringify({
-          object: "instagram",
-          entry: [
-            {
-              id: account.platformAccountId,
-              time: Date.now(),
-              messaging: [
-                {
-                  sender: { id: "customer-" + rand },
-                  recipient: { id: account.platformAccountId },
-                  timestamp: Date.now(),
-                  message: {
-                    mid: "mid-" + rand,
-                    text: "Hi! I found you on Instagram. How much does your service cost?",
-                  },
-                },
-              ],
-            },
-          ],
-        }),
-      });
-      await refreshConversations();
-    } finally {
-      setBusy(false);
-    }
-  }
-
   async function sendReply() {
     if (!selected || !replyText.trim()) return;
     setBusy(true);
@@ -96,13 +60,6 @@ export default function InboxPage() {
       <header className="flex items-center justify-between border-b border-slate-800 p-4">
         <h1 className="text-2xl font-bold text-blue-400">Unified Inbox</h1>
         <div className="flex gap-3">
-          <button
-            onClick={simulateIncoming}
-            disabled={busy}
-            className="rounded-lg bg-blue-600 px-4 py-2 text-sm hover:bg-blue-700 disabled:opacity-50"
-          >
-            Simulate incoming message
-          </button>
           <Link
             href="/dashboard"
             className="rounded-lg bg-slate-800 px-4 py-2 text-sm hover:bg-slate-700"

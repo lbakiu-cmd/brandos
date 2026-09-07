@@ -142,23 +142,6 @@ export default function IntegrationsPage() {
     }
   };
 
-  const handleSimulatedConnect = async (provider: string) => {
-    try {
-      await apiFetch(`/integrations/connect/${provider.toLowerCase()}`, {
-        method: "POST",
-        body: JSON.stringify({
-          accountName: business?.name ? `${business.name} (${provider})` : `${provider} Account`,
-          isDemo: true,
-        }),
-      });
-      setNotice(`Connected to ${provider}! Live metrics active.`);
-      await fetchStatus();
-    } catch (e: any) {
-      setNotice(`Connection error: ${e.message}`);
-    } finally {
-      setTimeout(() => setNotice(null), 4000);
-    }
-  };
 
   const handleDisconnect = async (provider: string) => {
     try {
@@ -332,10 +315,10 @@ export default function IntegrationsPage() {
           </h2>
           <button
             onClick={() => handleOAuthConnect("google")}
-            className="inline-flex items-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-500 px-4 py-2 text-xs font-bold text-white shadow-md shadow-blue-600/30 transition"
+            className="inline-flex items-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-500 px-4 py-2 text-xs font-bold !text-white shadow-md shadow-blue-600/30 transition cursor-pointer"
           >
-            <Globe className="h-4 w-4" />
-            Connect Google Account via OAuth
+            <Globe className="h-4 w-4 !text-white" />
+            <span className="!text-white">Connect Google Account via OAuth</span>
           </button>
         </div>
 
@@ -416,19 +399,12 @@ export default function IntegrationsPage() {
                       </button>
                     </>
                   ) : (
-                    <div className="flex items-center gap-2 w-full">
+                    <div className="w-full">
                       <button
                         onClick={() => handleOAuthConnect("google")}
-                        className="flex-1 rounded-lg bg-blue-600 hover:bg-blue-500 px-3 py-2 text-xs font-bold text-white transition shadow-sm"
+                        className="w-full rounded-lg bg-blue-600 hover:bg-blue-500 px-3 py-2 text-xs font-bold text-white transition shadow-sm"
                       >
                         Connect OAuth
-                      </button>
-                      <button
-                        onClick={() => handleSimulatedConnect(item.provider)}
-                        className="rounded-lg border border-slate-800 bg-slate-950 px-2.5 py-2 text-[10px] font-semibold text-slate-400 hover:text-slate-200"
-                        title="Connect simulated demo telemetry without developer credentials"
-                      >
-                        Demo Link
                       </button>
                     </div>
                   )}
@@ -446,10 +422,10 @@ export default function IntegrationsPage() {
           </h2>
           <button
             onClick={() => handleOAuthConnect("meta")}
-            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 px-4 py-2 text-xs font-bold text-white shadow-md shadow-indigo-600/30 transition"
+            className="inline-flex items-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-500 px-4 py-2 text-xs font-bold !text-white shadow-md shadow-blue-600/30 transition cursor-pointer"
           >
-            <Users className="h-4 w-4" />
-            Connect Meta via OAuth
+            <Users className="h-4 w-4 !text-white" />
+            <span className="!text-white">Connect Meta via OAuth</span>
           </button>
         </div>
 
@@ -530,18 +506,12 @@ export default function IntegrationsPage() {
                       </button>
                     </>
                   ) : (
-                    <div className="flex items-center gap-2 w-full">
+                    <div className="w-full">
                       <button
                         onClick={() => handleOAuthConnect("meta")}
-                        className="flex-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 px-3 py-2 text-xs font-bold text-white transition shadow-sm"
+                        className="w-full rounded-lg bg-indigo-600 hover:bg-indigo-500 px-3 py-2 text-xs font-bold text-white transition shadow-sm"
                       >
                         Connect Meta OAuth
-                      </button>
-                      <button
-                        onClick={() => handleSimulatedConnect(item.provider)}
-                        className="rounded-lg border border-slate-800 bg-slate-950 px-2.5 py-2 text-[10px] font-semibold text-slate-400 hover:text-slate-200"
-                      >
-                        Demo Link
                       </button>
                     </div>
                   )}
@@ -569,9 +539,10 @@ export default function IntegrationsPage() {
           <a
             href="/aivision-seo.zip"
             download
-            className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-blue-500/20 hover:from-blue-500 hover:to-indigo-500 transition"
+            className="inline-flex items-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-500 px-4 py-2.5 text-xs font-bold !text-white shadow-lg shadow-blue-600/20 transition cursor-pointer"
           >
-            <Download className="h-4 w-4" /> Download AIVision SEO Plugin (.zip)
+            <Download className="h-4 w-4 !text-white" />
+            <span className="!text-white">Download AIVision SEO Plugin v1.5.0 (.zip)</span>
           </a>
         </div>
 

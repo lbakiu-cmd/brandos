@@ -108,20 +108,10 @@ export class IntegrationsService {
       const isWpConnected = sp.provider === "WORDPRESS" && Boolean(business.wordpressConnectedAt);
 
       const effectiveMetrics = isConnected
-        ? existing?.metricsCache || this.generateSampleMetrics(sp.provider as IntegrationProvider, business)
+        ? existing?.metricsCache || null
         : isWpConnected
         ? business.wordpressTelemetry || null
         : null;
-
-      // Auto-heal empty database cache in background
-      if (isConnected && existing && !existing.metricsCache && effectiveMetrics) {
-        prisma.integrationAccount
-          .update({
-            where: { id: existing.id },
-            data: { metricsCache: effectiveMetrics as any, lastSyncedAt: new Date() },
-          })
-          .catch(() => {});
-      }
 
       return {
         ...sp,
@@ -156,7 +146,9 @@ export class IntegrationsService {
     const business = await prisma.business.findUnique({ where: { id: businessId } });
     if (!business) throw new NotFoundException("Business not found.");
 
-    const defaultMetrics = this.generateSampleMetrics(provider, business);
+    if (!payload.accessToken) {
+      throw new BadRequestException("Valid access token or credentials required.");
+    }
 
     const existing = await prisma.integrationAccount.findFirst({
       where: { businessId, provider },
@@ -168,11 +160,10 @@ export class IntegrationsService {
         data: {
           accountName: payload.accountName || `${business.name} (${provider})`,
           externalId: payload.externalId || `ext_${Date.now()}`,
-          accessTokenEnc: payload.accessToken || "mock_access_token",
+          accessTokenEnc: payload.accessToken,
           refreshTokenEnc: payload.refreshToken,
           scopes: payload.scopes || "read:analytics",
           status: ConnectionStatus.CONNECTED,
-          metricsCache: defaultMetrics,
           lastSyncedAt: new Date(),
         },
       });
@@ -184,11 +175,10 @@ export class IntegrationsService {
         provider,
         accountName: payload.accountName || `${business.name} (${provider})`,
         externalId: payload.externalId || `ext_${Date.now()}`,
-        accessTokenEnc: payload.accessToken || "mock_access_token",
+        accessTokenEnc: payload.accessToken,
         refreshTokenEnc: payload.refreshToken,
         scopes: payload.scopes || "read:analytics",
         status: ConnectionStatus.CONNECTED,
-        metricsCache: defaultMetrics,
         lastSyncedAt: new Date(),
       },
     });
@@ -220,20 +210,17 @@ export class IntegrationsService {
       throw new BadRequestException(`${provider} is not connected.`);
     }
 
-    const updatedMetrics = this.generateSampleMetrics(provider, business);
-
     await prisma.integrationAccount.update({
       where: { id: existing.id },
       data: {
-        metricsCache: updatedMetrics,
         lastSyncedAt: new Date(),
       },
     });
 
     return {
       success: true,
-      message: `${provider} metrics synchronized successfully!`,
-      metrics: updatedMetrics,
+      message: `${provider} synchronization updated.`,
+      metrics: existing.metricsCache || null,
     };
   }
 
@@ -248,230 +235,13 @@ export class IntegrationsService {
     if (!business) return;
 
     for (const integration of business.integrations) {
-      const freshMetrics = this.generateSampleMetrics(integration.provider, business);
       await prisma.integrationAccount.update({
         where: { id: integration.id },
         data: {
           accountName: `${business.name} (${integration.provider})`,
-          metricsCache: freshMetrics,
           lastSyncedAt: new Date(),
         },
       });
-    }
-  }
-
-  /**
-   * Dynamically generate industry-specific & location-specific metrics for any business
-   */
-  generateSampleMetrics(provider: IntegrationProvider, business?: BusinessInfo | null): any {
-    const bName = business?.name || "Local Enterprise";
-    const bCity = business?.city || "your area";
-    const bIndustry = ((business?.industry || "") + " " + bName).toLowerCase();
-    const bSite = business?.website || `https://${bName.toLowerCase().replace(/[^a-z0-9]/g, "")}.com`;
-
-    // 1. Determine Industry Keywords, Landing Pages & Review Contexts
-    let keywords: Array<{ query: string; clicks: number; impressions: number; ctr: number; position: number; intent: string }>;
-    let landingPages: Array<{ path: string; views: number; bounceRate: number }>;
-    let reviewSnippets: Array<{ id: string; author: string; rating: number; time: string; comment: string; replied: boolean; reply?: string; aiDraft?: string }>;
-
-    if (bIndustry.includes("law") || bIndustry.includes("legal") || bIndustry.includes("attorney")) {
-      keywords = [
-        { query: `best attorney in ${bCity}`, clicks: 780, impressions: 11400, ctr: 6.84, position: 1.8, intent: "High Commercial" },
-        { query: `${bName} reviews`, clicks: 520, impressions: 6800, ctr: 7.64, position: 1.1, intent: "Branded Navigation" },
-        { query: `personal injury lawyer near me`, clicks: 430, impressions: 14200, ctr: 3.02, position: 4.2, intent: "Urgent Local" },
-        { query: `free legal consultation ${bCity}`, clicks: 390, impressions: 9800, ctr: 3.97, position: 2.9, intent: "Commercial" },
-        { query: `corporate contract attorney cost`, clicks: 270, impressions: 7600, ctr: 3.55, position: 3.4, intent: "Informational" },
-      ];
-      landingPages = [
-        { path: "/practice-areas/personal-injury", views: 4320, bounceRate: 19.4 },
-        { path: "/consultation-request", views: 3290, bounceRate: 14.2 },
-        { path: "/attorney-profiles", views: 2180, bounceRate: 24.5 },
-      ];
-      reviewSnippets = [
-        { id: "rev_law_1", author: "Michael T.", rating: 5, time: "2 days ago", comment: `Outstanding counsel from ${bName}! Handled our case with top precision.`, replied: true, reply: `Thank you Michael! It was an honor representing your interests.` },
-        { id: "rev_law_2", author: "Sarah W.", rating: 5, time: "4 days ago", comment: `Very responsive legal team. Transparent pricing and great outcome.`, replied: true, reply: `Thank you Sarah for trusting our firm.` },
-        { id: "rev_law_3", author: "Robert H.", rating: 5, time: "1 week ago", comment: `Best legal consultation in ${bCity}. Highly recommend ${bName}.`, replied: false, aiDraft: `Thank you Robert! We are dedicated to providing premier legal guidance in ${bCity}.` },
-      ];
-    } else if (bIndustry.includes("restaurant") || bIndustry.includes("food") || bIndustry.includes("cafe") || bIndustry.includes("dining")) {
-      keywords = [
-        { query: `best restaurants in ${bCity}`, clicks: 1240, impressions: 24500, ctr: 5.06, position: 2.2, intent: "Local Discovery" },
-        { query: `${bName} menu and prices`, clicks: 890, impressions: 9800, ctr: 9.08, position: 1.2, intent: "Branded Navigation" },
-        { query: `dinner places with outdoor seating`, clicks: 610, impressions: 16400, ctr: 3.71, position: 3.1, intent: "High Intent" },
-        { query: `weekend brunch near me`, clicks: 470, impressions: 12800, ctr: 3.67, position: 4.0, intent: "Local Discovery" },
-      ];
-      landingPages = [
-        { path: "/menu", views: 8940, bounceRate: 12.1 },
-        { path: "/table-reservations", views: 5120, bounceRate: 15.6 },
-        { path: "/private-dining", views: 2310, bounceRate: 22.0 },
-      ];
-      reviewSnippets = [
-        { id: "rev_food_1", author: "Jessica M.", rating: 5, time: "2 days ago", comment: `The food at ${bName} is incredible! Best dining experience in ${bCity}.`, replied: true, reply: `Thank you Jessica! We look forward to welcoming you back soon.` },
-        { id: "rev_food_2", author: "Chef Anthony", rating: 5, time: "5 days ago", comment: `Exceptional flavors and top-tier service. 10/10 recommendation!`, replied: true, reply: `Thanks Anthony! Our kitchen team appreciates the high praise.` },
-        { id: "rev_food_3", author: "Daniel B.", rating: 4, time: "1 week ago", comment: `Great cocktails and appetizers, slightly loud during peak dinner rush.`, replied: false, aiDraft: `Thanks Daniel! We appreciate your visit and feedback on acoustic comfort during rush hours.` },
-      ];
-    } else if (bIndustry.includes("roof") || bIndustry.includes("plumb") || bIndustry.includes("hvac") || bIndustry.includes("contractor") || bIndustry.includes("home") || bIndustry.includes("electric")) {
-      keywords = [
-        { query: `emergency repair in ${bCity}`, clicks: 940, impressions: 14200, ctr: 6.61, position: 1.9, intent: "Urgent Local" },
-        { query: `${bName} contractor reviews`, clicks: 610, impressions: 6400, ctr: 9.53, position: 1.1, intent: "Branded Trust" },
-        { query: `licensed contractors near me`, clicks: 480, impressions: 15900, ctr: 3.01, position: 3.8, intent: "Commercial" },
-        { query: `free estimate replacement cost`, clicks: 360, impressions: 11200, ctr: 3.21, position: 4.5, intent: "High Commercial" },
-      ];
-      landingPages = [
-        { path: "/services/emergency-repairs", views: 5120, bounceRate: 16.2 },
-        { path: "/request-free-estimate", views: 3840, bounceRate: 11.8 },
-        { path: "/warranty-and-financing", views: 2190, bounceRate: 20.4 },
-      ];
-      reviewSnippets = [
-        { id: "rev_hvac_1", author: "George P.", rating: 5, time: "2 days ago", comment: `${bName} showed up within 30 minutes and did an exceptional repair job!`, replied: true, reply: `Thanks George! Fast, dependable service is our top priority.` },
-        { id: "rev_hvac_2", author: "Linda K.", rating: 5, time: "4 days ago", comment: `Very honest pricing, no hidden fees. Highly recommend in ${bCity}.`, replied: true, reply: `Thank you Linda! We appreciate your business and trust.` },
-        { id: "rev_hvac_3", author: "Marcus S.", rating: 5, time: "1 week ago", comment: `Professional crew, cleaned up everything after completing work.`, replied: false, aiDraft: `Thank you Marcus! We take great pride in delivering clean, reliable craftsmanship.` },
-      ];
-    } else if (bIndustry.includes("real estate") || bIndustry.includes("realty") || bIndustry.includes("property")) {
-      keywords = [
-        { query: `top real estate agent in ${bCity}`, clicks: 820, impressions: 12400, ctr: 6.61, position: 2.1, intent: "High Commercial" },
-        { query: `${bName} homes for sale`, clicks: 650, impressions: 7800, ctr: 8.33, position: 1.2, intent: "Branded Listings" },
-        { query: `sell my house fast ${bCity}`, clicks: 430, impressions: 14600, ctr: 2.94, position: 4.1, intent: "Urgent Seller" },
-        { query: `luxury properties and apartments`, clicks: 380, impressions: 10200, ctr: 3.72, position: 3.3, intent: "High Intent" },
-      ];
-      landingPages = [
-        { path: "/featured-listings", views: 6410, bounceRate: 18.0 },
-        { path: "/home-valuation-calculator", views: 4120, bounceRate: 12.5 },
-        { path: "/neighborhood-guides", views: 2890, bounceRate: 26.1 },
-      ];
-      reviewSnippets = [
-        { id: "rev_re_1", author: "Emily R.", rating: 5, time: "3 days ago", comment: `${bName} helped us find our dream home in ${bCity}! Seamless closing.`, replied: true, reply: `Congratulations Emily! It was an absolute joy finding your new home.` },
-        { id: "rev_re_2", author: "James & Karen", rating: 5, time: "1 week ago", comment: `Sold our property in under 2 weeks over asking price!`, replied: true, reply: `Thank you both! We are thrilled with the fantastic outcome.` },
-        { id: "rev_re_3", author: "Peter V.", rating: 5, time: "2 weeks ago", comment: `Expert market knowledge and negotiations.`, replied: false, aiDraft: `Thank you Peter! We are proud to deliver top market results for our clients.` },
-      ];
-    } else if (bIndustry.includes("dental") || bIndustry.includes("medical") || bIndustry.includes("clinic") || bIndustry.includes("health")) {
-      keywords = [
-        { query: `dentist near me in ${bCity}`, clicks: 840, impressions: 14200, ctr: 5.92, position: 2.1, intent: "Local High Intent" },
-        { query: `${bName} booking and reviews`, clicks: 610, impressions: 6800, ctr: 8.97, position: 1.1, intent: "Branded Trust" },
-        { query: `emergency dentist open today`, clicks: 490, impressions: 9800, ctr: 5.00, position: 2.4, intent: "Urgent Medical" },
-        { query: `teeth whitening and implants cost`, clicks: 390, impressions: 12100, ctr: 3.22, position: 4.8, intent: "Commercial" },
-      ];
-      landingPages = [
-        { path: "/services/dental-implants", views: 4890, bounceRate: 21.0 },
-        { path: "/pricing-and-insurance", views: 3420, bounceRate: 18.5 },
-        { path: "/our-specialists", views: 2190, bounceRate: 25.4 },
-      ];
-      reviewSnippets = [
-        { id: "rev_dental_1", author: "Elena R.", rating: 5, time: "2 days ago", comment: `Outstanding care at ${bName}! Gentle treatment and high-tech equipment.`, replied: true, reply: `Thank you Elena! We are thrilled to provide premier dental care.` },
-        { id: "rev_dental_2", author: "Marcus V.", rating: 5, time: "4 days ago", comment: `The staff and booking were super fast and gentle. Highly recommend.`, replied: true, reply: `Thanks Marcus! We appreciate your trust in our team.` },
-        { id: "rev_dental_3", author: "Sarah K.", rating: 4, time: "1 week ago", comment: `Great experience overall, treatment was 10/10.`, replied: false, aiDraft: `Thank you Sarah! We look forward to keeping your smile bright.` },
-      ];
-    } else {
-      // General B2B / SaaS / Agency / Business
-      keywords = [
-        { query: `${bName} official website`, clicks: 920, impressions: 8400, ctr: 10.95, position: 1.1, intent: "Branded Navigation" },
-        { query: `top ${business?.industry || "services"} in ${bCity}`, clicks: 740, impressions: 13800, ctr: 5.36, position: 2.4, intent: "Local High Intent" },
-        { query: `verified ${business?.industry || "service"} pricing`, clicks: 480, impressions: 11400, ctr: 4.21, position: 3.2, intent: "Commercial" },
-        { query: `best ${business?.industry || "consulting"} near me`, clicks: 390, impressions: 10900, ctr: 3.57, position: 4.1, intent: "Discovery" },
-      ];
-      landingPages = [
-        { path: "/services", views: 5240, bounceRate: 19.8 },
-        { path: "/pricing", views: 3820, bounceRate: 14.5 },
-        { path: "/case-studies", views: 2410, bounceRate: 22.1 },
-      ];
-      reviewSnippets = [
-        { id: "rev_gen_1", author: "Alex P.", rating: 5, time: "2 days ago", comment: `Outstanding results working with ${bName}. Professional, timely and verified quality.`, replied: true, reply: `Thank you Alex! It has been a pleasure collaborating with your team.` },
-        { id: "rev_gen_2", author: "Maria G.", rating: 5, time: "5 days ago", comment: `Top-notch execution and clear communication from day one.`, replied: true, reply: `Thanks Maria! We value your partnership.` },
-        { id: "rev_gen_3", author: "Chris D.", rating: 5, time: "1 week ago", comment: `Best service provider in ${bCity}. Will definitely use again!`, replied: false, aiDraft: `Thank you Chris! We are committed to delivering top results in ${bCity}.` },
-      ];
-    }
-
-    switch (provider) {
-      case IntegrationProvider.GOOGLE_SEARCH_CONSOLE:
-        return {
-          businessName: bName,
-          siteUrl: bSite,
-          totalClicks: 348,
-          clicksGrowth: 14.2,
-          totalImpressions: 6850,
-          impressionsGrowth: 22.8,
-          averageCtr: 5.08,
-          averagePosition: 6.4,
-          topQueries: keywords,
-          historicalTrend: [
-            { date: "Day 1", clicks: 10, impressions: 210 },
-            { date: "Day 5", clicks: 12, impressions: 240 },
-            { date: "Day 10", clicks: 14, impressions: 270 },
-            { date: "Day 15", clicks: 15, impressions: 310 },
-            { date: "Day 20", clicks: 18, impressions: 340 },
-            { date: "Day 25", clicks: 20, impressions: 380 },
-            { date: "Day 28", clicks: 24, impressions: 420 },
-          ],
-        };
-
-      case IntegrationProvider.GOOGLE_ANALYTICS_4:
-        return {
-          businessName: bName,
-          siteUrl: bSite,
-          totalUsers: 1420,
-          usersGrowth: 18.4,
-          sessions: 1850,
-          engagementRate: 68.4,
-          aiReferralSessions: 145,
-          aiReferralShare: 7.8,
-          socialReferralSessions: 240,
-          socialReferralShare: 13.0,
-          aiEngines: [
-            { engine: "ChatGPT (chatgpt.com)", sessions: 72, growth: 42.1, avgTime: "2m 45s", goalConvRate: 8.4 },
-            { engine: "Perplexity AI", sessions: 38, growth: 58.6, avgTime: "3m 12s", goalConvRate: 11.2 },
-            { engine: "Google Gemini / AI Overview", sessions: 24, growth: 24.3, avgTime: "1m 55s", goalConvRate: 6.8 },
-            { engine: "Claude.ai", sessions: 11, growth: 19.5, avgTime: "2m 10s", goalConvRate: 7.5 },
-          ],
-          topLandingPages: landingPages,
-        };
-
-      case IntegrationProvider.GOOGLE_BUSINESS_PROFILE:
-        return {
-          businessName: bName,
-          city: bCity,
-          totalInteractions: 375,
-          growth: 16.5,
-          searchViews: 1480,
-          mapsViews: 980,
-          callClicks: 45,
-          directionRequests: 68,
-          websiteClicks: 120,
-          averageRating: 4.9,
-          totalReviews: 86,
-          recentReviews: reviewSnippets,
-        };
-
-      case IntegrationProvider.FACEBOOK_PAGE:
-        return {
-          businessName: bName,
-          totalFans: 890,
-          pageReach: 3820,
-          postEngagement: 412,
-          engagementRate: 4.8,
-          impressions: 5410,
-        };
-
-      case IntegrationProvider.INSTAGRAM_INSIGHTS:
-        return {
-          businessName: bName,
-          followers: 1240,
-          profileVisits: 384,
-          reach: 4820,
-          impressions: 7890,
-          topAudienceCity: bCity,
-          avgLikesPerPost: 42,
-        };
-
-      case IntegrationProvider.LINKEDIN_COMPANY:
-        return {
-          businessName: bName,
-          followers: 340,
-          visitorImpressions: 1420,
-          clickThroughRate: 5.2,
-          newFollowers30d: 28,
-        };
-
-      default:
-        return { active: true, businessName: bName, siteUrl: bSite, syncedAt: new Date().toISOString() };
     }
   }
 }

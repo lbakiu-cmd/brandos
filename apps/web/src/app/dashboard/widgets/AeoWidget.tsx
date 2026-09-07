@@ -47,7 +47,7 @@ export function AeoWidget({ data, onRemove, initialTimeRange = "7D" }: AeoWidget
           </div>
           <p className="text-xs text-zinc-200 font-medium mb-1">No assistant visibility data yet</p>
           <p className="text-[11px] text-zinc-400 max-w-xs mx-auto mb-4">
-            Probe ChatGPT, Perplexity, Gemini and Claude to measure how often your business is recommended.
+            Probe OpenAI ChatGPT and Google Gemini to measure how often your business is recommended.
           </p>
           <Link
             href="/dashboard/visibility"
@@ -99,21 +99,19 @@ export function AeoWidget({ data, onRemove, initialTimeRange = "7D" }: AeoWidget
 
   // Dynamic engine shares
   const defaultEngines = [
-    { engine: "ChatGPT", baseShare: 84, color: "bg-emerald-500" },
-    { engine: "Perplexity", baseShare: 79, color: "bg-blue-500" },
-    { engine: "Google Gemini", baseShare: 72, color: "bg-purple-500" },
-    { engine: "Claude", baseShare: 68, color: "bg-amber-500" },
+    { engine: "OpenAI ChatGPT", baseShare: 86, color: "bg-emerald-500" },
+    { engine: "Google Gemini", baseShare: 82, color: "bg-blue-500" },
   ];
 
   const engineDeltas: Record<TimeRangeKey, number[]> = {
-    "7D": [-5, -6, -5, -5],
-    "14D": [0, 0, 0, 0],
-    "1M": [4, 4, 4, 4],
-    "3M": [8, 8, 9, 9],
-    "MAX": [12, 14, 15, 16],
+    "7D": [-4, -5],
+    "14D": [0, 0],
+    "1M": [4, 4],
+    "3M": [8, 9],
+    "MAX": [14, 15],
   };
 
-  const deltas = engineDeltas[timeRange] || [0, 0, 0, 0];
+  const deltas = engineDeltas[timeRange] || [0, 0];
 
   const engineShare = defaultEngines.map((eng, i) => {
     const share = Math.min(99, Math.max(10, eng.baseShare + deltas[i]));

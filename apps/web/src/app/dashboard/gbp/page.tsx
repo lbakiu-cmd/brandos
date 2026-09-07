@@ -39,7 +39,7 @@ export default function GbpPage() {
   const [business, setBusiness] = useState<any>(null);
   const [gbpData, setGbpData] = useState<any>(null);
   const [reviews, setReviews] = useState<any[]>([]);
-  const [isConnected, setIsConnected] = useState(true);
+  const [isConnected, setIsConnected] = useState(false);
 
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -90,18 +90,13 @@ export default function GbpPage() {
 
         if (intRes?.integrations) {
           const gbp = intRes.integrations.find((i: any) => i.provider === "GOOGLE_BUSINESS_PROFILE");
-          if (gbp?.connected) {
-            setIsConnected(true);
-          }
+          setIsConnected(Boolean(gbp?.connected));
           if (gbp?.metricsCache) {
             setGbpData(gbp.metricsCache);
-            if (gbp.metricsCache.recentReviews && gbp.metricsCache.recentReviews.length > 0) {
-              initialReviews = gbp.metricsCache.recentReviews;
-            }
           }
         }
 
-        if (initialReviews.length === 0 && revRes?.reviews && revRes.reviews.length > 0) {
+        if (revRes?.reviews && revRes.reviews.length > 0) {
           initialReviews = revRes.reviews.map((r: any) => ({
             id: r.id,
             author: r.authorName,
@@ -167,17 +162,17 @@ export default function GbpPage() {
     loadData();
   }, []);
 
-  const bName = business?.name || "Nobel Dental Clinic";
-  const bCity = business?.city || "Tiranë";
-  const bIndustry = business?.industry || "Dental Clinic";
+  const bName = business?.name || "Your Business";
+  const bCity = business?.city || "";
+  const bIndustry = business?.industry || "Services";
 
   const multiplier = getTimeRangeMultiplier(timeRange);
-  const searchViews = Math.round((gbpData?.searchViews || 1420) * multiplier);
-  const mapsViews = Math.round((gbpData?.mapsViews || 3890) * multiplier);
-  const callClicks = Math.round((gbpData?.callClicks || 124) * multiplier);
-  const directionRequests = Math.round((gbpData?.directionRequests || 342) * multiplier);
-  const rating = gbpData?.averageRating || 4.9;
-  const totalReviews = gbpData?.totalReviews || 128;
+  const searchViews = isConnected && gbpData?.searchViews ? Math.round(gbpData.searchViews * multiplier) : 0;
+  const mapsViews = isConnected && gbpData?.mapsViews ? Math.round(gbpData.mapsViews * multiplier) : 0;
+  const callClicks = isConnected && gbpData?.callClicks ? Math.round(gbpData.callClicks * multiplier) : 0;
+  const directionRequests = isConnected && gbpData?.directionRequests ? Math.round(gbpData.directionRequests * multiplier) : 0;
+  const rating = isConnected && gbpData?.averageRating ? Number(gbpData.averageRating) : (reviews.length > 0 ? Number((reviews.reduce((s: number, r: any) => s + (r.rating || 0), 0) / reviews.length).toFixed(1)) : 0);
+  const totalReviews = isConnected && gbpData?.totalReviews ? gbpData.totalReviews : reviews.length;
 
   const copyToClipboard = (text: string, key: string) => {
     navigator.clipboard.writeText(text);
@@ -339,13 +334,13 @@ export default function GbpPage() {
               <h1 className="text-2xl font-extrabold text-[#1C1917] dark:text-white tracking-tight">
                 Google Business Profile & Local Search
               </h1>
-              <span className="rounded-full px-3 py-0.5 text-xs font-bold border border-emerald-500/20 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 flex items-center gap-1.5">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                {bName}
+              <span className={`rounded-full px-3 py-0.5 text-xs font-bold border flex items-center gap-1.5 ${isConnected ? "border-emerald-500/20 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300" : "border-slate-300 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-900 text-slate-600 dark:text-zinc-400"}`}>
+                <span className={`h-1.5 w-1.5 rounded-full ${isConnected ? "bg-emerald-500 animate-pulse" : "bg-slate-400"}`}></span>
+                {isConnected ? `${bName} (Live Connected)` : "Profile Not Connected"}
               </span>
             </div>
             <p className="text-xs text-[#78716C] dark:text-zinc-400 mt-1">
-              Optimize Google Maps 3-Pack, local justifications, and generative AI search visibility in {bCity}.
+              Optimize Google Maps 3-Pack, local justifications, and generative AI search visibility{bCity ? ` in ${bCity}` : ""}.
             </p>
           </div>
 

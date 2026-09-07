@@ -70,8 +70,7 @@ export class LocalSeoToolsService {
     const isDental =
       industry.includes("dent") ||
       industry.includes("clinic") ||
-      biz.name.toLowerCase().includes("dental") ||
-      biz.name.toLowerCase().includes("nobel");
+      biz.name.toLowerCase().includes("dental");
 
     if (isDental) {
       return {

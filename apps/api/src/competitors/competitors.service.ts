@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
-import { prisma, AiEngine, IntegrationProvider } from "@brandos/database";
+import { prisma, AiEngine } from "@brandos/database";
 
 @Injectable()
 export class CompetitorsService {
@@ -74,104 +74,36 @@ export class CompetitorsService {
     const biz = membership.business;
     const competitors = await prisma.competitor.findMany({
       where: { businessId: biz.id },
+      include: {
+        mentions: {
+          orderBy: { capturedAt: "desc" },
+          take: 20,
+        },
+      },
     });
 
-    const engines: AiEngine[] = ["CHATGPT", "GEMINI", "CLAUDE", "PERPLEXITY"];
+    const engines: AiEngine[] = ["CHATGPT", "GEMINI"];
     const prompt = `Top rated ${biz.industry || "services"} in ${biz.city || "your area"}`;
 
-    // 1. Calculate Your Business Authority & Weight
-    // Check if Google Search Console is connected with live clicks
-    const gscAccount = await prisma.integrationAccount.findFirst({
-      where: { businessId: biz.id, provider: IntegrationProvider.GOOGLE_SEARCH_CONSOLE },
-    });
-
-    let yourWeight = 65; // High baseline for verified business
-    if (gscAccount?.metricsCache) {
-      const cache = gscAccount.metricsCache as any;
-      if (cache.totalClicks > 0) yourWeight += 12;
-      if (cache.averagePosition && cache.averagePosition < 20) yourWeight += 8;
-    }
-
-    // 2. Calculate Competitor Weights dynamically based on their actual profiles
-    const competitorStats = competitors.map((comp, idx) => {
-      let compWeight = 38; // Default base
-
-      const cleanName = comp.name.toLowerCase();
-      const cleanWeb = (comp.website || "").toLowerCase();
-
-      // Differentiate based on name & web presence
-      if (cleanName.includes("brianza") || cleanWeb.includes("brianza")) {
-        compWeight = 48; // High local presence
-      } else if (cleanName.includes("trio") || cleanWeb.includes("trio")) {
-        compWeight = 34; // Emerging clinic
-      } else if (cleanWeb.endsWith(".al") || cleanWeb.endsWith(".com")) {
-        compWeight = 36 + ((idx * 7) % 15);
-      }
-
+    const competitorStats = competitors.map((comp) => {
+      const mentionsCount = comp.mentions.filter((m) => m.mentioned).length;
       return {
         id: comp.id,
         name: comp.name,
         website: comp.website,
-        rawWeight: compWeight,
+        rawWeight: mentionsCount,
         sovPercent: 0,
         engineBreakdown: {
-          chatgpt: Math.round(compWeight * 0.95),
-          perplexity: Math.round(compWeight * 1.1),
-          gemini: Math.round(compWeight * 0.9),
-          claude: Math.round(compWeight * 0.85),
+          chatgpt: comp.mentions.filter((m) => m.engine === "CHATGPT" && m.mentioned).length,
+          gemini: comp.mentions.filter((m) => m.engine === "GEMINI" && m.mentioned).length,
         },
       };
     });
 
-    // 3. Compute Real Weighted Share of Voice percentages
-    const totalWeight = yourWeight + competitorStats.reduce((sum, c) => sum + c.rawWeight, 0);
-
-    let yourSov = totalWeight > 0 ? Math.round((yourWeight / totalWeight) * 100) : 100;
-    let distributedSum = yourSov;
-
-    competitorStats.forEach((c, idx) => {
-      if (idx === competitorStats.length - 1) {
-        // Ensure total equals 100%
-        c.sovPercent = Math.max(1, 100 - distributedSum);
-      } else {
-        c.sovPercent = Math.max(1, Math.round((c.rawWeight / totalWeight) * 100));
-        distributedSum += c.sovPercent;
-      }
+    const totalMentions = competitorStats.reduce((sum, c) => sum + c.rawWeight, 0);
+    competitorStats.forEach((c) => {
+      c.sovPercent = totalMentions > 0 ? Math.round((c.rawWeight / totalMentions) * 100) : 0;
     });
-
-    // 4. Save simulated mention records per engine
-    for (const comp of competitors) {
-      for (const engine of engines) {
-        await prisma.competitorMention.create({
-          data: {
-            competitorId: comp.id,
-            engine,
-            prompt,
-            mentioned: Math.random() > 0.35,
-            rank: Math.floor(Math.random() * 3) + 1,
-            sentiment: "POSITIVE",
-          },
-        });
-      }
-    }
-
-    // 5. Generate intelligent, contextual insights
-    const topComp = competitorStats.length > 0
-      ? [...competitorStats].sort((a, b) => b.sovPercent - a.sovPercent)[0]
-      : null;
-
-    const insights = [
-      `${biz.name} currently holds ${yourSov}% Share of Voice against all tracked competitors in AI searches for "${prompt}".`,
-    ];
-
-    if (topComp) {
-      insights.push(
-        `${topComp.name} holds ${topComp.sovPercent}% SOV with high citation frequency on Perplexity due to active local directory citations.`
-      );
-      insights.push(
-        `Recommendation: Increase schema markup depth (Dentist JSON-LD & FAQPage) to expand your lead in Google AI Overviews and ChatGPT.`
-      );
-    }
 
     return {
       prompt,
@@ -179,13 +111,17 @@ export class CompetitorsService {
       shareOfVoice: {
         yourBusiness: {
           name: biz.name,
-          mentions: Math.round(yourWeight / 10),
-          sovPercent: yourSov,
-          authorityScore: yourWeight,
+          mentions: 0,
+          sovPercent: totalMentions === 0 ? 100 : 0,
+          authorityScore: 0,
         },
         competitors: competitorStats,
       },
-      insights,
+      insights: competitors.length === 0
+        ? ["Add competitors to monitor their presence across AI search engines."]
+        : totalMentions === 0
+        ? ["No AI mention probes recorded for competitors yet."]
+        : [`Tracked ${competitors.length} competitors across AI search engines.`],
     };
   }
 }

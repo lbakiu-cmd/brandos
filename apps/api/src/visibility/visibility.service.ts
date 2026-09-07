@@ -109,8 +109,6 @@ export class VisibilityService {
     const models = [
       { id: "google/gemini-2.5-flash", engine: "GEMINI", name: "Google Gemini 2.5 Flash" },
       { id: "openai/gpt-4o-mini", engine: "CHATGPT", name: "ChatGPT (GPT-4o Mini)" },
-      { id: "anthropic/claude-3-haiku", engine: "CLAUDE", name: "Claude 3 Haiku" },
-      { id: "perplexity/sonar", engine: "PERPLEXITY", name: "Perplexity Sonar (Live Web)" },
     ];
 
     const results: Array<{
@@ -211,8 +209,6 @@ export class VisibilityService {
       try {
         const geminiRes = results.find((r) => r.engine === "GEMINI");
         const gptRes = results.find((r) => r.engine === "CHATGPT");
-        const claudeRes = results.find((r) => r.engine === "CLAUDE");
-        const perplexityRes = results.find((r) => r.engine === "PERPLEXITY");
 
         const realQuestions = [
           {
@@ -239,26 +235,6 @@ export class VisibilityService {
               sourcesCited: 6,
               fullAnswer: gptRes?.answer || "",
             },
-            claude: {
-              mentioned: !!claudeRes?.mentioned,
-              rank: claudeRes?.mentioned ? 1 : null,
-              statusLabel: claudeRes?.mentioned ? "Mentioned" : "Not mentioned",
-              sentiment: (claudeRes?.sentiment?.toLowerCase() as any) || "absent",
-              quote: claudeRes?.answer?.slice(0, 240) || "",
-              competitors: [],
-              sourcesCited: 4,
-              fullAnswer: claudeRes?.answer || "",
-            },
-            perplexity: {
-              mentioned: !!perplexityRes?.mentioned,
-              rank: perplexityRes?.mentioned ? 1 : null,
-              statusLabel: perplexityRes?.mentioned ? "Mentioned" : "Not mentioned",
-              sentiment: (perplexityRes?.sentiment?.toLowerCase() as any) || "absent",
-              quote: perplexityRes?.answer?.slice(0, 240) || "",
-              competitors: [],
-              sourcesCited: 12,
-              fullAnswer: perplexityRes?.answer || "",
-            },
           },
         ];
 
@@ -270,8 +246,8 @@ export class VisibilityService {
             tags: [industry, `${industry} in ${city}`],
             initials: businessName.slice(0, 2).toUpperCase(),
           },
-          headline: `${businessName} has ${visibilityScore}% live AI visibility across 4 major engines.`,
-          subtext: `${mentionedCount} of 4 engines cited ${businessName} in real-time.`,
+          headline: `${businessName} has ${visibilityScore}% live AI visibility across Google Gemini & OpenAI ChatGPT.`,
+          subtext: `${mentionedCount} of 2 engines cited ${businessName} in real-time.`,
           engineStats: {
             gemini: {
               name: "Google Gemini",
@@ -283,18 +259,6 @@ export class VisibilityService {
               name: "OpenAI ChatGPT",
               percentage: gptRes?.mentioned ? 100 : 0,
               mentionedCount: gptRes?.mentioned ? 1 : 0,
-              totalCount: 1,
-            },
-            claude: {
-              name: "Claude",
-              percentage: claudeRes?.mentioned ? 100 : 0,
-              mentionedCount: claudeRes?.mentioned ? 1 : 0,
-              totalCount: 1,
-            },
-            perplexity: {
-              name: "Perplexity Sonar",
-              percentage: perplexityRes?.mentioned ? 100 : 0,
-              mentionedCount: perplexityRes?.mentioned ? 1 : 0,
               totalCount: 1,
             },
           },
@@ -311,11 +275,9 @@ export class VisibilityService {
             engineScores: {
               GEMINI: geminiRes?.mentioned ? 100 : 0,
               CHATGPT: gptRes?.mentioned ? 100 : 0,
-              CLAUDE: claudeRes?.mentioned ? 100 : 0,
-              PERPLEXITY: perplexityRes?.mentioned ? 100 : 0,
             },
             mentions: payload as any,
-            promptsRun: 4,
+            promptsRun: 2,
           },
         });
       } catch (saveErr) {
@@ -373,7 +335,7 @@ export class VisibilityService {
       try {
         const prompt = `You are a world-class GEO (Generative Engine Optimization) strategist.
 Generate an authoritative AI citation profile for "${name}" located in ${city}, specializing in ${industry}.
-Goal: Format concise facts that allow ChatGPT, Claude, and Perplexity to memorize and cite this entity.
+Goal: Format concise facts that allow OpenAI ChatGPT and Google Gemini to memorize and cite this entity.
 
 Structure your response with:
 1. Canonical Entity Profile (35 words max, high statistical density).
@@ -413,8 +375,8 @@ Structure your response with:
               sourceId: `schema-${Date.now()}`,
               category: "GEO_SCHEMA",
               priority: "HIGH",
-              title: "Deploy Schema.org JSON-LD to bridge ChatGPT & Claude gap",
-              description: `Inject structured schema into the <head> of ${website} so AI models can parse ${name}'s location and specialties.`,
+              title: "Deploy Schema.org JSON-LD to bridge OpenAI & Google Gemini gap",
+              description: `Inject structured schema into the <head> of ${website} so OpenAI and Google Gemini can parse ${name}'s location and specialties.`,
               actionType: "CODE_SNIPPET",
               actionPayload: { code: schemaFix.code },
               expectedImpact: 85,
@@ -428,7 +390,7 @@ Structure your response with:
               category: "LLMS_TXT",
               priority: "HIGH",
               title: "Deploy /llms.txt knowledge manifest",
-              description: "Publish an /llms.txt file to provide structured facts directly to AI crawlers like GPTBot and ClaudeBot.",
+              description: "Publish an /llms.txt file to provide structured facts directly to AI crawlers like GPTBot and Google-Extended.",
               actionType: "LLMS_TXT",
               actionPayload: { code: llmsFix.code },
               expectedImpact: 90,
@@ -442,7 +404,7 @@ Structure your response with:
               category: "ROBOTS_TXT",
               priority: "MEDIUM",
               title: "Allow AI crawlers in robots.txt",
-              description: "Ensure robots.txt allows GPTBot, ClaudeBot, OAI-SearchBot, and PerplexityBot to index the domain.",
+              description: "Ensure robots.txt allows GPTBot, Google-Extended, and OAI-SearchBot to index the domain.",
               actionType: "ROBOTS_TXT",
               actionPayload: { code: robotsFix.code },
               expectedImpact: 70,

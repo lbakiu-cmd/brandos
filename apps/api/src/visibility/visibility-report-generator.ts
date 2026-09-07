@@ -85,18 +85,16 @@ export function generateVisibilityReport(
   biz: BusinessContext,
   customQuery?: string
 ): VisibilityReportPayload {
-  const name = biz.name || "Nobel Dental Clinic";
-  const city = biz.city || "Tiranë";
-  const country = biz.country || "Albania";
-  const industry = (biz.industry || "dentist").toLowerCase();
+  const name = biz.name || "Your Business";
+  const city = biz.city || "your area";
+  const country = biz.country || "";
+  const industry = (biz.industry || "services").toLowerCase();
   const address =
-    biz.address || `Vesa Center, Rruga Abdyl Frashëri, ${city}, ${country}`;
+    biz.address || `${city}${country ? `, ${country}` : ""}`;
 
   const isDental =
     industry.includes("dent") ||
-    name.toLowerCase().includes("dental") ||
-    name.toLowerCase().includes("clinic") ||
-    name.toLowerCase().includes("nobel");
+    name.toLowerCase().includes("dental");
 
   const query =
     customQuery && customQuery.trim().length > 0

@@ -109,8 +109,8 @@ html[data-theme="light"] [class*="bg-slate-800"] {
   color: #475569 !important;
 }
 
-html[data-theme="light"] [class*="bg-zinc-800"] *,
-html[data-theme="light"] [class*="bg-slate-800"] * {
+html[data-theme="light"] [class*="bg-zinc-800"] *:not(button):not(a):not([class*="text-white"]):not([class*="from-"]):not([class*="bg-blue"]):not([class*="bg-indigo"]):not([class*="bg-emerald"]):not(button *):not(a *),
+html[data-theme="light"] [class*="bg-slate-800"] *:not(button):not(a):not([class*="text-white"]):not([class*="from-"]):not([class*="bg-blue"]):not([class*="bg-indigo"]):not([class*="bg-emerald"]):not(button *):not(a *) {
   color: #475569 !important;
 }
 
@@ -326,25 +326,60 @@ html[data-theme="light"] .text-white:not([class*="bg-indigo"]):not([class*="bg-v
   color: #020617 !important;
 }
 
-/* 5. Solid Colored Buttons (Must maintain crisp pure white text) */
-html[data-theme="light"] [class*="bg-indigo-600"],
-html[data-theme="light"] [class*="bg-violet-600"],
-html[data-theme="light"] [class*="bg-blue-600"],
-html[data-theme="light"] [class*="bg-emerald-600"],
-html[data-theme="light"] [class*="bg-rose-600"],
-html[data-theme="light"] [class*="bg-red-600"],
-html[data-theme="light"] [class*="bg-purple-600"] {
+/* 5. Solid & Gradient Colored Buttons (Must maintain crisp pure white text and icons in light mode) */
+html[data-theme="light"] [class*="bg-indigo-"],
+html[data-theme="light"] [class*="bg-violet-"],
+html[data-theme="light"] [class*="bg-blue-"],
+html[data-theme="light"] [class*="bg-emerald-"],
+html[data-theme="light"] [class*="bg-rose-"],
+html[data-theme="light"] [class*="bg-red-"],
+html[data-theme="light"] [class*="bg-purple-"],
+html[data-theme="light"] [class*="from-blue"],
+html[data-theme="light"] [class*="from-indigo"],
+html[data-theme="light"] [class*="from-violet"],
+html[data-theme="light"] [class*="from-purple"],
+html[data-theme="light"] [class*="from-emerald"],
+html[data-theme="light"] [class*="from-teal"],
+html[data-theme="light"] [class*="from-amber"],
+html[data-theme="light"] [class*="from-orange"],
+html[data-theme="light"] [class*="from-rose"],
+html[data-theme="light"] [class*="from-red"],
+html[data-theme="light"] button[class*="bg-blue"],
+html[data-theme="light"] a[class*="bg-blue"],
+html[data-theme="light"] button[class*="from-"],
+html[data-theme="light"] a[class*="from-"],
+html[data-theme="light"] button.text-white,
+html[data-theme="light"] a.text-white[class*="bg-"],
+html[data-theme="light"] a.text-white[class*="from-"] {
   color: #ffffff !important;
 }
 
-html[data-theme="light"] [class*="bg-indigo-600"] *,
-html[data-theme="light"] [class*="bg-violet-600"] *,
-html[data-theme="light"] [class*="bg-blue-600"] *,
-html[data-theme="light"] [class*="bg-emerald-600"] *,
-html[data-theme="light"] [class*="bg-rose-600"] *,
-html[data-theme="light"] [class*="bg-red-600"] *,
-html[data-theme="light"] [class*="bg-purple-600"] * {
+html[data-theme="light"] [class*="bg-indigo-"] *,
+html[data-theme="light"] [class*="bg-violet-"] *,
+html[data-theme="light"] [class*="bg-blue-"] *,
+html[data-theme="light"] [class*="bg-emerald-"] *,
+html[data-theme="light"] [class*="bg-rose-"] *,
+html[data-theme="light"] [class*="bg-red-"] *,
+html[data-theme="light"] [class*="bg-purple-"] *,
+html[data-theme="light"] [class*="from-blue"] *,
+html[data-theme="light"] [class*="from-indigo"] *,
+html[data-theme="light"] [class*="from-violet"] *,
+html[data-theme="light"] [class*="from-purple"] *,
+html[data-theme="light"] [class*="from-emerald"] *,
+html[data-theme="light"] [class*="from-teal"] *,
+html[data-theme="light"] [class*="from-amber"] *,
+html[data-theme="light"] [class*="from-orange"] *,
+html[data-theme="light"] [class*="from-rose"] *,
+html[data-theme="light"] [class*="from-red"] *,
+html[data-theme="light"] button[class*="bg-blue"] *,
+html[data-theme="light"] a[class*="bg-blue"] *,
+html[data-theme="light"] button[class*="from-"] *,
+html[data-theme="light"] a[class*="from-"] *,
+html[data-theme="light"] button.text-white *,
+html[data-theme="light"] a.text-white[class*="bg-"] *,
+html[data-theme="light"] a.text-white[class*="from-"] * {
   color: #ffffff !important;
+  fill: currentColor;
 }
 
 /* 6. Primary Action Buttons in Light Mode (e.g. Add Card, Save, Deploy) */

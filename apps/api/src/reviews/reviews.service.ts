@@ -17,59 +17,10 @@ export class ReviewsService {
       orderBy: { reviewDate: "desc" },
     });
 
-    // Seed realistic Google reviews if none exist
-    if (reviews.length === 0) {
-      const sampleReviews = [
-        {
-          businessId,
-          authorName: "Sarah Jenkins",
-          rating: 5,
-          comment: `Amazing service at ${biz.name}! The team was so welcoming, efficient, and professional. Best in ${biz.city || "town"}. Highly recommend!`,
-          reviewDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
-        },
-        {
-          businessId,
-          authorName: "Michael Rodriguez",
-          rating: 5,
-          comment: "Super transparent pricing and excellent care. Will definitely be returning.",
-          reviewDate: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
-          replyText: `Thank you Michael! We appreciate your trust in ${biz.name}.`,
-          repliedAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000),
-        },
-        {
-          businessId,
-          authorName: "David Chen",
-          rating: 4,
-          comment: "Great experience overall. Wait time was about 15 minutes past my appointment time, but the quality of service made up for it.",
-          reviewDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-        },
-        {
-          businessId,
-          authorName: "Emily Watson",
-          rating: 3,
-          comment: "Decent service, but communication could be improved regarding follow-up steps.",
-          reviewDate: new Date(Date.now() - 12 * 24 * 60 * 60 * 1000),
-        },
-        {
-          businessId,
-          authorName: "Alex Vance",
-          rating: 1,
-          comment: "Had trouble getting in touch with someone on the phone to reschedule.",
-          reviewDate: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000),
-        },
-      ];
-
-      await prisma.googleReview.createMany({ data: sampleReviews });
-      reviews = await prisma.googleReview.findMany({
-        where: { businessId },
-        orderBy: { reviewDate: "desc" },
-      });
-    }
-
     const total = reviews.length;
     const replied = reviews.filter((r) => r.replyText !== null).length;
-    const avgRating = total > 0 ? (reviews.reduce((s, r) => s + r.rating, 0) / total).toFixed(1) : "5.0";
-    const responseRate = total > 0 ? Math.round((replied / total) * 100) : 100;
+    const avgRating = total > 0 ? (reviews.reduce((s, r) => s + r.rating, 0) / total).toFixed(1) : "0.0";
+    const responseRate = total > 0 ? Math.round((replied / total) * 100) : 0;
 
     return {
       business: biz,

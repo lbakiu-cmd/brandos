@@ -313,95 +313,82 @@ export class WidgetsService {
       case WidgetType.GSC_QUERIES_TABLE:
       case WidgetType.GSC_CLICKS_IMPRESSIONS: {
         const gsc = integrationsMap.get("GOOGLE_SEARCH_CONSOLE");
-        return (
-          gsc?.metricsCache ||
-          this.integrations.generateSampleMetrics(IntegrationProvider.GOOGLE_SEARCH_CONSOLE, business)
-        );
+        return gsc?.metricsCache || null;
       }
 
       case WidgetType.GA4_AI_TRAFFIC:
       case WidgetType.GA4_TOP_PAGES: {
         const ga4 = integrationsMap.get("GOOGLE_ANALYTICS_4");
-        return (
-          ga4?.metricsCache ||
-          this.integrations.generateSampleMetrics(IntegrationProvider.GOOGLE_ANALYTICS_4, business)
-        );
+        return ga4?.metricsCache || null;
       }
 
       case WidgetType.GBP_LOCAL_PERFORMANCE:
       case WidgetType.GBP_REVIEWS_FEED: {
         const gbp = integrationsMap.get("GOOGLE_BUSINESS_PROFILE");
-        return (
-          gbp?.metricsCache ||
-          this.integrations.generateSampleMetrics(IntegrationProvider.GOOGLE_BUSINESS_PROFILE, business)
-        );
+        return gbp?.metricsCache || null;
       }
 
       case WidgetType.AEO_CITATION_SHARE:
       case WidgetType.AEO_PROMPT_RANKINGS: {
         return {
           businessName: bName,
-          compositeScore: 78,
-          citationGrowth: 24.5,
-          engineShare: [
-            { engine: "ChatGPT", share: 84, color: "#10a37f" },
-            { engine: "Perplexity", share: 79, color: "#208bfe" },
-            { engine: "Google Gemini", share: 72, color: "#8e44ad" },
-            { engine: "Claude", share: 68, color: "#d97706" },
-          ],
-          recentProbes: [
-            { prompt: `best ${bIndustry} in ${bCity}`, rank: "#1 Cited", sentiment: "Highly Positive" },
-            { prompt: `who provides top verified ${bIndustry} near me`, rank: "#2 Cited", sentiment: "Neutral/Informative" },
-            { prompt: `reviews and pricing for ${bName}`, rank: "#1 Cited", sentiment: "Highly Positive" },
-          ],
+          compositeScore: 0,
+          citationGrowth: 0,
+          engineShare: [],
+          recentProbes: [],
         };
       }
 
       case WidgetType.SEO_HEALTH_GAUGE: {
+        if (!latestAudit) {
+          return {
+            businessName: bName,
+            siteUrl: bSite,
+            score: null,
+            lcp: null,
+            cls: null,
+            schemaTypes: [],
+            llmsTxtStatus: "Not Generated",
+            robotsStatus: "Pending Audit",
+          };
+        }
         return {
           businessName: bName,
           siteUrl: bSite,
-          score: latestAudit?.score || 88,
-          lcp: "1.4s (Good)",
-          cls: "0.02 (Good)",
-          schemaTypes: ["LocalBusiness", "Organization", "FAQPage", "AggregateRating"],
-          llmsTxtStatus: "Active (/llms.txt & /llms-full.txt generated)",
-          robotsStatus: "GPTBot, ClaudeBot, PerplexityBot Allowed",
+          score: latestAudit.score || 0,
+          lcp: latestAudit.lcp || null,
+          cls: latestAudit.cls || null,
+          schemaTypes: latestAudit.schemaTypes || [],
+          llmsTxtStatus: latestAudit.llmsTxtStatus || "Active",
+          robotsStatus: latestAudit.robotsStatus || "Default",
         };
       }
 
       case WidgetType.WORDPRESS_AIVISION_STATUS: {
         const wp = integrationsMap.get("WORDPRESS");
+        const isConnected = wp?.connected || Boolean(business?.wordpressConnectedAt);
+        const telemetry = business?.wordpressTelemetry as any;
         return {
-          connected: wp?.connected || Boolean(business.wordpressConnectedAt),
-          siteUrl: business.wordpressUrl || business.website || bSite,
-          siteName: business.wordpressSiteName || bName,
-          pluginVersion: business.wordpressPluginVersion || "1.4.1",
-          avgSeo: 92,
-          avgAeo: 85,
-          avgGeo: 89,
-          postsIndexed: 14,
-          lastFixApplied: "ROBOTS_TXT_OPTIMIZE",
+          connected: isConnected,
+          siteUrl: business?.wordpressUrl || business?.website || bSite,
+          siteName: business?.wordpressSiteName || bName,
+          pluginVersion: business?.wordpressPluginVersion || null,
+          avgSeo: telemetry?.avgSeo || (isConnected ? 0 : null),
+          avgAeo: telemetry?.avgAeo || (isConnected ? 0 : null),
+          avgGeo: telemetry?.avgGeo || (isConnected ? 0 : null),
+          postsIndexed: telemetry?.postsIndexed || 0,
+          lastFixApplied: business?.wordpressLastFixApplied || null,
         };
       }
 
       case WidgetType.META_PAGE_REACH:
-        return (
-          integrationsMap.get("FACEBOOK_PAGE")?.metricsCache ||
-          this.integrations.generateSampleMetrics(IntegrationProvider.FACEBOOK_PAGE, business)
-        );
+        return integrationsMap.get("FACEBOOK_PAGE")?.metricsCache || null;
 
       case WidgetType.INSTAGRAM_AUDIENCE:
-        return (
-          integrationsMap.get("INSTAGRAM_INSIGHTS")?.metricsCache ||
-          this.integrations.generateSampleMetrics(IntegrationProvider.INSTAGRAM_INSIGHTS, business)
-        );
+        return integrationsMap.get("INSTAGRAM_INSIGHTS")?.metricsCache || null;
 
       case WidgetType.LINKEDIN_PAGE_STATS:
-        return (
-          integrationsMap.get("LINKEDIN_COMPANY")?.metricsCache ||
-          this.integrations.generateSampleMetrics(IntegrationProvider.LINKEDIN_COMPANY, business)
-        );
+        return integrationsMap.get("LINKEDIN_COMPANY")?.metricsCache || null;
 
       default:
         return { active: true, businessName: bName, siteUrl: bSite };
