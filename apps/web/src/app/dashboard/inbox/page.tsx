@@ -73,7 +73,7 @@ export default function InboxPage() {
         <aside className="w-80 overflow-y-auto border-r border-slate-800">
           {conversations.length === 0 && (
             <p className="p-4 text-sm text-slate-400">
-              No conversations yet. Click "Simulate incoming message" to test the webhook pipeline.
+              No conversations yet. Connect your channels in Integrations to receive incoming customer messages.
             </p>
           )}
           {conversations.map((c) => (

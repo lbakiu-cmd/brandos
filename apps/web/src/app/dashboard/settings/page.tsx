@@ -635,7 +635,7 @@ export default function SettingsPage() {
                   <div>
                     <h2 className="text-lg font-bold text-white">1. Select Business Vertical / Industry</h2>
                     <p className="mt-1 text-xs text-slate-400">
-                      BrandOS customizes all Schema.org markup, E-E-A-T audits, and AI search simulation prompts to this vertical.
+                      BrandOS customizes all Schema.org markup, E-E-A-T audits, and AI search benchmark queries to this vertical.
                     </p>
                   </div>
                   {isInitialSetupDone && (
@@ -775,7 +775,7 @@ export default function SettingsPage() {
                   </div>
 
                   <div>
-                    <p className="font-semibold text-slate-400">Simulated High-Intent Query</p>
+                    <p className="font-semibold text-slate-400">Benchmark AI Search Query</p>
                     <p className="mt-0.5 rounded-lg bg-slate-950/80 p-2.5 italic text-slate-300">
                       "{selectedVertical.sampleQuery.replace("[City]", form.city || "your city")}"
                     </p>
@@ -1287,7 +1287,7 @@ export default function SettingsPage() {
                     </span>
                   </div>
                   <p className="text-xs text-slate-400 mt-0.5">
-                    Recalibrating Schema.org models, E-E-A-T audits & simulated queries
+                    Recalibrating Schema.org models, E-E-A-T audits & benchmark queries
                   </p>
                 </div>
               </div>
@@ -1306,7 +1306,7 @@ export default function SettingsPage() {
                 <span>What happens when you switch industry verticals?</span>
               </div>
               <p className="text-slate-300 leading-relaxed">
-                BrandOS will update all machine-readable Schema.org entities, audit algorithms, E-E-A-T scoring criteria, and simulated AI search prompts to target <strong>{pendingVertical.label}</strong>.
+                BrandOS will update all machine-readable Schema.org entities, audit algorithms, E-E-A-T scoring criteria, and target AI search prompts to target <strong>{pendingVertical.label}</strong>.
               </p>
             </div>
 
@@ -1353,9 +1353,9 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            {/* Simulated Query Preview */}
+            {/* Benchmark Query Preview */}
             <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-3.5 text-xs space-y-1">
-              <span className="text-slate-400 font-semibold">Simulated High-Intent Query:</span>
+              <span className="text-slate-400 font-semibold">Benchmark AI Search Query:</span>
               <p className="italic text-slate-200">
                 "{pendingVertical.sampleQuery.replace("[City]", form.city || "your city")}"
               </p>

@@ -4,7 +4,7 @@ Tags:              seo, aeo, geo, ai, schema, generative engine optimization, an
 Requires at least: 6.0
 Tested up to:      6.5
 Requires PHP:      8.0
-Stable tag:        1.4.1
+Stable tag:        1.5.0
 License:           GPL-2.0-or-later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -16,7 +16,7 @@ The first all-in-one plugin built for Search Engines (SEO), Answer Engines (AEO)
 
 * **📊 SEO Score (Search Engine Optimization)** — Classic on-page optimization for Google & Bing: title, meta description, keyword density, heading hierarchy, image alts, and internal linking.
 * **💬 AEO Score (Answer Engine Optimization)** — Winning Featured Snippets & Voice Search (Google AI Overviews, Siri, Perplexity): direct 40–60 word answer paragraphs, question-led H2/H3s, step-by-step ordered lists (`<ol>`), and FAQPage schemas.
-* **🤖 GEO Score (Generative Engine Optimization)** — Maximizing citation and synthesis in LLMs (ChatGPT/SearchGPT, Claude, Perplexity, Gemini): high statistical data density, authoritative citations, E-E-A-T credentials, `/llms.txt` machine feeds, and AI crawler access.
+* **🤖 GEO Score (Generative Engine Optimization)** — Maximizing citation and synthesis in LLMs (OpenAI ChatGPT/SearchGPT & Google Gemini): high statistical data density, authoritative citations, E-E-A-T credentials, `/llms.txt` machine feeds, and AI crawler access.
 
 === Core Features ===
 
@@ -64,7 +64,7 @@ Overview of all published posts with `SEO | AEO | GEO` score badge columns direc
 = What is the difference between SEO, AEO, and GEO? =
 * **SEO**: Ranks your pages in classic search engine result pages (Google, Bing).
 * **AEO**: Optimizes content for direct answers, featured snippets, and voice assistants (Siri, Alexa, Google AI Overviews).
-* **GEO**: Optimizes content to be synthesized, cited, and referenced by LLMs (ChatGPT, Claude, Perplexity, Gemini).
+* **GEO**: Optimizes content to be synthesized, cited, and referenced by LLMs (OpenAI ChatGPT & Google Gemini).
 
 = Does it include standard /llms.txt and /llms-full.txt feeds? =
 Yes! AIVision SEO dynamically generates both `/llms.txt` (curated index with aggregated FAQs) and `/llms-full.txt` (full markdown body feed) conforming to the llmstxt.org standard.
@@ -73,6 +73,12 @@ Yes! AIVision SEO dynamically generates both `/llms.txt` (curated index with agg
 AIVision SEO can be used alongside other SEO plugins, but you should disable duplicate meta tag output. We recommend using AIVision SEO as your primary SEO, AEO, and GEO optimizer.
 
 == Changelog ==
+
+= 1.5.0 =
+* Streamlined GEO LLM Platform scoring to focus on OpenAI (ChatGPT/SearchGPT) and Google Gemini.
+* Removed legacy Perplexity and Claude platform readiness cards to maintain parity with BrandOS SaaS platform.
+* Updated AI crawler recommendations to prioritize GPTBot, OAI-SearchBot, and Google-Extended.
+* Automated version control across plugin metadata and build artifact filenames.
 
 = 1.4.1 =
 * Added dynamic Content Optimization & Quality filter center to Dashboard.

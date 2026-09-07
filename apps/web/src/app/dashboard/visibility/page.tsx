@@ -266,9 +266,9 @@ export default function VisibilityPage() {
       const data = await apiFetch<any>("/ai-reports/auto-fix", {
         method: "POST",
         body: JSON.stringify({
-          businessName: liveAuditResults?.businessName || liveBizName || business?.name || "Smile Clinic",
-          city: liveAuditResults?.city || liveCity || business?.city || "Tiranë",
-          industry: liveAuditResults?.industry || liveIndustry || business?.industry || "Dental Clinic",
+          businessName: liveAuditResults?.businessName || liveBizName || business?.name || "Your Business",
+          city: liveAuditResults?.city || liveCity || business?.city || "",
+          industry: liveAuditResults?.industry || liveIndustry || business?.industry || "Services",
           website: business?.website || "https://yourwebsite.com",
           phone: business?.phone || "",
         }),
@@ -380,9 +380,9 @@ export default function VisibilityPage() {
       const data = await apiFetch<any>("/ai-reports/live-check", {
         method: "POST",
         body: JSON.stringify({
-          businessName: liveBizName.trim() || business?.name || "Smile Clinic",
-          city: liveCity.trim() || business?.city || "Tiranë",
-          industry: liveIndustry.trim() || business?.industry || "Dental Clinic",
+          businessName: liveBizName.trim() || business?.name || "Your Business",
+          city: liveCity.trim() || business?.city || "",
+          industry: liveIndustry.trim() || business?.industry || "Services",
         }),
       });
       setLiveAuditResults(data);
@@ -625,9 +625,9 @@ export default function VisibilityPage() {
           <div className="flex flex-wrap items-center gap-2.5 shrink-0">
             <button
               onClick={() => {
-                setLiveBizName(business?.name || "Smile Clinic");
-                setLiveCity(business?.city || "Tiranë");
-                setLiveIndustry(business?.industry || "Dental Clinic");
+                setLiveBizName(business?.name || "");
+                setLiveCity(business?.city || "");
+                setLiveIndustry(business?.industry || "");
                 setLiveAuditModalOpen(true);
               }}
               className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white px-4 py-2.5 text-xs font-bold shadow-md hover:shadow-lg transition cursor-pointer"
@@ -672,7 +672,7 @@ export default function VisibilityPage() {
             <div className="rounded-xl border border-[#EBE3D5] dark:border-zinc-800 bg-[#FCFAF7] dark:bg-zinc-950/60 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="flex items-center gap-3.5">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#8A5333] text-white font-bold text-base shadow-sm">
-                  {reportData?.businessInfo?.initials || (business?.name ? business.name.slice(0, 2).toUpperCase() : "ND")}
+                  {reportData?.businessInfo?.initials || (business?.name ? business.name.slice(0, 2).toUpperCase() : "--")}
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-[#1C1917] dark:text-white leading-snug">
@@ -713,7 +713,7 @@ export default function VisibilityPage() {
           </div>
         </div>
 
-        {!reportData ? (
+        {!reportData || !reportData.questions || reportData.questions.length === 0 ? (
           <div className="rounded-2xl border border-[#EBE3D5] dark:border-zinc-800 bg-white dark:bg-zinc-900/60 p-8 sm:p-12 text-center space-y-6 shadow-xs my-4">
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-100 dark:bg-amber-950/50 text-[#8A5333] dark:text-amber-400">
               <Sparkles className="h-8 w-8" />
@@ -768,7 +768,7 @@ export default function VisibilityPage() {
           <p className="text-xs sm:text-sm text-[#78716C] dark:text-zinc-300 leading-relaxed">
             We asked{" "}
             <strong className="font-semibold text-[#1C1917] dark:text-white">
-              {reportData.questions?.length || 10} real questions
+              {reportData.questions?.length || 0} questions
             </strong>{" "}
             about {reportData.targetQuery} across 2 primary AI engines:{" "}
             <span className="font-semibold text-blue-600 dark:text-blue-400">Google Gemini</span> and{" "}
@@ -783,7 +783,7 @@ export default function VisibilityPage() {
             </strong>
             . There are{" "}
             <strong className="font-semibold text-[#1C1917] dark:text-white">
-              {reportData.contentGaps?.length || 8} topics
+              {reportData.contentGaps?.length || 0} topics
             </strong>{" "}
             your site does not cover yet — see the{" "}
             <button
@@ -864,7 +864,7 @@ export default function VisibilityPage() {
                     : "bg-[#EAE0D3] dark:bg-zinc-800 text-[#7A4B2A] dark:text-zinc-300"
                 }`}
               >
-                {reportData.questions.length || 10}
+                {reportData.questions?.length || 0}
               </span>
             </button>
 
@@ -884,7 +884,7 @@ export default function VisibilityPage() {
                     : "bg-[#EAE0D3] dark:bg-zinc-800 text-[#7A4B2A] dark:text-zinc-300"
                 }`}
               >
-                {reportData.competitors.length || 24}
+                {reportData.competitors?.length || 0}
               </span>
             </button>
 
@@ -904,7 +904,7 @@ export default function VisibilityPage() {
                     : "bg-[#EAE0D3] dark:bg-zinc-800 text-[#7A4B2A] dark:text-zinc-300"
                 }`}
               >
-                {reportData.referrals.length || 5}
+                {reportData.referrals?.length || 0}
               </span>
             </button>
 
@@ -924,7 +924,7 @@ export default function VisibilityPage() {
                     : "bg-[#EAE0D3] dark:bg-zinc-800 text-[#7A4B2A] dark:text-zinc-300"
                 }`}
               >
-                {reportData.contentGaps.length || 8}
+                {reportData.contentGaps?.length || 0}
               </span>
             </button>
           </div>
@@ -935,7 +935,7 @@ export default function VisibilityPage() {
               {/* Header row */}
               <div className="border-b border-[#EBE3D5] dark:border-zinc-800 bg-[#FAF7F2] dark:bg-zinc-950/80 px-5 py-3">
                 <div className="text-[11px] text-[#78716C] dark:text-zinc-400 mb-1">
-                  {reportData.questions?.length || 10} questions × 2 AI engines
+                  {reportData.questions?.length || 0} questions × 2 AI engines
                 </div>
                 <div className="grid grid-cols-12 text-[10px] font-bold tracking-wider text-[#78716C] dark:text-zinc-400 uppercase items-center">
                   <div className="col-span-8 sm:col-span-6 flex items-center justify-between pr-4">
@@ -1419,7 +1419,7 @@ export default function VisibilityPage() {
                 type="text"
                 value={searchQueryInput}
                 onChange={(e) => setSearchQueryInput(e.target.value)}
-                placeholder='e.g. "dentist near me", "dental implants in Tirana"'
+                placeholder='e.g. "best services in my area", "consulting firm near me"'
                 className="w-full rounded-xl border border-[#EBE3D5] dark:border-zinc-800 bg-[#FCFAF7] dark:bg-zinc-950 px-3.5 py-2.5 text-xs text-[#1C1917] dark:text-zinc-200 focus:outline-hidden focus:ring-2 focus:ring-[#8A5333]"
               />
             </div>
@@ -1544,7 +1544,7 @@ export default function VisibilityPage() {
                   type="text"
                   value={liveBizName}
                   onChange={(e) => setLiveBizName(e.target.value)}
-                  placeholder="e.g. Smile Clinic"
+                  placeholder="e.g. Acme Services"
                   className="w-full rounded-xl border border-[#E8DFD3] dark:border-zinc-700 bg-[#FCFAF7] dark:bg-zinc-800 px-3 py-2 text-xs text-[#1C1917] dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
                 />
               </div>
@@ -1556,7 +1556,7 @@ export default function VisibilityPage() {
                   type="text"
                   value={liveCity}
                   onChange={(e) => setLiveCity(e.target.value)}
-                  placeholder="e.g. Tirana"
+                  placeholder="e.g. New York"
                   className="w-full rounded-xl border border-[#E8DFD3] dark:border-zinc-700 bg-[#FCFAF7] dark:bg-zinc-800 px-3 py-2 text-xs text-[#1C1917] dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
                 />
               </div>
@@ -1568,7 +1568,7 @@ export default function VisibilityPage() {
                   type="text"
                   value={liveIndustry}
                   onChange={(e) => setLiveIndustry(e.target.value)}
-                  placeholder="e.g. Dental Clinic"
+                  placeholder="e.g. Legal Consulting"
                   className="w-full rounded-xl border border-[#E8DFD3] dark:border-zinc-700 bg-[#FCFAF7] dark:bg-zinc-800 px-3 py-2 text-xs text-[#1C1917] dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
                 />
               </div>

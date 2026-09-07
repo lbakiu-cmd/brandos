@@ -132,7 +132,7 @@ class AIVision_Admin {
                     <div class="aivision-card aivision-feature-card">
                         <div class="aivision-card-icon" style="background:#ede9fe; color:#7c3aed;">🤖</div>
                         <h3>3. Generative Engines (GEO)</h3>
-                        <p>High data density, external authoritative citations, E-E-A-T credentials, /llms.txt machine feeds, and open AI crawler access for ChatGPT, Claude, and Perplexity.</p>
+                        <p>High data density, external authoritative citations, E-E-A-T credentials, /llms.txt machine feeds, and open AI crawler access for OpenAI ChatGPT and Google Gemini.</p>
                     </div>
                 </div>
 
@@ -594,7 +594,7 @@ class AIVision_Admin {
                     <div class="aivision-form-group">
                         <label for="av-site-ai-bio">Site AI Bio &amp; Context (Injected into /llms.txt)</label>
                         <textarea name="site_ai_bio" id="av-site-ai-bio" rows="3" placeholder="e.g. Established local service provider in Seattle specializing in commercial and residential solutions, licensed master technicians, and 24/7 client support since 2012."><?php echo esc_textarea($site_ai_bio); ?></textarea>
-                        <p class="aivision-hint">This description is placed at the top of your <code>/llms.txt</code> feed to define your organization's background, authority, and tone for AI models (ChatGPT, Claude, Perplexity).</p>
+                        <p class="aivision-hint">This description is placed at the top of your <code>/llms.txt</code> feed to define your organization's background, authority, and tone for AI models (OpenAI ChatGPT, Google Gemini).</p>
                     </div>
 
                     <div class="aivision-form-group">
@@ -647,7 +647,7 @@ class AIVision_Admin {
             <div class="aivision-card" style="margin-top:20px">
                 <div class="aivision-card-header"><h2>📄 LLMs.txt &amp; LLMs-Full.txt (AI Discovery Feeds)</h2></div>
                 <div class="aivision-form-group">
-                    <p>Provide structured, high-context markdown feeds for Large Language Models (ChatGPT, Claude, Perplexity) adhering to the <a href="https://llmstxt.org/" target="_blank">llmstxt.org</a> standard.</p>
+                    <p>Provide structured, high-context markdown feeds for Large Language Models (OpenAI ChatGPT, Google Gemini) adhering to the <a href="https://llmstxt.org/" target="_blank">llmstxt.org</a> standard.</p>
                     <div style="margin-top:15px; display:flex; align-items:center; gap:15px; flex-wrap:wrap;">
                         <button type="button" class="aivision-btn aivision-btn-primary" id="av-generate-llmstxt-btn">Generate LLMs.txt</button>
                         <button type="button" class="aivision-btn aivision-btn-secondary" id="av-generate-llmstxt-full-btn">Generate LLMs-Full.txt</button>
@@ -803,7 +803,7 @@ class AIVision_Admin {
             [ 'icon' => '📋', 'title' => 'Add FAQPage & Article Schemas', 'desc' => 'Structured JSON-LD allows search and AI engines to parse intent, entities, and Q&A pairs instantly.' ],
             [ 'icon' => '📊', 'title' => 'Use Tables & Ordered Steps',   'desc' => 'Structured <ol> and comparison tables provide tabular facts that LLMs extract for synthesized answers.' ],
             [ 'icon' => '👤', 'title' => 'Highlight E-E-A-T & First-Person Experience', 'desc' => 'Author credentials and first-person test indicators ("in our clinical findings...") prove human authority.' ],
-            [ 'icon' => '🤖', 'title' => 'Keep AI Crawlers Allowed',    'desc' => 'Ensure GPTBot, ClaudeBot, PerplexityBot, and Applebot-Extended are permitted in your robots.txt.' ],
+            [ 'icon' => '🤖', 'title' => 'Keep AI Crawlers Allowed',    'desc' => 'Ensure GPTBot, Google-Extended, and OAI-SearchBot are permitted in your robots.txt.' ],
         ];
     }
 }

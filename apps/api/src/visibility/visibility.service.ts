@@ -1,7 +1,6 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { Queue } from "bullmq";
 import { prisma } from "@brandos/database";
-import { generateVisibilityReport } from "./visibility-report-generator";
 import {
   generateJsonLdSchema,
   generateLlmsTxt,
@@ -30,43 +29,19 @@ export class VisibilityService {
     }
 
     const biz = membership.business;
-    const payload = generateVisibilityReport(
-      {
-        id: biz.id,
-        name: biz.name,
-        city: biz.city,
-        country: biz.country,
-        industry: biz.industry,
-      },
-      targetQuery
-    );
 
-    const googleScore = payload.engineStats.googleAi.percentage;
-    const chatGptScore = payload.engineStats.chatGpt.percentage;
-    const overallScore = Math.round((googleScore + chatGptScore) / 2);
-
-    const report = await prisma.aiVisibilityReport.create({
-      data: {
-        businessId: membership.businessId,
-        overallScore,
-        engineScores: {
-          GOOGLE_AI_OVERVIEW: googleScore,
-          CHATGPT: chatGptScore,
-        },
-        mentions: payload as any,
-        promptsRun: payload.questions.length * 2,
-      },
+    // Execute live AI audit synchronously across Google Gemini & OpenAI ChatGPT
+    await this.liveAuditMentions(userId, {
+      businessName: biz.name,
+      city: biz.city || undefined,
+      industry: biz.industry || undefined,
+      customPrompt: targetQuery,
     });
 
-    try {
-      await this.queue.add(
-        "ai-visibility",
-        { reportId: report.id, query: targetQuery },
-        { jobId: report.id }
-      );
-    } catch {
-      // Redis queue is optional if running synchronously
-    }
+    const report = await prisma.aiVisibilityReport.findFirst({
+      where: { businessId: biz.id },
+      orderBy: { createdAt: "desc" },
+    });
 
     return report;
   }

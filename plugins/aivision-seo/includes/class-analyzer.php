@@ -167,7 +167,7 @@ class AIVision_Analyzer {
         // 7. AI Crawler Access in robots.txt
         $settings     = get_option( 'aivision_settings', [] );
         $bots_enabled = ! empty( $settings['ai_crawlers_enabled'] );
-        $checks['ai_crawlers']       = self::check( $bots_enabled, 'AI crawlers permitted in robots.txt', 'Enable AI crawler access (GPTBot, ClaudeBot, PerplexityBot) in AI Crawlers settings', 3, 'GEO' );
+        $checks['ai_crawlers']       = self::check( $bots_enabled, 'AI crawlers permitted in robots.txt', 'Enable AI crawler access (GPTBot, Google-Extended, OAI-SearchBot) in AI Crawlers settings', 3, 'GEO' );
 
         $res = self::score_from_checks( $checks );
         $res['platforms'] = self::platform_scores( array_merge( $checks, [ 'has_faq' => self::check( ! empty( $schemas ), '', '' ) ] ) );
@@ -224,10 +224,8 @@ class AIVision_Analyzer {
     // ── Platform Specific Breakdown ──────────────────────────────────────────
     public static function platform_scores( $checks ) {
         return [
-            'perplexity' => self::calc_subscore( $checks, [ 'ai_crawlers', 'faq_schema', 'data_density', 'data_tables', 'question_headings', 'sentence_clarity', 'external_citations' ] ),
-            'openai'     => self::calc_subscore( $checks, [ 'ai_crawlers', 'multi_schema', 'faq_schema', 'author_bio', 'sentence_clarity', 'bullet_lists', 'comprehensive_words', 'data_density' ] ),
-            'claude'     => self::calc_subscore( $checks, [ 'ai_crawlers', 'definition_format', 'sentence_clarity', 'data_tables', 'author_bio', 'first_person_exp', 'external_citations' ] ),
-            'gemini'     => self::calc_subscore( $checks, [ 'multi_schema', 'author_bio', 'first_person_exp', 'bullet_lists', 'data_tables', 'comprehensive_words', 'external_citations' ] ),
+            'openai' => self::calc_subscore( $checks, [ 'ai_crawlers', 'multi_schema', 'faq_schema', 'author_bio', 'sentence_clarity', 'bullet_lists', 'comprehensive_words', 'data_density' ] ),
+            'gemini' => self::calc_subscore( $checks, [ 'multi_schema', 'author_bio', 'first_person_exp', 'bullet_lists', 'data_tables', 'comprehensive_words', 'external_citations' ] ),
         ];
     }
 

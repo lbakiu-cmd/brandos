@@ -149,7 +149,7 @@ class AIVision_Metabox {
                 <div class="av-two-col">
                     <div class="av-fields">
                         <div class="av-ai-intro">
-                            <p><strong>Generative Engine Optimization (GEO)</strong> evaluates how well your content is synthesized, cited, and referenced by LLMs like ChatGPT, Claude, Perplexity, and Gemini.</p>
+                            <p><strong>Generative Engine Optimization (GEO)</strong> evaluates how well your content is synthesized, cited, and referenced by top LLMs OpenAI (ChatGPT) and Google Gemini.</p>
                         </div>
                         <div class="av-field-group">
                             <label>Author Bio / Expertise (E-E-A-T Signal)</label>
@@ -174,32 +174,18 @@ class AIVision_Metabox {
                 <div class="av-platforms-section">
                     <div class="av-platforms-header">LLM Platform Readiness Breakdown</div>
                     <div class="av-platforms-grid">
-                        <div class="av-platform-card" data-platform="perplexity">
-                            <div class="av-platform-icon">🔍</div>
+                        <div class="av-platform-card" data-platform="openai">
+                            <div class="av-platform-icon">🧠</div>
                             <div class="av-platform-info">
-                                <div class="av-platform-name">Perplexity</div>
-                                <div class="av-platform-score"><span id="av-score-perplexity"><?php echo esc_html($geo['platforms']['perplexity'] ?? 0); ?></span>%</div>
-                            </div>
-                        </div>
-                        <div class="av-platform-card" data-platform="claude">
-                            <div class="av-platform-icon">💬</div>
-                            <div class="av-platform-info">
-                                <div class="av-platform-name">Claude</div>
-                                <div class="av-platform-score"><span id="av-score-claude"><?php echo esc_html($geo['platforms']['claude'] ?? 0); ?></span>%</div>
+                                <div class="av-platform-name">OpenAI (ChatGPT)</div>
+                                <div class="av-platform-score"><span id="av-score-openai"><?php echo esc_html($geo['platforms']['openai'] ?? 0); ?></span>%</div>
                             </div>
                         </div>
                         <div class="av-platform-card" data-platform="gemini">
                             <div class="av-platform-icon">✨</div>
                             <div class="av-platform-info">
-                                <div class="av-platform-name">Gemini</div>
+                                <div class="av-platform-name">Google Gemini</div>
                                 <div class="av-platform-score"><span id="av-score-gemini"><?php echo esc_html($geo['platforms']['gemini'] ?? 0); ?></span>%</div>
-                            </div>
-                        </div>
-                        <div class="av-platform-card" data-platform="openai">
-                            <div class="av-platform-icon">🧠</div>
-                            <div class="av-platform-info">
-                                <div class="av-platform-name">OpenAI</div>
-                                <div class="av-platform-score"><span id="av-score-openai"><?php echo esc_html($geo['platforms']['openai'] ?? 0); ?></span>%</div>
                             </div>
                         </div>
                     </div>

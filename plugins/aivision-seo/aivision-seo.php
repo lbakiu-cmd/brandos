@@ -2,8 +2,8 @@
 /**
  * Plugin Name: AIVision SEO
  * Plugin URI:  https://aivisionseo.com
- * Description: All-in-one SEO, AEO & GEO optimization plugin — score and optimize your content for search engines (Google/Bing), answer engines (snippets/voice), and generative AI (ChatGPT, Claude, Perplexity, Gemini). Includes auto-optimized robots.txt, dynamic /llms.txt, and schema generator.
- * Version:     1.4.1
+ * Description: All-in-one SEO, AEO & GEO optimization plugin — score and optimize your content for search engines (Google/Bing), answer engines (snippets/voice), and generative AI (OpenAI ChatGPT & Google Gemini). Includes auto-optimized robots.txt, dynamic /llms.txt, and schema generator.
+ * Version:     1.5.0
  * Author:      AIVision SEO
  * License:     GPL-2.0-or-later
  * Text Domain: aivision-seo
@@ -11,7 +11,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'AIVISION_VERSION',  '1.4.1' );
+define( 'AIVISION_VERSION',  '1.5.0' );
 define( 'AIVISION_FILE',     __FILE__ );
 define( 'AIVISION_DIR',      plugin_dir_path( __FILE__ ) );
 define( 'AIVISION_URL',      plugin_dir_url( __FILE__ ) );

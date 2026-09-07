@@ -212,6 +212,26 @@ export async function purgeAllSimulations() {
     });
     console.log(`  🗑️ Purged ${deletedMentions.count} simulated competitor mention records.`);
 
+    // 5. Delete simulated AI visibility reports
+    const allReports = await prisma.aiVisibilityReport.findMany();
+    let purgedReportsCount = 0;
+    for (const r of allReports) {
+      const str = JSON.stringify(r.mentions || {});
+      if (
+        str.includes('"id":"q1"') ||
+        str.includes("Dental Tirana") ||
+        str.includes("Wilson Dental Center") ||
+        str.includes("Smile Clinic") ||
+        str.includes("dentalCompetitors") ||
+        str.includes("Top Recommended") ||
+        str.includes("Klinika Dentare")
+      ) {
+        await prisma.aiVisibilityReport.delete({ where: { id: r.id } });
+        purgedReportsCount++;
+      }
+    }
+    console.log(`  🗑️ Purged ${purgedReportsCount} simulated AI visibility reports.`);
+
     console.log("✅ All simulated records purged successfully across all accounts.");
   } catch (err: any) {
     console.warn("⚠️ Note during simulation purge:", err.message);

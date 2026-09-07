@@ -131,8 +131,19 @@ function collectFiles(dir, baseDir = dir) {
   return results;
 }
 
+function getPluginVersion(pluginDir) {
+  const mainPhpPath = path.join(pluginDir, "aivision-seo.php");
+  if (!fs.existsSync(mainPhpPath)) return "1.0.0";
+  const content = fs.readFileSync(mainPhpPath, "utf8");
+  const match = content.match(/Version:\s*([0-9.]+)/i);
+  return match ? match[1].trim() : "1.0.0";
+}
+
 function buildPluginZip() {
   const pluginDir = path.resolve(__dirname, "aivision-seo");
+  const version = getPluginVersion(pluginDir);
+  console.log(`\n📦 Building AIVision SEO Plugin v${version}...`);
+
   const files = collectFiles(pluginDir);
 
   const zip = new ZipWriter();
@@ -140,24 +151,28 @@ function buildPluginZip() {
     const zipEntryPath = `aivision-seo/${file.relPath}`;
     const buffer = fs.readFileSync(file.fullPath);
     zip.addFile(zipEntryPath, buffer);
-    console.log(`Added: ${zipEntryPath}`);
+    console.log(`  Added: ${zipEntryPath}`);
   }
 
   const zipBuffer = zip.toBuffer();
 
   const outPaths = [
     path.resolve(__dirname, "aivision-seo.zip"),
+    path.resolve(__dirname, `aivision-seo-v${version}.zip`),
     path.resolve(__dirname, "aivision-seo", "aivision-seo.zip"),
-    path.resolve(__dirname, "aivision-seo", "aivision-seo-v1.4.1.zip"),
+    path.resolve(__dirname, "aivision-seo", `aivision-seo-v${version}.zip`),
     path.resolve(__dirname, "..", "apps", "web", "public", "aivision-seo.zip"),
-    path.resolve(__dirname, "..", "apps", "web", "public", "aivision-seo-v1.4.1.zip"),
+    path.resolve(__dirname, "..", "apps", "web", "public", `aivision-seo-v${version}.zip`),
   ];
 
+  console.log(`\n💾 Writing distribution packages:`);
   for (const outPath of outPaths) {
     fs.mkdirSync(path.dirname(outPath), { recursive: true });
     fs.writeFileSync(outPath, zipBuffer);
-    console.log(`Wrote ${zipBuffer.length} bytes to ${outPath}`);
+    console.log(`  Wrote ${zipBuffer.length} bytes to ${outPath}`);
   }
+
+  console.log(`\n✅ AIVision SEO v${version} packaged successfully!\n`);
 }
 
 buildPluginZip();

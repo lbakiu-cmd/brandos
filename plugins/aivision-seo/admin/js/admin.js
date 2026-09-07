@@ -101,10 +101,8 @@
 
             // Update LLM Platform breakdown
             if (platforms) {
-                $('#av-score-perplexity').text(platforms.perplexity || 0);
-                $('#av-score-claude').text(platforms.claude || 0);
-                $('#av-score-gemini').text(platforms.gemini || 0);
                 $('#av-score-openai').text(platforms.openai || 0);
+                $('#av-score-gemini').text(platforms.gemini || 0);
             }
 
             // Render Prioritized Action Plan
