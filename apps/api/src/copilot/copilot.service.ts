@@ -81,7 +81,7 @@ export class CopilotService {
     const openTasks = recs.map((r: any, i: number) => `${i + 1}. **${r.title}** (+${r.expectedImpact} pts)`).join("\n");
 
     return {
-      reply: `### 🚀 BrandOS Strategic Diagnosis for ${biz.name}\n\n- **Industry**: ${biz.industry || "General Business"}\n- **Market**: ${biz.city || "Local Area"}\n- **Latest Audit Score**: ${latestAudit?.score ?? "Pending"} / 100\n\n**Top Recommended Priorities to Win Local AI Discovery**:\n${openTasks || "All primary recommendations are up to date! Great job."}\n\nAsk me anything! I can write articles, review replies, schemas, or diagnostic fixes on demand.`,
+      reply: `### 🚀 AIVisibility SEO Strategic Diagnosis for ${biz.name}\n\n- **Industry**: ${biz.industry || "General Business"}\n- **Market**: ${biz.city || "Local Area"}\n- **Latest Audit Score**: ${latestAudit?.score ?? "Pending"} / 100\n\n**Top Recommended Priorities to Win Local AI Discovery**:\n${openTasks || "All primary recommendations are up to date! Great job."}\n\nAsk me anything! I can write articles, review replies, schemas, or diagnostic fixes on demand.`,
       suggestedActions: ["Generate Full Schema", "Create FAQ Block", "Draft Social Post", "Run Full Audit"],
     };
   }

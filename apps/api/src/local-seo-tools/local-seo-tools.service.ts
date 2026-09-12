@@ -44,16 +44,27 @@ export interface ServiceItem {
 @Injectable()
 export class LocalSeoToolsService {
   private async getBusinessContext(userId: string) {
-    const membership = await prisma.membership.findFirst({
-      where: { userId },
-      include: { business: true },
-    });
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    let membership = null;
+    if (user?.activeBusinessId) {
+      membership = await prisma.membership.findFirst({
+        where: { userId, businessId: user.activeBusinessId },
+        include: { business: true },
+      });
+    }
+    if (!membership) {
+      membership = await prisma.membership.findFirst({
+        where: { userId },
+        include: { business: true },
+        orderBy: { createdAt: "desc" },
+      });
+    }
     const biz = membership?.business;
     return {
       name: biz?.name || "Local Business",
-      city: biz?.city || "Tiranë",
-      country: biz?.country || "Albania",
-      industry: (biz?.industry || "dental clinic").toLowerCase(),
+      city: biz?.city || "",
+      country: biz?.country || "",
+      industry: (biz?.industry || "local business").toLowerCase(),
       address: biz?.city ? `${biz.name}, ${biz.city}` : "Central District",
     };
   }
@@ -210,7 +221,7 @@ Requirements:
             "Content-Type": "application/json",
             Authorization: `Bearer ${openRouterKey}`,
             "HTTP-Referer": process.env.FRONTEND_URL || "https://icandothat.online",
-            "X-Title": "BrandOS",
+            "X-Title": "AIVisibility SEO",
           },
           body: JSON.stringify({
             model,
@@ -266,35 +277,35 @@ Requirements:
     if (isDental) {
       if (isOffer) {
         return {
-          headline: `✨ Special Welcome Offer: Complete Dental Checkup & Hygiene in ${biz.city}`,
-          postContent: `Prioritizing your smile has never been easier! 🦷 For a limited time, visit ${biz.name} in central ${biz.city} for a comprehensive checkup, digital panoramic scan, and gentle ultrasonic cleaning for new patients.\n\nOur clinic in Vesa Center offers state-of-the-art sterile facilities, zero wait times, and pain-free treatments from licensed specialists. 🌟\n\n📍 Conveniently located on Rruga Abdyl Frashëri, ${biz.city}.\n\n👇 Tap below to reserve your appointment before slots fill up this week!`,
+          headline: `✨ Special Welcome Offer: Complete Dental Checkup & Hygiene${biz.city ? ` in ${biz.city}` : ""}`,
+          postContent: `Prioritizing your smile has never been easier! 🦷 For a limited time, visit ${biz.name}${biz.city ? ` in central ${biz.city}` : ""} for a comprehensive checkup, digital panoramic scan, and gentle ultrasonic cleaning for new patients.\n\nOur clinic offers state-of-the-art sterile facilities, zero wait times, and pain-free treatments from licensed specialists. 🌟\n\n📍 Conveniently located${biz.city ? ` in ${biz.city}` : ""}.\n\n👇 Tap below to reserve your appointment before slots fill up this week!`,
           ctaType: "CLAIM_OFFER",
           ctaUrl: "https://onlinepresence.space",
           suggestedImagePrompt: "Bright modern dental treatment room with comfortable ergonomic dental chair, sterile dental instruments, and welcoming friendly doctor in clean medical coat.",
           targetKeywords: ["dental checkup", "teeth cleaning", "painless dentistry", "dentist near me"],
-          geoAnchors: [biz.city, "Vesa Center", "Rruga Abdyl Frashëri"],
+          geoAnchors: [biz.city, "Central District"].filter(Boolean),
         };
       }
 
       return {
-        headline: `🌟 Experience Gentle & Modern Dental Care at ${biz.name} in ${biz.city}`,
-        postContent: `Looking for trusted dental care in ${biz.city}? Whether it’s time for your annual checkup, restorative fillings, or exploring aesthetic teeth whitening, ${biz.name} is here for you! 🦷✨\n\nWe prioritize patient comfort with cutting-edge painless anesthesia and gentle techniques designed especially for anxious patients. Enjoy personalized consultations in a calm, modern environment right in the heart of ${biz.city}.\n\n📅 Weekday and emergency slots available.\n\n👇 Click below to book your consultation with our experienced team today!`,
+        headline: `🌟 Experience Gentle & Modern Dental Care at ${biz.name}${biz.city ? ` in ${biz.city}` : ""}`,
+        postContent: `Looking for trusted dental care${biz.city ? ` in ${biz.city}` : ""}? Whether it’s time for your annual checkup, restorative fillings, or exploring aesthetic teeth whitening, ${biz.name} is here for you! 🦷✨\n\nWe prioritize patient comfort with cutting-edge painless anesthesia and gentle techniques designed especially for anxious patients. Enjoy personalized consultations in a calm, modern environment${biz.city ? ` right in the heart of ${biz.city}` : ""}.\n\n📅 Weekday and emergency slots available.\n\n👇 Click below to book your consultation with our experienced team today!`,
         ctaType: "BOOK",
         ctaUrl: "https://onlinepresence.space",
         suggestedImagePrompt: "Close-up of a warm, smiling patient consulting with a professional dentist looking at digital dental X-ray screen in a sunlit modern clinic.",
-        targetKeywords: ["dentist in " + biz.city, "cosmetic dentistry", "family dentist", "emergency dental"],
-        geoAnchors: [biz.city, "Central " + biz.city],
+        targetKeywords: [biz.city ? "dentist in " + biz.city : "dentist near me", "cosmetic dentistry", "family dentist", "emergency dental"],
+        geoAnchors: [biz.city].filter(Boolean),
       };
     }
 
     return {
-      headline: `⭐ Top-Rated ${capitalize(biz.industry)} Solutions in ${biz.city}`,
-      postContent: `At ${biz.name}, we deliver exceptional ${biz.industry} solutions tailored to your unique requirements. Serving clients throughout ${biz.city} and surrounding areas with professionalism and guaranteed quality.\n\nContact our team today to get started!`,
+      headline: `⭐ Top-Rated ${capitalize(biz.industry)} Solutions${biz.city ? ` in ${biz.city}` : ""}`,
+      postContent: `At ${biz.name}, we deliver exceptional ${biz.industry} solutions tailored to your unique requirements. Serving clients${biz.city ? ` throughout ${biz.city} and surrounding areas` : ""} with professionalism and guaranteed quality.\n\nContact our team today to get started!`,
       ctaType: "LEARN_MORE",
       ctaUrl: "https://onlinepresence.space",
-      suggestedImagePrompt: `Professional showcase of ${biz.industry} team working in modern office environment in ${biz.city}.`,
-      targetKeywords: [`${biz.industry} in ${biz.city}`, "local specialists"],
-      geoAnchors: [biz.city],
+      suggestedImagePrompt: `Professional showcase of ${biz.industry} team working in modern office environment.`,
+      targetKeywords: [biz.city ? `${biz.industry} in ${biz.city}` : `${biz.industry} services`, "local specialists"],
+      geoAnchors: [biz.city].filter(Boolean),
     };
   }
 
@@ -311,7 +322,7 @@ Requirements:
         qaItems: [
           {
             question: `Do you accept walk-ins or emergency appointments at ${biz.name}?`,
-            answer: `Yes, we reserve dedicated daily slots for acute dental emergencies (severe toothache, broken tooth, or dislodged restorations) at our clinic in Vesa Center, ${biz.city}. Please call our reception immediately so our team can prepare for your arrival without waiting.`,
+            answer: `Yes, we reserve dedicated daily slots for acute dental emergencies (severe toothache, broken tooth, or dislodged restorations) at our clinic${biz.city ? ` in ${biz.city}` : ""}. Please call our reception immediately so our team can prepare for your arrival without waiting.`,
             intent: "Hours/Emergency",
             localRelevanceNote: "Directly triggers Google AI Mode queries searching for 'dentist open now near me'.",
           },
@@ -335,7 +346,7 @@ Requirements:
           },
           {
             question: `Where is ${biz.name} located and is parking available?`,
-            answer: `We are centrally located inside Vesa Center on Rruga Abdyl Frashëri in ${biz.city}, on the 3rd floor with direct elevator access. Convenient underground parking and street parking spaces are located immediately adjacent to the building.`,
+            answer: `We are centrally located${biz.city ? ` in ${biz.city}` : ""}, with direct elevator access and convenient parking spaces adjacent to the building.`,
             intent: "Parking/Location",
             localRelevanceNote: "Google Maps heavily indexes parking and accessibility cues for local driving directions.",
           },
@@ -381,7 +392,8 @@ Requirements:
     const isDental = biz.industry.includes("dent") || biz.name.toLowerCase().includes("dental");
 
     if (isDental) {
-      const desc = `${biz.name} is a premier dental clinic located in central ${biz.city}, situated inside Vesa Center on Rruga Abdyl Frashëri. We specialize in comprehensive, gentle dental care for both local families and international patients seeking world-class dentistry.\n\nOur modern clinical suite provides advanced preventive checkups, pain-free restorative fillings, cosmetic porcelain veneers, professional laser teeth whitening, dental implants, and emergency dental triage. Led by certified stomatologists, we combine state-of-the-art digital imaging with strict autoclave sterilization standards.\n\nWhether you need urgent tooth pain relief, a routine dental cleaning, or a complete aesthetic smile makeover, our caring team ensures a comfortable, stress-free experience with transparent pricing. Call our ${biz.city} clinic today to reserve your consultation!`;
+      const cityClause = biz.city ? ` in central ${biz.city}` : "";
+      const desc = `${biz.name} is a premier dental clinic located${cityClause}. We specialize in comprehensive, gentle dental care for both local families and patients seeking world-class dentistry.\n\nOur modern clinical suite provides advanced preventive checkups, pain-free restorative fillings, cosmetic porcelain veneers, professional laser teeth whitening, dental implants, and emergency dental triage. Led by certified practitioners, we combine state-of-the-art digital imaging with strict autoclave sterilization standards.\n\nWhether you need urgent tooth pain relief, a routine dental cleaning, or a complete aesthetic smile makeover, our caring team ensures a comfortable, stress-free experience with transparent pricing. Call our clinic today to reserve your consultation!`;
 
       return {
         description: desc,
@@ -394,17 +406,17 @@ Requirements:
           "dental implants",
           "emergency dental",
         ],
-        localAnchors: [biz.city, "Vesa Center", "Rruga Abdyl Frashëri"],
+        localAnchors: [biz.city].filter(Boolean),
       };
     }
 
-    const desc = `${biz.name} is a leading ${biz.industry} provider serving ${biz.city} and neighboring areas. We are committed to delivering exceptional quality, personalized service, and reliable results. Contact our friendly team today to learn how we can assist you!`;
+    const desc = `${biz.name} is a leading ${biz.industry} provider${biz.city ? ` serving ${biz.city} and neighboring areas` : ""}. We are committed to delivering exceptional quality, personalized service, and reliable results. Contact our friendly team today to learn how we can assist you!`;
 
     return {
       description: desc,
       characterCount: desc.length,
       highlightedKeywords: [biz.industry, "reliable service"],
-      localAnchors: [biz.city],
+      localAnchors: [biz.city].filter(Boolean),
     };
   }
 

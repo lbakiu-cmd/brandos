@@ -85,6 +85,8 @@ export default function ContentPage() {
   const [autopilotCadence, setAutopilotCadence] = useState<"WEEKLY" | "BIWEEKLY" | "MONTHLY">("WEEKLY");
   const [autopilotDefaultStatus, setAutopilotDefaultStatus] = useState<"draft" | "publish">("draft");
   const [autopilotSaved, setAutopilotSaved] = useState(false);
+  const [autopilotConfig, setAutopilotConfig] = useState<any>(null);
+  const [autopilotRunning, setAutopilotRunning] = useState(false);
 
   // WordPress Publish State
   const [publishStatus, setPublishStatus] = useState<"draft" | "publish" | "pending">("draft");
@@ -98,14 +100,23 @@ export default function ContentPage() {
 
   const refresh = useCallback(async () => {
     try {
-      const [list, biz, conn] = await Promise.all([
+      const [list, biz, conn, autoRes] = await Promise.all([
         apiFetch<Post[]>("/posts"),
         apiFetch<Business>("/business"),
         apiFetch<WpConnection>("/wordpress/connection").catch(() => null),
+        apiFetch<any>("/wordpress/autopilot-settings").catch(() => null),
       ]);
       setPosts(list);
       setBusiness(biz);
       if (conn) setWpConn(conn);
+      if (autoRes?.autopilot) {
+        setAutopilotConfig(autoRes.autopilot);
+        if (autoRes.autopilot.cadence) setAutopilotCadence(autoRes.autopilot.cadence);
+        if (autoRes.autopilot.defaultStatus) setAutopilotDefaultStatus(autoRes.autopilot.defaultStatus);
+        if (Array.isArray(autoRes.autopilot.selectedCategories) && autoRes.autopilot.selectedCategories.length > 0) {
+          setSelectedCategories(autoRes.autopilot.selectedCategories);
+        }
+      }
     } catch {}
   }, []);
 
@@ -273,6 +284,52 @@ export default function ContentPage() {
       });
     } finally {
       setAutopilotBusy(false);
+    }
+  }
+
+  // Save Recurring Autopilot Schedule to Platform
+  async function handleSaveAutopilotSchedule() {
+    try {
+      const res = await apiFetch<any>("/wordpress/autopilot-settings", {
+        method: "POST",
+        body: JSON.stringify({
+          enabled: true,
+          cadence: autopilotCadence,
+          defaultStatus: autopilotDefaultStatus,
+          selectedCategories,
+        }),
+      });
+      setAutopilotConfig(res.autopilot);
+      setAutopilotSaved(true);
+      setTimeout(() => setAutopilotSaved(false), 4000);
+    } catch (err: any) {
+      alert("Error saving autopilot schedule: " + (err?.message || "Failed"));
+    }
+  }
+
+  // Autonomous Instant Trigger of Next Autopilot Post
+  async function handleTriggerAutopilotNow() {
+    setAutopilotRunning(true);
+    setPublishResult(null);
+    try {
+      const res = await apiFetch<any>("/wordpress/run-autopilot", {
+        method: "POST",
+      });
+      setArticle(res.article);
+      setPublishResult({
+        success: true,
+        message: res.message,
+        permalink: res.post?.permalink,
+        postId: res.post?.post_id,
+      });
+      setAutopilotConfig(res.autopilot);
+    } catch (err: any) {
+      setPublishResult({
+        success: false,
+        message: `Autopilot execution error: ${err?.message || "Failed"}`,
+      });
+    } finally {
+      setAutopilotRunning(false);
     }
   }
 
@@ -729,7 +786,7 @@ export default function ContentPage() {
                       <div>
                         <h4 className="text-xs font-bold text-purple-300">Continuous Autonomous Publishing Cadence</h4>
                         <p className="text-[11px] text-slate-400">
-                          BrandOS Worker will autonomously generate and push articles rotating through your selected categories ({selectedCategories.join(", ")}).
+                          AIVisibility SEO Worker will autonomously generate and push articles rotating through your selected categories ({selectedCategories.join(", ")}).
                         </p>
                       </div>
                     </div>
@@ -760,19 +817,54 @@ export default function ContentPage() {
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between pt-2">
+                    {/* Autopilot Status Bar */}
+                    {autopilotConfig && (
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 rounded-xl bg-slate-950/60 p-3 border border-purple-500/20 text-xs">
+                        <div>
+                          <span className="text-[10px] text-slate-500 block uppercase font-bold">Status</span>
+                          <span className="font-semibold text-emerald-400">
+                            {autopilotConfig.enabled ? "Active Autonomous Worker" : "Paused"}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-slate-500 block uppercase font-bold">Autonomously Generated</span>
+                          <span className="font-semibold text-white">
+                            {autopilotConfig.articlesGeneratedCount || 0} Articles
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-slate-500 block uppercase font-bold">Next Scheduled Post</span>
+                          <span className="font-semibold text-purple-300">
+                            {autopilotConfig.nextRunAt ? new Date(autopilotConfig.nextRunAt).toLocaleDateString() : "Pending Activation"}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
                       <span className="text-xs text-purple-300 font-semibold">
-                        {autopilotSaved ? "✔ Autopilot Schedule Active & Synced with BullMQ Worker!" : ""}
+                        {autopilotSaved ? "✔ Autopilot Schedule Active & Synced with AIVisibility SEO Engine!" : ""}
                       </span>
-                      <button
-                        onClick={() => {
-                          setAutopilotSaved(true);
-                          setTimeout(() => setAutopilotSaved(false), 4000);
-                        }}
-                        className="rounded-xl bg-purple-600 px-5 py-2.5 text-xs font-bold text-white hover:bg-purple-500 transition shadow-lg shadow-purple-500/20"
-                      >
-                        💾 Save Autopilot Publishing Schedule
-                      </button>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          onClick={handleTriggerAutopilotNow}
+                          disabled={autopilotRunning || selectedCategories.length === 0}
+                          className="rounded-xl border border-purple-500/40 bg-purple-950/60 hover:bg-purple-900/60 px-4 py-2.5 text-xs font-bold text-purple-300 hover:text-white transition flex items-center gap-1.5 disabled:opacity-40 shadow"
+                        >
+                          {autopilotRunning ? (
+                            <span className="h-3 w-3 animate-spin rounded-full border-2 border-purple-300 border-t-transparent"></span>
+                          ) : (
+                            "⚡"
+                          )}
+                          <span>{autopilotRunning ? "Running Autopilot..." : "Trigger Next Autopilot Post Now"}</span>
+                        </button>
+                        <button
+                          onClick={handleSaveAutopilotSchedule}
+                          className="rounded-xl bg-purple-600 px-5 py-2.5 text-xs font-bold text-white hover:bg-purple-500 transition shadow-lg shadow-purple-500/20"
+                        >
+                          💾 Save Autopilot Publishing Schedule
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}

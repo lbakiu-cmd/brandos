@@ -3,7 +3,7 @@
  * Plugin Name: AIVision SEO
  * Plugin URI:  https://aivisionseo.com
  * Description: All-in-one SEO, AEO & GEO optimization plugin — score and optimize your content for search engines (Google/Bing), answer engines (snippets/voice), and generative AI (OpenAI ChatGPT & Google Gemini). Includes auto-optimized robots.txt, dynamic /llms.txt, and schema generator.
- * Version:     1.5.0
+ * Version:     1.6.3
  * Author:      AIVision SEO
  * License:     GPL-2.0-or-later
  * Text Domain: aivision-seo
@@ -11,8 +11,9 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'AIVISION_VERSION',  '1.5.0' );
+define( 'AIVISION_VERSION',  '1.6.3' );
 define( 'AIVISION_FILE',     __FILE__ );
+define( 'AIVISION_BASENAME', plugin_basename( __FILE__ ) );
 define( 'AIVISION_DIR',      plugin_dir_path( __FILE__ ) );
 define( 'AIVISION_URL',      plugin_dir_url( __FILE__ ) );
 define( 'AIVISION_META_KEY', '_aivision_seo' );
@@ -23,7 +24,8 @@ require_once AIVISION_DIR . 'includes/class-schema.php';
 require_once AIVISION_DIR . 'includes/class-robots.php';
 require_once AIVISION_DIR . 'includes/class-sitemap.php';
 require_once AIVISION_DIR . 'includes/class-llms-txt.php';
-require_once AIVISION_DIR . 'includes/class-brandos-integration.php';
+require_once AIVISION_DIR . 'includes/class-integration.php';
+require_once AIVISION_DIR . 'includes/class-updater.php';
 require_once AIVISION_DIR . 'admin/class-admin.php';
 require_once AIVISION_DIR . 'admin/class-metabox.php';
 
@@ -34,7 +36,8 @@ add_action( 'plugins_loaded', function () {
     AIVision_Robots::init();
     AIVision_Sitemap::init();
     AIVision_LLMsTxt::init();
-    AIVision_BrandOS_Integration::init();
+    AIVisibility_Integration::init();
+    AIVision_Updater::init();
 
     // Remove WordPress generator meta tag if enabled
     $settings = get_option( 'aivision_settings', [] );

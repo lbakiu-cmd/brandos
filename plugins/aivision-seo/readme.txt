@@ -4,7 +4,7 @@ Tags:              seo, aeo, geo, ai, schema, generative engine optimization, an
 Requires at least: 6.0
 Tested up to:      6.5
 Requires PHP:      8.0
-Stable tag:        1.5.0
+Stable tag:        1.6.3
 License:           GPL-2.0-or-later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -74,9 +74,32 @@ AIVision SEO can be used alongside other SEO plugins, but you should disable dup
 
 == Changelog ==
 
+= 1.6.3 =
+* Added native WordPress Core automatic updates integration with remote version checker.
+* Direct integration with pre_set_site_transient_update_plugins and plugins_api for seamless 1-click updates.
+* Enabled automated background updates via WordPress WP-Cron (auto_update_plugin).
+* Added 1-Click "Check for Updates" button and "Auto-Updates Enabled" status badge in Settings.
+* In-app admin update banner notifications when a new release is available on AIVisibility Cloud.
+
+= 1.6.2 =
+* Added dynamic version indicator badge next to plugin and cloud integration titles in admin settings.
+* Enhanced UI clarity displaying active plugin release across all administration views.
+
+= 1.6.1 =
+* Rebranded all cloud integration interfaces, cards, and endpoints to AIVisibility SEO.
+* Replaced BrandOS integration module with unified AIVisibility_Integration controller.
+* Seamless migration preserving existing active API keys and connection tokens.
+* Added bidirectional telemetry sync and remote fix dispatcher under AIVisibility SEO branding.
+
+= 1.6.0 =
+* Integrated autonomous AIVisibility SEO platform-side audit remediation with 1-click execution.
+* Added Autonomous Content Autopilot execution engine with scheduled background sync via BullMQ.
+* Added live REST bridge endpoint for bidirectional audit synchronization and status telemetry.
+* Standardized version tracking registry (versions.json) and versioned zip distribution archives (aivision-seo-v1.6.0.zip).
+
 = 1.5.0 =
 * Streamlined GEO LLM Platform scoring to focus on OpenAI (ChatGPT/SearchGPT) and Google Gemini.
-* Removed legacy Perplexity and Claude platform readiness cards to maintain parity with BrandOS SaaS platform.
+* Removed legacy Perplexity and Claude platform readiness cards to maintain parity with AIVisibility SEO SaaS platform.
 * Updated AI crawler recommendations to prioritize GPTBot, OAI-SearchBot, and Google-Extended.
 * Automated version control across plugin metadata and build artifact filenames.
 

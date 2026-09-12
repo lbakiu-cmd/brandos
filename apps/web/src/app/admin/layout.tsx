@@ -79,6 +79,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
   const handleAdminLogout = async () => {
     try {
+      localStorage.removeItem("brandos_active_business_id");
+      document.cookie = "brandos_active_business_id=; path=/; max-age=0; SameSite=Lax";
       await authApi.logout().catch(() => {});
     } catch {
       // Ignore
@@ -90,14 +92,14 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     <div className="min-h-screen bg-slate-950 text-slate-100 selection:bg-purple-500 selection:text-white">
       {/* Admin Sidebar */}
       <aside className="fixed inset-y-0 left-0 flex w-64 flex-col border-r border-purple-900/30 bg-slate-900/95 backdrop-blur-2xl p-4 z-40">
-        {/* BrandOS Super Admin Header */}
+        {/* AIVisibility SEO Super Admin Header */}
         <div className="flex items-center gap-2.5 px-2 mb-6">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-600/30 border border-purple-400/30">
             <ShieldCheck className="h-5 w-5" />
           </div>
           <div>
-            <span className="text-lg font-black tracking-tight text-white flex items-center gap-1.5">
-              BrandOS <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-500/25 text-purple-300 font-bold border border-purple-500/40">ADMIN</span>
+            <span className="text-sm font-black tracking-tight text-white flex items-center gap-1.5">
+              AIVisibility SEO <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-500/25 text-purple-300 font-bold border border-purple-500/40">ADMIN</span>
             </span>
             <p className="text-[10px] text-purple-400 font-medium flex items-center gap-1">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>

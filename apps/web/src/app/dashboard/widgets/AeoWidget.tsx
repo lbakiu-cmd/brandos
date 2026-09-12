@@ -72,8 +72,9 @@ export function AeoWidget({ data, onRemove, initialTimeRange = "7D" }: AeoWidget
 
   const baseCompositeScore = Number(data?.compositeScore) || 78;
   const bName = data?.businessName || "Your Business";
-  const bCity = data?.city || "Tirana";
-  const bIndustry = data?.industry || "Healthcare & Medical";
+  const bCity = data?.city || "";
+  const bIndustry = data?.industry || "Services";
+  const locSuffix = bCity ? ` in ${bCity}` : " near me";
 
   // Score adjustments per date range
   const scoreOffsets: Record<TimeRangeKey, number> = {
@@ -125,27 +126,27 @@ export function AeoWidget({ data, onRemove, initialTimeRange = "7D" }: AeoWidget
   // Dynamic prompts and citations based on time range
   const probesByRange: Record<TimeRangeKey, Array<{ prompt: string; rank: string; citations: number }>> = {
     "7D": [
-      { prompt: `best ${bIndustry} in ${bCity}`, rank: "#1 Cited", citations: 18 },
+      { prompt: `best ${bIndustry}${locSuffix}`, rank: "#1 Cited", citations: 18 },
       { prompt: `who provides top verified ${bIndustry} near me`, rank: "#2 Cited", citations: 12 },
       { prompt: `reviews and pricing for ${bName}`, rank: "#1 Cited", citations: 8 },
     ],
     "14D": [
-      { prompt: `best ${bIndustry} in ${bCity}`, rank: "#1 Cited", citations: 42 },
+      { prompt: `best ${bIndustry}${locSuffix}`, rank: "#1 Cited", citations: 42 },
       { prompt: `who provides top verified ${bIndustry} near me`, rank: "#2 Cited", citations: 26 },
       { prompt: `reviews and pricing for ${bName}`, rank: "#1 Cited", citations: 18 },
     ],
     "1M": [
-      { prompt: `best ${bIndustry} in ${bCity}`, rank: "#1 Cited", citations: 98 },
+      { prompt: `best ${bIndustry}${locSuffix}`, rank: "#1 Cited", citations: 98 },
       { prompt: `top rated ${bIndustry} specialist near me`, rank: "#1 Cited", citations: 54 },
       { prompt: `reviews and pricing for ${bName}`, rank: "#1 Cited", citations: 42 },
     ],
     "3M": [
-      { prompt: `best ${bIndustry} in ${bCity}`, rank: "#1 Cited", citations: 310 },
+      { prompt: `best ${bIndustry}${locSuffix}`, rank: "#1 Cited", citations: 310 },
       { prompt: `top rated ${bIndustry} specialist near me`, rank: "#1 Cited", citations: 185 },
       { prompt: `reviews and pricing for ${bName}`, rank: "#1 Cited", citations: 145 },
     ],
     "MAX": [
-      { prompt: `best ${bIndustry} in ${bCity}`, rank: "#1 Cited", citations: 980 },
+      { prompt: `best ${bIndustry}${locSuffix}`, rank: "#1 Cited", citations: 980 },
       { prompt: `top rated ${bIndustry} specialist near me`, rank: "#1 Cited", citations: 640 },
       { prompt: `reviews and pricing for ${bName}`, rank: "#1 Cited", citations: 530 },
     ],

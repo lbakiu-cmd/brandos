@@ -59,7 +59,7 @@ export function SeoHealthWidget({ data, onRemove, initialTimeRange = "7D" }: Seo
         </div>
 
         <div className="pt-3 border-t border-slate-800/60 flex items-center justify-between text-[11px] text-slate-500">
-          <span>BrandOS Audit Engine</span>
+          <span>AIVisibility SEO Audit Engine</span>
           {onRemove && (
             <button onClick={onRemove} className="text-slate-500 hover:text-red-400 transition">
               Remove

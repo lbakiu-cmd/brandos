@@ -30,10 +30,10 @@ export default function Page() {
       <header className="sticky top-0 z-50 border-b border-slate-200 dark:border-zinc-800/80 bg-white/90 dark:bg-zinc-950/80 backdrop-blur-md">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3.5">
           <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-950 font-bold text-sm shadow-sm">
-              B
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-950 font-bold text-xs shadow-sm">
+              AI
             </div>
-            <span className="text-base font-semibold tracking-tight text-slate-900 dark:text-white">BrandOS</span>
+            <span className="text-base font-semibold tracking-tight text-slate-900 dark:text-white">AIVisibility SEO</span>
             <span className="hidden sm:inline-flex rounded-full border border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-900 px-2.5 py-0.5 text-[11px] font-medium text-slate-600 dark:text-zinc-400">
               Presence & Search Engine
             </span>
@@ -82,7 +82,7 @@ export default function Page() {
           </h1>
 
           <p className="mx-auto mt-6 max-w-2xl text-sm leading-relaxed text-slate-600 dark:text-zinc-400 sm:text-base">
-            Customers discover local businesses through Google Search, Maps, and AI-powered assistants. BrandOS audits your digital footprint, tracks ranking signals, and produces copy-paste code optimizations.
+            Customers discover local businesses through Google Search, Maps, and AI-powered assistants. AIVisibility SEO audits your digital footprint, tracks ranking signals, and produces copy-paste code optimizations.
           </p>
 
           {/* Instant Scan Bar Hero Widget */}
@@ -187,7 +187,7 @@ export default function Page() {
           <Link href="/privacy" className="hover:text-slate-900 dark:hover:text-zinc-300 transition">Privacy Policy</Link>
           <Link href="/terms" className="hover:text-slate-900 dark:hover:text-zinc-300 transition">Terms of Service</Link>
         </div>
-        <p>© 2026 BrandOS · Search Visibility & Presence Platform. All rights reserved.</p>
+        <p>© 2026 AIVisibility SEO · Search Visibility & Presence Platform. All rights reserved.</p>
       </footer>
     </div>
   );

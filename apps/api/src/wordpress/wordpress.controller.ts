@@ -8,11 +8,13 @@ import {
   Res,
   UseGuards,
   NotFoundException,
+  Query,
 } from "@nestjs/common";
 import { AuthGuard } from "../auth/auth.guard";
 import { WordpressService } from "./wordpress.service";
 import { BusinessService } from "../business/business.service";
 import * as fs from "fs";
+import * as path from "path";
 
 @Controller("wordpress")
 export class WordpressController {
@@ -85,6 +87,57 @@ export class WordpressController {
   }
 
   /**
+   * Automated 1-Click Platform Auto-Remediation:
+   * Fixes all open audit issues on WordPress and marks recommendations DONE
+   */
+  @Post("auto-remediate")
+  @UseGuards(AuthGuard)
+  async autoRemediate(@Req() req: any) {
+    const biz = await this.business.get(req.user.id, req.user.activeBusinessId);
+    return this.wordpress.autoRemediate(biz.id);
+  }
+
+  /**
+   * Get Autopilot Configuration for Business
+   */
+  @Get("autopilot-settings")
+  @UseGuards(AuthGuard)
+  async getAutopilotSettings(@Req() req: any) {
+    const biz = await this.business.get(req.user.id, req.user.activeBusinessId);
+    return this.wordpress.getAutopilotSettings(biz.id);
+  }
+
+  /**
+   * Update Autopilot Configuration for Business
+   */
+  @Post("autopilot-settings")
+  @UseGuards(AuthGuard)
+  async updateAutopilotSettings(
+    @Req() req: any,
+    @Body()
+    body: {
+      enabled?: boolean;
+      cadence?: "WEEKLY" | "BIWEEKLY" | "MONTHLY";
+      defaultStatus?: "draft" | "publish";
+      selectedCategories?: string[];
+    }
+  ) {
+    const biz = await this.business.get(req.user.id, req.user.activeBusinessId);
+    return this.wordpress.updateAutopilotSettings(biz.id, body);
+  }
+
+  /**
+   * Autonomous Autopilot Execution:
+   * Generates and publishes next scheduled blog article directly to WordPress
+   */
+  @Post("run-autopilot")
+  @UseGuards(AuthGuard)
+  async runAutopilot(@Req() req: any) {
+    const biz = await this.business.get(req.user.id, req.user.activeBusinessId);
+    return this.wordpress.runAutopilot(biz.id);
+  }
+
+  /**
    * Get Suggested & Live WordPress Categories for the Business
    */
   @Get("categories")
@@ -149,21 +202,38 @@ export class WordpressController {
   }
 
   /**
-   * Download the latest AIVision SEO Plugin ZIP
+   * Get version tracking history of AIVision SEO Plugin
+   */
+  @Get("plugin-versions")
+  getPluginVersions() {
+    return this.wordpress.getPluginVersions();
+  }
+
+  /**
+   * Download the latest or specified AIVision SEO Plugin ZIP
    */
   @Get("plugin-download")
-  downloadPlugin(@Res() res: any) {
-    const zipPath = this.wordpress.getPluginZipPath();
+  downloadPlugin(@Res() res: any, @Query("version") version?: string) {
+    const zipPath = this.wordpress.getPluginZipPath(version);
     if (!fs.existsSync(zipPath)) {
       throw new NotFoundException("AIVision SEO plugin package not found.");
     }
 
+    const filename = path.basename(zipPath);
     const fileBuffer = fs.readFileSync(zipPath);
     res.header("Content-Type", "application/zip");
     res.header(
       "Content-Disposition",
-      'attachment; filename="aivision-seo-v1.4.1.zip"'
+      `attachment; filename="${filename}"`
     );
     return res.send(fileBuffer);
+  }
+
+  /**
+   * Automatically push and install plugin update to all connected WordPress sites
+   */
+  @Post("push-update")
+  pushUpdate(@Body("version") version?: string) {
+    return this.wordpress.broadcastPluginUpdate(version);
   }
 }

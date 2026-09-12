@@ -1,0 +1,169 @@
+{
+  "latest": "1.6.3",
+  "name": "aivision-seo",
+  "description": "AIVision SEO WordPress Plugin for Search Engines (SEO), Answer Engines (AEO), and Generative AI (GEO)",
+  "versions": [
+    {
+      "version": "1.6.3",
+      "releasedAt": "2026-09-09T16:56:14.472Z",
+      "filename": "aivision-seo-v1.6.3.zip",
+      "size": 68784,
+      "sizeFormatted": "67.2 KB",
+      "sha256": "0aa48fe022d3530357157bd867d23668d284567e239730a28fe049b3c4e4f1f4",
+      "fileCount": 14,
+      "status": "stable",
+      "minPhp": "8.0",
+      "minWp": "6.0",
+      "changelog": [
+        "Added native WordPress Core automatic updates integration with remote version checker.",
+        "Direct integration with pre_set_site_transient_update_plugins and plugins_api for seamless 1-click updates.",
+        "Enabled automated background updates via WordPress WP-Cron (auto_update_plugin).",
+        "Added 1-Click \"Check for Updates\" button and \"Auto-Updates Enabled\" status badge in Settings.",
+        "In-app admin update banner notifications when a new release is available on AIVisibility Cloud."
+      ]
+    },
+    {
+      "version": "1.6.2",
+      "releasedAt": "2026-09-09T15:54:17.284Z",
+      "filename": "aivision-seo-v1.6.2.zip",
+      "size": 64420,
+      "sizeFormatted": "62.9 KB",
+      "sha256": "53ff8ef1c4de43c50a9008ee813922d16a7983f646b9e1c5c677724e4b42ed9b",
+      "fileCount": 13,
+      "status": "archived",
+      "minPhp": "8.0",
+      "minWp": "6.0",
+      "changelog": [
+        "Added dynamic version indicator badge next to plugin and cloud integration titles in admin settings.",
+        "Enhanced UI clarity displaying active plugin release across all administration views."
+      ]
+    },
+    {
+      "version": "1.6.1",
+      "releasedAt": "2026-09-09T15:26:20.411Z",
+      "filename": "aivision-seo-v1.6.1.zip",
+      "size": 64222,
+      "sizeFormatted": "62.7 KB",
+      "sha256": "c09b4fbda326c1c93a128e34b9e018f5835a646c0d8237f20252125796308eff",
+      "fileCount": 13,
+      "status": "archived",
+      "minPhp": "8.0",
+      "minWp": "6.0",
+      "changelog": [
+        "Rebranded all cloud integration interfaces, cards, and endpoints to AIVisibility SEO.",
+        "Replaced BrandOS integration module with unified AIVisibility_Integration controller.",
+        "Seamless migration preserving existing active API keys and connection tokens.",
+        "Added bidirectional telemetry sync and remote fix dispatcher under AIVisibility SEO branding."
+      ]
+    },
+    {
+      "version": "1.6.0",
+      "releasedAt": "2026-09-09T15:08:07.397Z",
+      "filename": "aivision-seo-v1.6.0.zip",
+      "status": "archived",
+      "minPhp": "8.0",
+      "minWp": "6.0",
+      "changelog": [
+        "Integrated autonomous AIVisibility SEO platform-side audit remediation with 1-click execution",
+        "Added Autonomous Content Autopilot execution engine with scheduled background sync via BullMQ",
+        "Added live REST bridge endpoint for bidirectional audit synchronization and status telemetry",
+        "Standardized version tracking registry (versions.json) and versioned zip distribution archives (aivision-seo-v1.6.0.zip)"
+      ],
+      "size": 64190,
+      "sizeFormatted": "62.7 KB",
+      "sha256": "88ca2cb0ae7bbcdc3f3939a7c543a539cb1e60e4ef0ace98bfbe797d4111242b",
+      "fileCount": 12
+    },
+    {
+      "version": "1.5.0",
+      "releasedAt": "2026-09-08T18:00:00.000Z",
+      "filename": "aivision-seo-v1.5.0.zip",
+      "status": "archived",
+      "minPhp": "8.0",
+      "minWp": "6.0",
+      "changelog": [
+        "Streamlined GEO LLM Platform scoring to focus on OpenAI (ChatGPT/SearchGPT) and Google Gemini",
+        "Removed legacy Perplexity and Claude platform readiness cards to maintain parity with AIVisibility SEO SaaS platform",
+        "Updated AI crawler recommendations to prioritize GPTBot, OAI-SearchBot, and Google-Extended",
+        "Automated version control across plugin metadata and build artifact filenames"
+      ]
+    },
+    {
+      "version": "1.4.1",
+      "releasedAt": "2026-09-05T12:00:00.000Z",
+      "filename": "aivision-seo-v1.4.1.zip",
+      "status": "archived",
+      "minPhp": "8.0",
+      "minWp": "6.0",
+      "changelog": [
+        "Added dynamic Content Optimization & Quality filter center to Dashboard",
+        "Filter content by Quality / Score Status and Post Type",
+        "Live real-time title & keyword search with responsive counts and quick-filter pills"
+      ]
+    },
+    {
+      "version": "1.4.0",
+      "releasedAt": "2026-09-01T10:00:00.000Z",
+      "filename": "aivision-seo-v1.4.0.zip",
+      "status": "archived",
+      "minPhp": "8.0",
+      "minWp": "6.0",
+      "changelog": [
+        "Streamlined Dashboard: unified Overview with 3-Pillar core stats",
+        "In-editor visual and code schema builder on single post/page views",
+        "Enhanced asset versioning and cache busting for instant live admin updates"
+      ]
+    },
+    {
+      "version": "1.3.0",
+      "releasedAt": "2026-08-20T10:00:00.000Z",
+      "filename": "aivision-seo-v1.3.0.zip",
+      "status": "archived",
+      "minPhp": "8.0",
+      "minWp": "6.0",
+      "changelog": [
+        "Full 3-Pillar Content Analysis (SEO, AEO, GEO) with real-time SVG circular scoring gauges",
+        "Added Prioritized Action Plan with actionable High, Medium, and Good recommendations",
+        "Added 1-Click Auto-Optimized robots.txt generator and preview",
+        "Added /llms.txt and dynamic /llms-full.txt feeds conforming to llmstxt.org",
+        "Added SEO, AEO, and GEO score columns to standard WordPress list tables"
+      ]
+    },
+    {
+      "version": "1.2.0",
+      "releasedAt": "2026-08-10T10:00:00.000Z",
+      "filename": "aivision-seo-v1.2.0.zip",
+      "status": "archived",
+      "minPhp": "8.0",
+      "minWp": "6.0",
+      "changelog": [
+        "Added AI Auto-Pilot generator and schema enhancements",
+        "Added support for Applebot-Extended, OAI-SearchBot, and Claude-Web crawler directives"
+      ]
+    },
+    {
+      "version": "1.1.0",
+      "releasedAt": "2026-08-05T10:00:00.000Z",
+      "filename": "aivision-seo-v1.1.0.zip",
+      "status": "archived",
+      "minPhp": "8.0",
+      "minWp": "6.0",
+      "changelog": [
+        "Added dynamic XML Sitemap and robots.txt preview tool",
+        "Added OpenGraph and Twitter Card social preview metadata"
+      ]
+    },
+    {
+      "version": "1.0.0",
+      "releasedAt": "2026-08-01T10:00:00.000Z",
+      "filename": "aivision-seo-v1.0.0.zip",
+      "status": "archived",
+      "minPhp": "8.0",
+      "minWp": "6.0",
+      "changelog": [
+        "Initial release"
+      ]
+    }
+  ],
+  "updatedAt": "2026-09-09T16:56:14.473Z"
+}

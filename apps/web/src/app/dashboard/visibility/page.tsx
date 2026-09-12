@@ -1936,7 +1936,7 @@ export default function VisibilityPage() {
             <div className="rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 p-3.5 flex items-center justify-between">
               <div className="flex items-center gap-2 text-xs font-semibold text-emerald-900 dark:text-emerald-300">
                 <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                <span>Actionable recommendations have also been saved to your BrandOS workspace.</span>
+                <span>Actionable recommendations have also been saved to your AIVisibility SEO workspace.</span>
               </div>
               <button
                 onClick={() => setAutoFixModalOpen(false)}

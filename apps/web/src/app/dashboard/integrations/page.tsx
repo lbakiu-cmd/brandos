@@ -63,6 +63,7 @@ export default function IntegrationsPage() {
   const [wpUrl, setWpUrl] = useState("");
   const [connectingWp, setConnectingWp] = useState(false);
   const [showSetupGuide, setShowSetupGuide] = useState(false);
+  const [latestVersion, setLatestVersion] = useState("1.6.0");
 
   const brandosApiUrl = typeof window !== "undefined" ? window.location.origin : "https://brandoseye.com";
   const googleCallbackUri = `${brandosApiUrl}/api/oauth/google/callback`;
@@ -88,12 +89,16 @@ export default function IntegrationsPage() {
 
   const fetchStatus = useCallback(async () => {
     try {
-      const [intRes, wpRes, bRes] = await Promise.all([
+      const [intRes, wpRes, bRes, versionsRes] = await Promise.all([
         apiFetch<any>("/integrations/status"),
         apiFetch<WPConnection>("/wordpress/connection"),
         apiFetch<any>("/business"),
+        apiFetch<any>("/wordpress/plugin-versions").catch(() => null),
       ]);
 
+      if (versionsRes?.latest) {
+        setLatestVersion(versionsRes.latest);
+      }
       if (bRes) setBusiness(bRes);
       if (intRes?.integrations) {
         setIntegrations(intRes.integrations);
@@ -315,10 +320,10 @@ export default function IntegrationsPage() {
           </h2>
           <button
             onClick={() => handleOAuthConnect("google")}
-            className="inline-flex items-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-500 px-4 py-2 text-xs font-bold !text-white shadow-md shadow-blue-600/30 transition cursor-pointer"
+            className="inline-flex items-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-500 px-4 py-2 text-xs font-bold text-white shadow-md shadow-blue-600/30 transition cursor-pointer"
           >
-            <Globe className="h-4 w-4 !text-white" />
-            <span className="!text-white">Connect Google Account via OAuth</span>
+            <Globe className="h-4 w-4 text-white" />
+            <span className="text-white">Connect Google Account via OAuth</span>
           </button>
         </div>
 
@@ -422,10 +427,10 @@ export default function IntegrationsPage() {
           </h2>
           <button
             onClick={() => handleOAuthConnect("meta")}
-            className="inline-flex items-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-500 px-4 py-2 text-xs font-bold !text-white shadow-md shadow-blue-600/30 transition cursor-pointer"
+            className="inline-flex items-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-500 px-4 py-2 text-xs font-bold text-white shadow-md shadow-blue-600/30 transition cursor-pointer"
           >
-            <Users className="h-4 w-4 !text-white" />
-            <span className="!text-white">Connect Meta via OAuth</span>
+            <Users className="h-4 w-4 text-white" />
+            <span className="text-white">Connect Meta via OAuth</span>
           </button>
         </div>
 
@@ -529,31 +534,44 @@ export default function IntegrationsPage() {
               <Zap className="h-6 w-6" />
             </div>
             <div>
-              <h2 className="text-lg font-black text-white">WordPress Live Bridge & Plugin</h2>
+              <div className="flex items-center gap-2.5">
+                <h2 className="text-lg font-black text-white">WordPress Live Bridge & Plugin</h2>
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-500/10 border border-blue-500/30 px-2.5 py-0.5 text-xs font-bold text-blue-400">
+                  <span className="h-1.5 w-1.5 rounded-full bg-blue-400 animate-pulse" />
+                  v{latestVersion} (Latest Release)
+                </span>
+              </div>
               <p className="text-xs text-slate-400">
-                1-Click Execution Plugin: Synchronize /llms.txt AI bio, LocalBusiness Schema JSON-LD, and robots.txt
+                1-Click Execution Plugin (Version {latestVersion}): Synchronize /llms.txt AI bio, LocalBusiness Schema JSON-LD, and robots.txt
               </p>
             </div>
           </div>
 
-          <a
-            href="/aivision-seo.zip"
-            download
-            className="inline-flex items-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-500 px-4 py-2.5 text-xs font-bold !text-white shadow-lg shadow-blue-600/20 transition cursor-pointer"
-          >
-            <Download className="h-4 w-4 !text-white" />
-            <span className="!text-white">Download AIVision SEO Plugin v1.5.0 (.zip)</span>
-          </a>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+            <a
+              href={`/aivision-seo-v${latestVersion}.zip`}
+              download={`aivision-seo-v${latestVersion}.zip`}
+              className="inline-flex items-center gap-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-blue-600/20 transition cursor-pointer"
+            >
+              <Download className="h-4 w-4 text-white" />
+              <span className="text-white">Download AIVision SEO Plugin v{latestVersion} (.zip)</span>
+            </a>
+          </div>
         </div>
 
         {/* 3 Step Instructions */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
           <div className="rounded-2xl bg-slate-950 p-4 border border-slate-800 space-y-2">
-            <span className="font-bold text-blue-400">1. Install in WordPress</span>
-            <p className="text-slate-400">Go to WP Admin → Plugins → Add New → Upload Plugin and upload the downloaded <code>.zip</code> file.</p>
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-blue-400">1. Install in WordPress</span>
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-400">v{latestVersion}</span>
+            </div>
+            <p className="text-slate-400">
+              Go to WP Admin → Plugins → Add New → Upload Plugin and upload the downloaded <code className="text-blue-300 font-mono">aivision-seo-v{latestVersion}.zip</code> file.
+            </p>
           </div>
           <div className="rounded-2xl bg-slate-950 p-4 border border-slate-800 space-y-2">
-            <span className="font-bold text-indigo-400">2. Enter BrandOS API URL</span>
+            <span className="font-bold text-indigo-400">2. Enter AIVisibility SEO API URL</span>
             <div className="flex items-center justify-between bg-slate-900 p-2 rounded-lg border border-slate-800">
               <code className="text-[11px] text-slate-200 font-mono select-all truncate">{brandosApiUrl}</code>
               <button onClick={copyApiUrl} className="text-slate-400 hover:text-white pl-2">
@@ -569,6 +587,24 @@ export default function IntegrationsPage() {
                 {copiedKey ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
               </button>
             </div>
+          </div>
+        </div>
+
+        {/* Version & Compatibility Details */}
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-slate-800/80 text-xs text-slate-400">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <span className="font-semibold text-slate-300">File: <code className="text-blue-400 font-mono">aivision-seo-v{latestVersion}.zip</code></span>
+            <span>•</span>
+            <span>Plugin Version: <strong className="text-white">v{latestVersion}</strong></span>
+            <span>•</span>
+            <span>WordPress: <strong className="text-slate-300">6.0+</strong></span>
+            <span>•</span>
+            <span>PHP: <strong className="text-slate-300">8.0+</strong></span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 rounded-full font-medium">
+              ✓ 1-Click Platform Auto-Remediation & Autopilot Ready
+            </span>
           </div>
         </div>
       </div>

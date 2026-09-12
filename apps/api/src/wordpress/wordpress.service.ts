@@ -32,7 +32,7 @@ export class WordpressService {
       connected: !!(business.wordpressUrl && business.wordpressConnectedAt),
       wordpressUrl: business.wordpressUrl,
       wordpressSiteName: business.wordpressSiteName,
-      wordpressPluginVersion: business.wordpressPluginVersion || "1.4.1",
+      wordpressPluginVersion: business.wordpressPluginVersion || "1.6.0",
       wordpressConnectedAt: business.wordpressConnectedAt,
       wordpressLastSyncedAt: business.wordpressLastSyncedAt,
       wordpressTelemetry: business.wordpressTelemetry,
@@ -70,7 +70,7 @@ export class WordpressService {
     });
 
     if (!business) {
-      throw new BadRequestException("Invalid BrandOS API Key. Please verify in BrandOS settings.");
+      throw new BadRequestException("Invalid AIVisibility SEO API Key. Please verify in AIVisibility SEO settings.");
     }
 
     const cleanSiteUrl = payload.site_url ? payload.site_url.replace(/\/+$/, "") : "";
@@ -80,7 +80,7 @@ export class WordpressService {
       data: {
         wordpressUrl: cleanSiteUrl,
         wordpressSiteName: payload.site_name || "WordPress Site",
-        wordpressPluginVersion: payload.plugin_version || "1.4.1",
+        wordpressPluginVersion: payload.plugin_version || "1.6.1",
         wordpressConnectedAt: new Date(),
         wordpressLastSyncedAt: new Date(),
       },
@@ -95,7 +95,7 @@ export class WordpressService {
   }
 
   /**
-   * Connect initiated from BrandOS Dashboard
+   * Connect initiated from AIVisibility SEO Dashboard
    */
   async connectFromDashboard(businessId: string, siteUrl: string) {
     const business = await prisma.business.findUnique({
@@ -146,7 +146,7 @@ export class WordpressService {
         data: {
           wordpressUrl: targetUrl,
           wordpressSiteName: data.site_name || "WordPress Site",
-          wordpressPluginVersion: data.plugin_version || "1.4.1",
+          wordpressPluginVersion: data.plugin_version || "1.6.0",
           wordpressConnectedAt: new Date(),
           wordpressLastSyncedAt: new Date(),
         },
@@ -164,7 +164,7 @@ export class WordpressService {
         data: {
           wordpressUrl: targetUrl,
           wordpressSiteName: "WordPress Site",
-          wordpressPluginVersion: "1.4.1",
+          wordpressPluginVersion: "1.6.0",
           wordpressConnectedAt: new Date(),
           wordpressLastSyncedAt: new Date(),
         },
@@ -225,21 +225,59 @@ export class WordpressService {
       const statusData = statusRes && statusRes.ok ? await statusRes.json() : null;
       const telemetryData = telemetryRes && telemetryRes.ok ? await telemetryRes.json() : null;
 
+      const existingTelemetry = (business.wordpressTelemetry as any) || {};
       const combinedTelemetry = {
+        ...existingTelemetry,
         status: statusData,
         telemetry: telemetryData,
         syncedAt: new Date().toISOString(),
       };
 
+      const pluginVersion = statusData?.plugin_version || business.wordpressPluginVersion || "1.6.0";
+
       await prisma.business.update({
         where: { id: businessId },
         data: {
           wordpressLastSyncedAt: new Date(),
-          wordpressPluginVersion: statusData?.plugin_version || business.wordpressPluginVersion || "1.4.1",
+          wordpressPluginVersion: pluginVersion,
           wordpressSiteName: statusData?.site_name || business.wordpressSiteName,
           wordpressTelemetry: combinedTelemetry as any,
         },
       });
+
+      // Update DashboardWidget cache if present
+      if (telemetryData?.summary) {
+        const avgSeo = Number(telemetryData.summary.average_seo || 0);
+        const avgAeo = Number(telemetryData.summary.average_aeo || 0);
+        const avgGeo = Number(telemetryData.summary.average_geo || 0);
+        const count = Number(telemetryData.summary.count || 0);
+
+        await prisma.dashboardWidget.updateMany({
+          where: { businessId, widgetType: "WORDPRESS_AIVISION_STATUS" },
+          data: {
+            config: {
+              connected: true,
+              siteUrl: business.wordpressUrl,
+              pluginVersion,
+              avgSeo,
+              avgAeo,
+              avgGeo,
+              postsIndexed: count,
+              lastSyncedAt: new Date().toISOString(),
+            },
+          },
+        }).catch(() => {});
+
+        // Record MetricSnapshot
+        const now = new Date();
+        await prisma.metricSnapshot.createMany({
+          data: [
+            { businessId, provider: "WORDPRESS", metricKey: "seo_score", value: avgSeo, date: now },
+            { businessId, provider: "WORDPRESS", metricKey: "aeo_score", value: avgAeo, date: now },
+            { businessId, provider: "WORDPRESS", metricKey: "geo_score", value: avgGeo, date: now },
+          ],
+        }).catch(() => {});
+      }
 
       return {
         success: true,
@@ -299,6 +337,442 @@ export class WordpressService {
     } catch (err: any) {
       throw new BadRequestException(`Failed to apply fix in WordPress: ${err?.message || "Remote connection failed"}`);
     }
+  }
+
+  /**
+   * Automated 1-Click Platform Auto-Remediation:
+   * Finds all pending/open recommendations on the platform that have WordPress fix counterparts
+   * and dispatches them automatically to WordPress, updating their status to DONE.
+   */
+  async autoRemediate(businessId: string) {
+    const business = await prisma.business.findUnique({
+      where: { id: businessId },
+    });
+
+    if (!business || !business.wordpressUrl) {
+      throw new BadRequestException("WordPress is not connected for this business. Please connect AIVision SEO plugin first.");
+    }
+
+    const openRecs = await prisma.recommendation.findMany({
+      where: { businessId, status: "OPEN" },
+    });
+
+    const fixedRecIds: string[] = [];
+    const appliedFixes: string[] = [];
+    const errors: string[] = [];
+
+    // 1. Robots.txt check
+    const hasRobotsIssue = openRecs.some(
+      (r) =>
+        r.actionType === "ROBOTS_TXT" ||
+        r.title.toLowerCase().includes("robot") ||
+        r.title.toLowerCase().includes("crawler") ||
+        (r.actionPayload as any)?.filename?.toLowerCase().includes("robot")
+    );
+
+    if (hasRobotsIssue) {
+      try {
+        await this.applyRemoteFix(businessId, {
+          fix_type: "OPTIMIZE_ROBOTS",
+          payload: {
+            allowed_bots: [
+              "Googlebot", "Bingbot", "DuckDuckBot", "Applebot", "Googlebot-News",
+              "GPTBot", "ChatGPT-User", "OAI-SearchBot", "ClaudeBot", "Claude-Web",
+              "anthropic-ai", "PerplexityBot", "Google-Extended", "Applebot-Extended",
+              "Meta-ExternalAgent", "FacebookBot", "Bytespider", "Amazonbot", "cohere-ai",
+              "Diffbot", "CCBot",
+              "facebookexternalhit", "Twitterbot", "LinkedInBot", "Pinterestbot"
+            ],
+          },
+        });
+        appliedFixes.push("Optimized robots.txt for AI & Search crawlers");
+        openRecs
+          .filter(
+            (r) =>
+              r.actionType === "ROBOTS_TXT" ||
+              r.title.toLowerCase().includes("robot") ||
+              r.title.toLowerCase().includes("crawler") ||
+              (r.actionPayload as any)?.filename?.toLowerCase().includes("robot")
+          )
+          .forEach((r) => fixedRecIds.push(r.id));
+      } catch (err: any) {
+        errors.push(`Robots.txt fix failed: ${err?.message || "connection error"}`);
+      }
+    }
+
+    // 2. LLMs.txt check
+    const hasLlmsIssue = openRecs.some(
+      (r) =>
+        r.actionType === "LLMS_TXT" ||
+        r.title.toLowerCase().includes("llms") ||
+        (r.actionPayload as any)?.filename?.toLowerCase().includes("llms")
+    );
+
+    if (hasLlmsIssue) {
+      try {
+        const aiBio = `${business.name} is a premier ${business.industry || "local services provider"} based in ${business.city || "the area"}. Dedicated to quality, transparency, and certified service standards.`;
+        await this.applyRemoteFix(businessId, {
+          fix_type: "LLMS_TXT_BIO",
+          payload: { site_ai_bio: aiBio },
+        });
+        appliedFixes.push("Generated standard /llms.txt AI knowledge manifest");
+        openRecs
+          .filter(
+            (r) =>
+              r.actionType === "LLMS_TXT" ||
+              r.title.toLowerCase().includes("llms") ||
+              (r.actionPayload as any)?.filename?.toLowerCase().includes("llms")
+          )
+          .forEach((r) => fixedRecIds.push(r.id));
+      } catch (err: any) {
+        errors.push(`LLMs.txt fix failed: ${err?.message || "connection error"}`);
+      }
+    }
+
+    // 3. Schema.org JSON-LD check
+    const hasSchemaIssue = openRecs.some(
+      (r) =>
+        r.actionType === "CODE_SNIPPET" ||
+        r.title.toLowerCase().includes("schema") ||
+        r.title.toLowerCase().includes("json-ld") ||
+        (r.actionPayload as any)?.filename?.toLowerCase().includes("schema")
+    );
+
+    if (hasSchemaIssue) {
+      try {
+        const schemaType = (business.industry || "").toLowerCase().includes("dent") || (business.industry || "").toLowerCase().includes("medic")
+          ? "MedicalBusiness"
+          : (business.industry || "").toLowerCase().includes("restaur")
+          ? "Restaurant"
+          : "LocalBusiness";
+
+        const schemaJson = {
+          "@context": "https://schema.org",
+          "@type": schemaType,
+          "name": business.name,
+          "url": business.website || business.wordpressUrl,
+          "telephone": business.phone || "+1-555-0199",
+          "address": {
+            "@type": "PostalAddress",
+            "addressLocality": business.city || "Metropolitan Area",
+          },
+        };
+
+        await this.applyRemoteFix(businessId, {
+          fix_type: "LOCAL_BUSINESS_SCHEMA",
+          payload: {
+            schema_type: schemaType,
+            schema_json: JSON.stringify(schemaJson, null, 2),
+          },
+        });
+        appliedFixes.push(`Injected Schema.org (${schemaType}) markup`);
+        openRecs
+          .filter(
+            (r) =>
+              (r.actionType === "CODE_SNIPPET" && !r.title.toLowerCase().includes("faq")) ||
+              (r.title.toLowerCase().includes("schema") && !r.title.toLowerCase().includes("faq"))
+          )
+          .forEach((r) => fixedRecIds.push(r.id));
+      } catch (err: any) {
+        errors.push(`LocalBusiness schema fix failed: ${err?.message || "connection error"}`);
+      }
+    }
+
+    // 4. FAQ Schema check
+    const hasFaqIssue = openRecs.some(
+      (r) =>
+        r.title.toLowerCase().includes("faq") ||
+        (r.actionPayload as any)?.filename?.toLowerCase().includes("faq")
+    );
+
+    if (hasFaqIssue) {
+      try {
+        const faqSchemaJson = {
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          "mainEntity": [
+            {
+              "@type": "Question",
+              "name": `What services does ${business.name} offer in ${business.city || "the area"}?`,
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": `${business.name} specializes in professional ${business.industry || "services"} serving clients in ${business.city || "the local area"}.`,
+              },
+            },
+            {
+              "@type": "Question",
+              "name": `How can I schedule an appointment with ${business.name}?`,
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": `Appointments can be booked directly online via our website or by contacting our office.`,
+              },
+            },
+          ],
+        };
+
+        await this.applyRemoteFix(businessId, {
+          fix_type: "FAQ_SCHEMA",
+          payload: {
+            schema_type: "FAQPage",
+            schema_json: JSON.stringify(faqSchemaJson, null, 2),
+          },
+        });
+        appliedFixes.push("Injected FAQPage Schema.org markup for AI voice & snippet discovery");
+        openRecs
+          .filter((r) => r.title.toLowerCase().includes("faq"))
+          .forEach((r) => fixedRecIds.push(r.id));
+      } catch (err: any) {
+        errors.push(`FAQPage schema fix failed: ${err?.message || "connection error"}`);
+      }
+    }
+
+    // 5. Always trigger physical feed regeneration
+    try {
+      await this.applyRemoteFix(businessId, { fix_type: "GENERATE_FEEDS" });
+      appliedFixes.push("Regenerated dynamic XML sitemaps, robots.txt, and llms.txt feeds");
+    } catch {}
+
+    // Mark fixed recommendations as DONE in database
+    const uniqueFixedIds = [...new Set(fixedRecIds)];
+    if (uniqueFixedIds.length > 0) {
+      await prisma.recommendation.updateMany({
+        where: { id: { in: uniqueFixedIds } },
+        data: {
+          status: "DONE",
+          completedAt: new Date(),
+        },
+      });
+    }
+
+    // Auto-refresh telemetry to reflect new health status
+    let syncResult: any = null;
+    try {
+      syncResult = await this.sync(businessId);
+    } catch {}
+
+    // Log Activity
+    await prisma.activityLog.create({
+      data: {
+        businessId,
+        action: "WORDPRESS_AUTO_REMEDIATION",
+        category: "INTEGRATIONS",
+        description: `Auto-remediation executed on connected WordPress site: ${appliedFixes.length} fixes applied, ${uniqueFixedIds.length} audit recommendations resolved.`,
+        metadata: {
+          appliedFixes,
+          errors,
+          fixedRecommendationCount: uniqueFixedIds.length,
+        },
+      },
+    }).catch(() => {});
+
+    return {
+      success: appliedFixes.length > 0,
+      appliedFixes,
+      fixedRecommendationCount: uniqueFixedIds.length,
+      errors,
+      newTelemetry: syncResult?.data || null,
+      message: `Successfully auto-remediated ${appliedFixes.length} areas on WordPress! (${uniqueFixedIds.length} recommendations resolved)`,
+    };
+  }
+
+  /**
+   * Get Autopilot Configuration for Business
+   */
+  async getAutopilotSettings(businessId: string) {
+    const business = await prisma.business.findUnique({
+      where: { id: businessId },
+    });
+    if (!business) throw new NotFoundException("Business not found.");
+
+    const telemetry = (business.wordpressTelemetry as any) || {};
+    const autopilot = telemetry.autopilot || {
+      enabled: false,
+      cadence: "WEEKLY",
+      defaultStatus: "draft",
+      selectedCategories: [],
+      lastRunAt: null,
+      nextRunAt: null,
+      articlesGeneratedCount: 0,
+    };
+
+    return {
+      connected: !!(business.wordpressUrl && business.wordpressConnectedAt),
+      wordpressUrl: business.wordpressUrl,
+      autopilot,
+    };
+  }
+
+  /**
+   * Update Autopilot Configuration for Business
+   */
+  async updateAutopilotSettings(
+    businessId: string,
+    payload: {
+      enabled?: boolean;
+      cadence?: "WEEKLY" | "BIWEEKLY" | "MONTHLY";
+      defaultStatus?: "draft" | "publish";
+      selectedCategories?: string[];
+    }
+  ) {
+    const business = await prisma.business.findUnique({
+      where: { id: businessId },
+    });
+    if (!business) throw new NotFoundException("Business not found.");
+
+    const telemetry = (business.wordpressTelemetry as any) || {};
+    const current = telemetry.autopilot || {
+      enabled: false,
+      cadence: "WEEKLY",
+      defaultStatus: "draft",
+      selectedCategories: [],
+      lastRunAt: null,
+      nextRunAt: null,
+      articlesGeneratedCount: 0,
+    };
+
+    const isNowEnabled = payload.enabled !== undefined ? payload.enabled : current.enabled;
+    const cadence = payload.cadence || current.cadence || "WEEKLY";
+    const daysToAdd = cadence === "MONTHLY" ? 30 : cadence === "BIWEEKLY" ? 14 : 7;
+    const nextRunAt = isNowEnabled
+      ? current.nextRunAt || new Date(Date.now() + daysToAdd * 86400000).toISOString()
+      : null;
+
+    const updatedAutopilot = {
+      ...current,
+      ...payload,
+      enabled: isNowEnabled,
+      cadence,
+      nextRunAt,
+    };
+
+    await prisma.business.update({
+      where: { id: businessId },
+      data: {
+        wordpressTelemetry: {
+          ...telemetry,
+          autopilot: updatedAutopilot,
+        },
+      },
+    });
+
+    await prisma.activityLog.create({
+      data: {
+        businessId,
+        action: "WORDPRESS_AUTOPILOT_CONFIG_UPDATED",
+        category: "INTEGRATIONS",
+        description: `WordPress Content Autopilot ${isNowEnabled ? "enabled (" + cadence + ")" : "disabled"}.`,
+        metadata: updatedAutopilot,
+      },
+    }).catch(() => {});
+
+    return {
+      success: true,
+      autopilot: updatedAutopilot,
+      message: `Autopilot configuration updated successfully (${isNowEnabled ? "Active: " + cadence : "Paused"}).`,
+    };
+  }
+
+  /**
+   * Autonomous Autopilot Execution:
+   * Generates next scheduled high-ranking blog article and pushes directly to WordPress
+   */
+  async runAutopilot(businessId: string) {
+    const business = await prisma.business.findUnique({
+      where: { id: businessId },
+    });
+
+    if (!business || !business.wordpressUrl) {
+      throw new BadRequestException("WordPress is not connected for this business.");
+    }
+
+    const telemetry = (business.wordpressTelemetry as any) || {};
+    const autopilot = telemetry.autopilot || {
+      enabled: true,
+      cadence: "WEEKLY",
+      defaultStatus: "draft",
+      selectedCategories: [],
+      articlesGeneratedCount: 0,
+    };
+
+    // 1. Resolve Target Category
+    let targetCategory = "Services & Solutions Guide";
+    const cats = autopilot.selectedCategories;
+    if (Array.isArray(cats) && cats.length > 0) {
+      const idx = (autopilot.articlesGeneratedCount || 0) % cats.length;
+      targetCategory = cats[idx];
+    } else {
+      const catObj = await this.getCategories(businessId);
+      if (catObj?.categories?.length > 0) {
+        targetCategory = catObj.categories[0].name;
+      }
+    }
+
+    // 2. Generate Article
+    const article = await this.generateArticle(businessId, {
+      categories: [targetCategory],
+    });
+
+    // 3. Publish directly to WordPress
+    const targetStatus = autopilot.defaultStatus === "publish" ? "publish" : "draft";
+    const pubResult = await this.publishPost(businessId, {
+      title: article.title,
+      content: article.content,
+      status: targetStatus,
+      meta_title: article.meta_title,
+      meta_description: article.meta_description,
+      focus_keyword: article.focus_keyword,
+      schemas: article.schemas,
+      tags: article.tags,
+    });
+
+    // 4. Update Autopilot Metadata
+    const cadence = autopilot.cadence || "WEEKLY";
+    const daysToAdd = cadence === "MONTHLY" ? 30 : cadence === "BIWEEKLY" ? 14 : 7;
+    const count = (autopilot.articlesGeneratedCount || 0) + 1;
+
+    const newAutopilot = {
+      ...autopilot,
+      lastRunAt: new Date().toISOString(),
+      nextRunAt: new Date(Date.now() + daysToAdd * 86400000).toISOString(),
+      articlesGeneratedCount: count,
+      lastArticleTitle: article.title,
+      lastArticleUrl: pubResult.post?.permalink || null,
+    };
+
+    await prisma.business.update({
+      where: { id: businessId },
+      data: {
+        wordpressTelemetry: {
+          ...telemetry,
+          autopilot: newAutopilot,
+        },
+      },
+    });
+
+    // 5. Activity Log
+    await prisma.activityLog.create({
+      data: {
+        businessId,
+        action: "WORDPRESS_AUTOPILOT_PUBLISHED",
+        category: "INTEGRATIONS",
+        description: `Autopilot generated and published "${article.title}" to WordPress as ${targetStatus}.`,
+        metadata: {
+          title: article.title,
+          category: targetCategory,
+          status: targetStatus,
+          permalink: pubResult.post?.permalink,
+          scores: pubResult.post?.scores,
+        },
+      },
+    }).catch(() => {});
+
+    return {
+      success: true,
+      message: `Autopilot successfully generated and pushed "${article.title}" to WordPress (${targetStatus})!`,
+      article,
+      post: pubResult.post,
+      autopilot: newAutopilot,
+    };
   }
 
   /**
@@ -547,7 +1021,7 @@ Format the article with clean Markdown:
             "Content-Type": "application/json",
             Authorization: `Bearer ${openRouterKey}`,
             "HTTP-Referer": process.env.FRONTEND_URL || "https://icandothat.online",
-            "X-Title": "BrandOS",
+            "X-Title": "AIVisibility SEO",
           },
           body: JSON.stringify({
             model,
@@ -745,10 +1219,50 @@ Contact **${name}** today to book your consultation!
   }
 
   /**
-   * Locate the latest AIVision SEO plugin zip file
+   * Get version history from versions.json
    */
-  getPluginZipPath(): string {
+  getPluginVersions() {
+    const registryPaths = [
+      path.resolve(process.cwd(), "plugins", "versions.json"),
+      path.resolve(process.cwd(), "..", "..", "plugins", "versions.json"),
+      "c:\\dev\\brandos\\plugins\\versions.json",
+      path.resolve(process.cwd(), "..", "web", "public", "versions.json"),
+    ];
+
+    for (const p of registryPaths) {
+      if (fs.existsSync(p)) {
+        try {
+          return JSON.parse(fs.readFileSync(p, "utf8"));
+        } catch (e) {
+          // ignore
+        }
+      }
+    }
+
+    return {
+      latest: "1.6.0",
+      versions: [
+        {
+          version: "1.6.0",
+          filename: "aivision-seo-v1.6.0.zip",
+          status: "stable",
+        },
+      ],
+    };
+  }
+
+  /**
+   * Locate the AIVision SEO plugin zip file (versioned or latest)
+   */
+  getPluginZipPath(requestedVersion?: string): string {
+    const versions = this.getPluginVersions();
+    const version = requestedVersion || versions.latest || "1.6.0";
+    const filename = `aivision-seo-v${version}.zip`;
+
     const possiblePaths = [
+      path.resolve(process.cwd(), "plugins", filename),
+      path.resolve(process.cwd(), "..", "..", "plugins", filename),
+      `c:\\dev\\brandos\\plugins\\${filename}`,
       path.resolve(process.cwd(), "plugins", "aivision-seo.zip"),
       path.resolve(process.cwd(), "..", "..", "plugins", "aivision-seo.zip"),
       "c:\\dev\\brandos\\plugins\\aivision-seo.zip",
@@ -759,6 +1273,134 @@ Contact **${name}** today to book your consultation!
     }
 
     return possiblePaths[0];
+  }
+
+  /**
+   * Automatically install/update plugin on all connected WordPress sites
+   */
+  async broadcastPluginUpdate(requestedVersion?: string) {
+    const versions = this.getPluginVersions();
+    const version = requestedVersion || versions.latest || "1.6.3";
+    const downloadUrl = `https://icandothat.online/api/wordpress/plugin-download?version=${version}`;
+
+    const connectedBusinesses = await prisma.business.findMany({
+      where: {
+        wordpressUrl: { not: null },
+        wordpressApiKey: { not: null },
+      },
+      select: {
+        id: true,
+        name: true,
+        wordpressUrl: true,
+        wordpressApiKey: true,
+        wordpressPluginVersion: true,
+      },
+    });
+
+    const results: Array<{
+      businessId: string;
+      name: string;
+      siteUrl: string;
+      success: boolean;
+      previousVersion?: string;
+      currentVersion?: string;
+      error?: string;
+    }> = [];
+
+    for (const b of connectedBusinesses) {
+      if (!b.wordpressUrl || !b.wordpressApiKey) continue;
+      const cleanUrl = b.wordpressUrl.replace(/\/+$/, "");
+
+      try {
+        const res = await fetch(`${cleanUrl}/wp-json/aivision-seo/v1/remote-update`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${b.wordpressApiKey}`,
+          },
+          body: JSON.stringify({
+            download_url: downloadUrl,
+            version,
+          }),
+          signal: AbortSignal.timeout(30000),
+        });
+
+        if (res.ok) {
+          const data = (await res.json()) as any;
+          await prisma.business.update({
+            where: { id: b.id },
+            data: {
+              wordpressPluginVersion: data.current_version || version,
+              wordpressLastSyncedAt: new Date(),
+            },
+          });
+          results.push({
+            businessId: b.id,
+            name: b.name,
+            siteUrl: cleanUrl,
+            success: true,
+            previousVersion: b.wordpressPluginVersion || undefined,
+            currentVersion: data.current_version || version,
+          });
+        } else {
+          // Attempt fallback to apply-fix
+          const fallbackRes = await fetch(`${cleanUrl}/wp-json/aivision-seo/v1/apply-fix`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${b.wordpressApiKey}`,
+            },
+            body: JSON.stringify({
+              fix_type: "update_plugin",
+              payload: { download_url: downloadUrl, version },
+            }),
+            signal: AbortSignal.timeout(30000),
+          }).catch(() => null);
+
+          if (fallbackRes && fallbackRes.ok) {
+            const data = (await fallbackRes.json()) as any;
+            await prisma.business.update({
+              where: { id: b.id },
+              data: {
+                wordpressPluginVersion: data.current_version || version,
+                wordpressLastSyncedAt: new Date(),
+              },
+            });
+            results.push({
+              businessId: b.id,
+              name: b.name,
+              siteUrl: cleanUrl,
+              success: true,
+              previousVersion: b.wordpressPluginVersion || undefined,
+              currentVersion: data.current_version || version,
+            });
+          } else {
+            results.push({
+              businessId: b.id,
+              name: b.name,
+              siteUrl: cleanUrl,
+              success: false,
+              error: `HTTP ${res.status}: ${res.statusText}`,
+            });
+          }
+        }
+      } catch (err: any) {
+        results.push({
+          businessId: b.id,
+          name: b.name,
+          siteUrl: cleanUrl,
+          success: false,
+          error: err.message || "Failed to contact site",
+        });
+      }
+    }
+
+    return {
+      version,
+      totalSites: connectedBusinesses.length,
+      updated: results.filter((r) => r.success).length,
+      results,
+    };
   }
 }
 

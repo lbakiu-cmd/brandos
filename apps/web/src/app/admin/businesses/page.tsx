@@ -38,7 +38,7 @@ type BusinessItem = {
 const SEED_BUSINESSES: BusinessItem[] = [
   {
     id: "biz_hq",
-    name: "BrandOS Global Headquarters",
+    name: "AIVisibility SEO Global Headquarters",
     city: "Austin, TX",
     industry: "SaaS & AI Technology",
     website: "https://brandoseye.com",
@@ -303,7 +303,7 @@ export default function AdminBusinessesPage() {
                 </span>
 
                 <div className="flex items-center gap-2">
-                  {b.name !== "BrandOS Global Headquarters" && (
+                  {b.name !== "AIVisibility SEO Global Headquarters" && (
                     <>
                       <button
                         type="button"

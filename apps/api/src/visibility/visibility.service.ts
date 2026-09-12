@@ -65,19 +65,30 @@ export class VisibilityService {
     userId: string,
     params?: { businessName?: string; city?: string; industry?: string; customPrompt?: string }
   ) {
-    const membership = await prisma.membership.findFirst({
-      where: { userId },
-      include: { business: true },
-    });
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    let membership = null;
+    if (user?.activeBusinessId) {
+      membership = await prisma.membership.findFirst({
+        where: { userId, businessId: user.activeBusinessId },
+        include: { business: true },
+      });
+    }
+    if (!membership) {
+      membership = await prisma.membership.findFirst({
+        where: { userId },
+        include: { business: true },
+        orderBy: { createdAt: "desc" },
+      });
+    }
 
     const biz = membership?.business;
     const businessName = params?.businessName || biz?.name || "Local Business";
-    const city = params?.city || biz?.city || "Tiranë";
-    const industry = params?.industry || biz?.industry || "Clinic";
+    const city = params?.city || biz?.city || "";
+    const industry = params?.industry || biz?.industry || "Services";
 
     const prompt =
       params?.customPrompt ||
-      `I am researching top ${industry} recommendations in ${city}. Does your knowledge base or recent web search data contain any mentions of a business named "${businessName}"? If so, briefly summarize what you know or provide any context you have about them. If you have no record, simply state "No record found."`;
+      `I am researching top ${industry} recommendations${city ? ` in ${city}` : ""}. Does your knowledge base or recent web search data contain any mentions of a business named "${businessName}"? If so, briefly summarize what you know or provide any context you have about them. If you have no record, simply state "No record found."`;
 
     const key = process.env.OPENROUTER_API_KEY;
 
@@ -118,7 +129,7 @@ export class VisibilityService {
             "Content-Type": "application/json",
             Authorization: `Bearer ${key}`,
             "HTTP-Referer": process.env.FRONTEND_URL || "https://icandothat.online",
-            "X-Title": "BrandOS",
+            "X-Title": "AIVisibility SEO",
           },
           body: JSON.stringify({
             model: m.id,
@@ -276,17 +287,28 @@ export class VisibilityService {
     userId: string,
     params?: { businessName?: string; city?: string; industry?: string; website?: string; phone?: string }
   ) {
-    const membership = await prisma.membership.findFirst({
-      where: { userId },
-      include: { business: true },
-    });
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    let membership = null;
+    if (user?.activeBusinessId) {
+      membership = await prisma.membership.findFirst({
+        where: { userId, businessId: user.activeBusinessId },
+        include: { business: true },
+      });
+    }
+    if (!membership) {
+      membership = await prisma.membership.findFirst({
+        where: { userId },
+        include: { business: true },
+        orderBy: { createdAt: "desc" },
+      });
+    }
     const biz = membership?.business;
 
     const name = params?.businessName || biz?.name || "Local Business";
-    const city = params?.city || biz?.city || "Tiranë";
-    const industry = params?.industry || biz?.industry || "Clinic";
+    const city = params?.city || biz?.city || "";
+    const industry = params?.industry || biz?.industry || "Professional Services";
     const website = params?.website || biz?.website || "https://yourwebsite.com";
-    const phone = params?.phone || biz?.phone || "+355-4-222-3333";
+    const phone = params?.phone || biz?.phone || "";
 
     const bizContext = {
       name,
@@ -323,7 +345,7 @@ Structure your response with:
             "Content-Type": "application/json",
             Authorization: `Bearer ${openRouterKey}`,
             "HTTP-Referer": process.env.FRONTEND_URL || "https://icandothat.online",
-            "X-Title": "BrandOS",
+            "X-Title": "AIVisibility SEO",
           },
           body: JSON.stringify({
             model: "openai/gpt-4o-mini",

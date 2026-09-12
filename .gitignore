@@ -25,3 +25,5 @@ trash/
 .kilo/
 *.tsbuildinfo
 *dist*
+.agents/
+.vs/

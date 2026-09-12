@@ -44,7 +44,7 @@ const SCAN_STEPS = [
   "Parsing Schema.org LocalBusiness & JSON-LD structured data…",
   "Checking for /llms.txt machine-readable manifest…",
   "Simulating ChatGPT & Google AI Overview citation readiness…",
-  "Computing BrandOS Omnichannel Health Score…",
+  "Computing AIVisibility SEO Omnichannel Health Score…",
 ];
 
 function ScanContent() {
@@ -113,9 +113,9 @@ function ScanContent() {
         <div className="mx-auto flex max-w-6xl items-center justify-between">
           <Link href="/" className="flex items-center gap-2.5">
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-100 text-sm font-bold text-zinc-950 shadow-sm">
-              B
+              A
             </span>
-            <span className="text-base font-semibold tracking-tight text-white">BrandOS</span>
+            <span className="text-base font-semibold tracking-tight text-white">AIVisibility SEO</span>
           </Link>
           <div className="flex items-center gap-3">
             <ThemeToggle />

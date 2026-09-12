@@ -10,11 +10,11 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: 'BrandOS · Search Visibility & Presence Platform',
-    template: '%s | BrandOS',
+    default: 'AIVisibility SEO · Search Visibility & Presence Platform',
+    template: '%s | AIVisibility SEO',
   },
   description:
-    'BrandOS audits and manages your business presence across Google Search, Google Maps, and modern AI discovery engines with real-time performance telemetry.',
+    'AIVisibility SEO audits and manages your business presence across Google Search, Google Maps, and modern AI discovery engines with real-time performance telemetry.',
   icons: {
     icon: [
       { url: '/favicon.ico', sizes: 'any' },

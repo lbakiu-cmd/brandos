@@ -48,6 +48,7 @@ export async function seedSuperAdmin() {
         isSuperAdmin: true,
         authProvider: "EMAIL",
         status: "ACTIVE",
+        activeBusinessId: masterBiz.id,
         emailVerifiedAt: new Date(),
         phoneVerifiedAt: new Date(),
         memberships: {
@@ -68,6 +69,7 @@ export async function seedSuperAdmin() {
         name: "Super Administrator",
         passwordHash,
         isSuperAdmin: true,
+        activeBusinessId: superAdmin.activeBusinessId || masterBiz.id,
         status: "ACTIVE",
         emailVerifiedAt: new Date(),
         phoneVerifiedAt: new Date(),

@@ -368,9 +368,10 @@ export class OAuthController {
   }
 
   /**
-   * 4. Meta OAuth: Callback Endpoint
+   * 4. Meta OAuth & Webhook Verification Endpoint
    */
   @Get("meta/callback")
+  @Get("meta/webhook")
   async metaCallback(
     @Query("code") code: string,
     @Query("state") state: string,
@@ -378,9 +379,35 @@ export class OAuthController {
     @Req() req: any,
     @Res() res: any
   ) {
+    // 0. Meta Webhook Verification Challenge (hub.mode, hub.challenge, hub.verify_token)
+    const hubMode = req.query?.["hub.mode"] || req.query?.hub_mode;
+    const hubChallenge = req.query?.["hub.challenge"] || req.query?.hub_challenge;
+    const hubVerifyToken = req.query?.["hub.verify_token"] || req.query?.hub_verify_token;
+
+    if (hubMode === "subscribe" && hubChallenge) {
+      const configuredToken = process.env.META_VERIFY_TOKEN || "aivisibility_meta_verify_2026";
+      this.logger.log(`Received Meta Webhook subscription verification with token: "${hubVerifyToken}"`);
+
+      // Accept configured token, fallback tokens, or any non-empty token if none configured
+      if (
+        !process.env.META_VERIFY_TOKEN ||
+        hubVerifyToken === configuredToken ||
+        hubVerifyToken === "brandos" ||
+        hubVerifyToken === "aivisibility_meta_verify_2026"
+      ) {
+        this.logger.log(`Meta Webhook verified successfully! Responding with challenge: ${hubChallenge}`);
+        res.status(200);
+        res.type("text/plain");
+        return res.send(String(hubChallenge));
+      }
+
+      this.logger.warn(`Meta Webhook verification token mismatch: "${hubVerifyToken}" vs "${configuredToken}"`);
+      return res.status(403).send("Verification token mismatch");
+    }
+
     const host = req.headers?.["x-forwarded-host"] || req.headers?.["host"];
     const proto = req.headers?.["x-forwarded-proto"] || "https";
-    const frontendBase = host ? `${proto}://${host}` : (process.env.FRONTEND_URL || "https://onlinepresence.space");
+    const frontendBase = host ? `${proto}://${host}` : (process.env.FRONTEND_URL || "https://icandothat.online");
 
     if (error || !code) {
       this.logger.warn(`Meta OAuth error or cancellation: ${error}`);
@@ -453,6 +480,16 @@ export class OAuthController {
   }
 
   /**
+   * 4b. Meta Webhook Event Ingestion (POST)
+   */
+  @Post("meta/callback")
+  @Post("meta/webhook")
+  async handleMetaWebhookEvent(@Req() req: any, @Res() res: any) {
+    this.logger.log(`Received Meta Webhook event: ${JSON.stringify(req.body)?.slice(0, 300)}`);
+    return res.status(200).send({ status: "received", timestamp: new Date().toISOString() });
+  }
+
+  /**
    * 5. Get Active OAuth Configuration Status & Authorized Redirect URIs
    */
   @Get("credentials")
@@ -462,12 +499,12 @@ export class OAuthController {
       google: {
         configured: Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
         clientId: process.env.GOOGLE_CLIENT_ID ? `${process.env.GOOGLE_CLIENT_ID.slice(0, 12)}...` : "",
-        redirectUri: process.env.GOOGLE_REDIRECT_URI || "https://onlinepresence.space/api/oauth/google/callback",
+        redirectUri: process.env.GOOGLE_REDIRECT_URI || `${process.env.DOMAIN || "https://icandothat.online"}/api/oauth/google/callback`,
       },
       meta: {
         configured: Boolean(process.env.META_APP_ID && process.env.META_APP_SECRET),
         appId: process.env.META_APP_ID ? `${process.env.META_APP_ID.slice(0, 6)}...` : "",
-        redirectUri: process.env.META_REDIRECT_URI || "https://onlinepresence.space/api/oauth/meta/callback",
+        redirectUri: process.env.META_REDIRECT_URI || `${process.env.DOMAIN || "https://icandothat.online"}/api/oauth/meta/callback`,
       },
     };
   }

@@ -99,7 +99,7 @@ export class AuthService {
       const secret = generateTotpSecret(20);
       const backupCodes = generateBackupCodes(6);
       const qrCodeUri = getOtpAuthUrl({
-        issuer: "BrandOS Eye",
+        issuer: "AIVisibility SEO",
         accountName: user.email || user.name || "User",
         secret,
       });
@@ -194,6 +194,12 @@ export class AuthService {
     });
 
     const primaryBizId = user.memberships[0]?.businessId;
+    if (primaryBizId) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { activeBusinessId: primaryBizId },
+      }).catch(() => {});
+    }
 
     // Log Activity
     await this.activity.log({
@@ -529,6 +535,14 @@ export class AuthService {
         },
         include: { memberships: true },
       });
+
+      const primaryBizId = user.memberships[0]?.businessId;
+      if (primaryBizId) {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { activeBusinessId: primaryBizId },
+        }).catch(() => {});
+      }
     } else {
       if (user.status && user.status !== "ACTIVE") {
         throw new UnauthorizedException(
@@ -717,6 +731,15 @@ export class AuthService {
       where: { id: userId },
       include: { memberships: { include: { business: true } } },
     });
+
+    if (!user.activeBusinessId && user.memberships?.length > 0) {
+      const fallbackBizId = user.memberships[0].businessId;
+      user.activeBusinessId = fallbackBizId;
+      await prisma.user.update({
+        where: { id: userId },
+        data: { activeBusinessId: fallbackBizId },
+      }).catch(() => {});
+    }
 
     const {
       passwordHash: _ignoredPass,

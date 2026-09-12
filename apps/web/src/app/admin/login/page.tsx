@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import QRCode from "qrcode";
 import { authApi } from "@/lib/api";
+import { VersionSwitchBadge } from "@/components/VersionSwitchBadge";
 
 type SuperAdminStep = "credentials" | "2fa_setup" | "2fa_challenge";
 
@@ -191,12 +192,12 @@ function SuperAdminLoginForm() {
   };
 
   const handleDownloadBackupCodes = () => {
-    const content = `BRANDOS EYE - SUPER ADMIN 2FA BACKUP CODES\nAccount: ${email}\nGenerated: ${new Date().toISOString()}\n\n${backupCodes.map((c, i) => `${i + 1}. ${c}`).join("\n")}\n`;
+    const content = `AIVISIBILITY SEO - SUPER ADMIN 2FA BACKUP CODES\nAccount: ${email}\nGenerated: ${new Date().toISOString()}\n\n${backupCodes.map((c, i) => `${i + 1}. ${c}`).join("\n")}\n`;
     const blob = new Blob([content], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `brandos-superadmin-backup-codes.txt`;
+    a.download = `aivisibility-seo-superadmin-backup-codes.txt`;
     a.click();
   };
 
@@ -207,6 +208,11 @@ function SuperAdminLoginForm() {
       <div className="pointer-events-none absolute -bottom-40 -right-40 h-96 w-96 rounded-full bg-indigo-600/20 blur-[130px]" />
 
       <div className="relative w-full max-w-md rounded-3xl border border-purple-900/40 bg-slate-900/95 p-8 shadow-2xl backdrop-blur-2xl">
+        {/* Portal Switcher & Version Badge */}
+        <div className="mb-6 flex justify-center">
+          <VersionSwitchBadge currentPortal="admin" showPortalSwitch={true} />
+        </div>
+
         {/* Terminal Header */}
         <div className="text-center mb-6">
           <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 text-white shadow-xl shadow-purple-600/30 border border-purple-400/30">
@@ -298,7 +304,7 @@ function SuperAdminLoginForm() {
 
             <div className="mt-4 pt-4 border-t border-slate-800/80 text-center">
               <span className="text-[11px] text-slate-500 font-mono">
-                BrandOS Eye Global Control Plane • v0.1.0
+                AIVisibility SEO Global Control Plane • v1.6.3 (Stable)
               </span>
             </div>
           </form>

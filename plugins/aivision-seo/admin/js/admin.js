@@ -1539,30 +1539,30 @@
         reloadDashboardContent();
     });
 
-    // ── BrandOS Cloud Integration Handlers ────────────────────────────────────
-    $(document).on('click', '#av-test-brandos-btn', function (e) {
+    // ── AIVisibility SEO Cloud Integration Handlers ──────────────────────────
+    $(document).on('click', '#av-test-aivisibility-btn, #av-test-brandos-btn', function (e) {
         e.preventDefault();
         const $btn = $(this);
-        const apiUrl = $('#av-brandos-api-url').val();
-        const apiKey = $('#av-brandos-api-key').val();
-        const $status = $('#av-brandos-status');
+        const apiUrl = $('#av-aivisibility-api-url').val() || $('#av-brandos-api-url').val();
+        const apiKey = $('#av-aivisibility-api-key').val() || $('#av-brandos-api-key').val();
+        const $status = $('#av-aivisibility-status, #av-brandos-status');
 
         if (!apiKey) {
             $status.css({ display: 'block', background: 'rgba(239,68,68,0.15)', color: '#fca5a5', border: '1px solid rgba(239,68,68,0.3)' })
-                   .html('❌ Please enter your BrandOS API Key.');
+                   .html('❌ Please enter your AIVisibility SEO API Key.');
             return;
         }
 
         $btn.text('Connecting…').prop('disabled', true);
         $status.css({ display: 'block', background: 'rgba(59,130,246,0.15)', color: '#93c5fd', border: '1px solid rgba(59,130,246,0.3)' })
-               .html('🔄 Testing connection with BrandOS Cloud…');
+               .html('🔄 Testing connection with AIVisibility SEO Cloud…');
 
-        request('aivision_test_brandos', { api_url: apiUrl, api_key: apiKey }, function (res) {
+        request('aivision_test_aivisibility', { api_url: apiUrl, api_key: apiKey }, function (res) {
             $btn.text('⚡ Test & Connect').prop('disabled', false);
             if (res.success) {
                 $status.css({ background: 'rgba(16,185,129,0.15)', color: '#6ee7b7', border: '1px solid rgba(16,185,129,0.3)' })
-                       .html('✔ <strong>Connected successfully!</strong> Linked with business: ' + escHtml(res.data.business || 'BrandOS Business'));
-                notify('Connected to BrandOS successfully!');
+                       .html('✔ <strong>Connected successfully!</strong> Linked with business: ' + escHtml(res.data.business || 'AIVisibility SEO Business'));
+                notify('Connected to AIVisibility SEO successfully!');
                 setTimeout(() => location.reload(), 1500);
             } else {
                 $status.css({ background: 'rgba(239,68,68,0.15)', color: '#fca5a5', border: '1px solid rgba(239,68,68,0.3)' })
@@ -1571,27 +1571,53 @@
         });
     });
 
-    $(document).on('click', '#av-disconnect-brandos-btn', function (e) {
+    $(document).on('click', '#av-disconnect-aivisibility-btn, #av-disconnect-brandos-btn', function (e) {
         e.preventDefault();
-        if (!confirm('Are you sure you want to disconnect from BrandOS and revert to Standalone Mode?')) return;
+        if (!confirm('Are you sure you want to disconnect from AIVisibility SEO and revert to Standalone Mode?')) return;
         const $btn = $(this).text('Disconnecting…').prop('disabled', true);
-        request('aivision_save_brandos', { disconnect: 1 }, function (res) {
+        request('aivision_save_aivisibility', { disconnect: 1 }, function (res) {
             notify('Reverted to Standalone Mode.');
             setTimeout(() => location.reload(), 1000);
         });
     });
 
-    $(document).on('click', '#av-sync-brandos-btn', function (e) {
+    $(document).on('click', '#av-sync-aivisibility-btn, #av-sync-brandos-btn', function (e) {
         e.preventDefault();
         const $btn = $(this).text('Syncing…').prop('disabled', true);
-        request('aivision_sync_brandos', {}, function (res) {
+        request('aivision_sync_aivisibility', {}, function (res) {
             $btn.text('🔄 Sync Telemetry').prop('disabled', false);
             if (res.success) {
-                notify('Telemetry synchronized with BrandOS!');
-                $('#av-brandos-status').css({ display: 'block', background: 'rgba(16,185,129,0.15)', color: '#6ee7b7', border: '1px solid rgba(16,185,129,0.3)' })
+                notify('Telemetry synchronized with AIVisibility SEO!');
+                $('#av-aivisibility-status, #av-brandos-status').css({ display: 'block', background: 'rgba(16,185,129,0.15)', color: '#6ee7b7', border: '1px solid rgba(16,185,129,0.3)' })
                                        .html('✔ ' + escHtml(res.data.message));
             } else {
                 notify(res.data || 'Sync failed', 'error');
+            }
+        });
+    });
+
+    // ── Check for Updates ───────────────────────────────────────────────────
+    $(document).on('click', '#av-check-updates-btn', function (e) {
+        e.preventDefault();
+        const $btn = $(this);
+        const origText = $btn.text();
+        $btn.text('Checking…').prop('disabled', true);
+
+        request('aivision_check_update', {}, function (res) {
+            $btn.text(origText).prop('disabled', false);
+            if (res && res.success) {
+                if (res.data.has_update) {
+                    if (confirm(res.data.message + '\n\nWould you like to install the update now?')) {
+                        window.location.href = res.data.update_url;
+                    } else {
+                        notify(res.data.message);
+                    }
+                } else {
+                    notify(res.data.message || 'You have the latest version!');
+                }
+            } else {
+                const errMsg = (res && res.data) ? res.data : 'Failed to connect to update server.';
+                notify(errMsg, 'error');
             }
         });
     });

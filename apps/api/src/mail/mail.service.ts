@@ -139,17 +139,17 @@ export class MailService {
       status: "active",
     });
 
-    const subject = `Welcome to BrandOS Eye, ${name}! 🚀`;
+    const subject = `Welcome to AIVisibility SEO, ${name}! 🚀`;
     const html = `
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #020617; color: #f8fafc; border-radius: 16px; overflow: hidden; border: 1px solid #1e293b;">
         <div style="background: linear-gradient(135deg, #2563eb, #4f46e5); padding: 32px; text-align: center;">
-          <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 800;">Welcome to BrandOS Eye</h1>
+          <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 800;">Welcome to AIVisibility SEO</h1>
           <p style="color: #e0e7ff; margin: 8px 0 0 0; font-size: 14px;">Your AI & Search Presence Platform</p>
         </div>
         <div style="padding: 32px;">
           <p style="font-size: 16px; line-height: 1.5; color: #cbd5e1;">Hi ${name},</p>
           <p style="font-size: 14px; line-height: 1.6; color: #94a3b8;">
-            We're thrilled to have <strong>${businessName}</strong> onboard! BrandOS Eye will continuously monitor your website, local Google Maps rankings, and AI assistant citations (ChatGPT, Perplexity, Gemini).
+            We're thrilled to have <strong>${businessName}</strong> onboard! AIVisibility SEO will continuously monitor your website, local Google Maps rankings, and AI assistant citations (ChatGPT, Perplexity, Gemini).
           </p>
           <div style="margin: 28px 0; padding: 20px; background-color: #0f172a; border-radius: 12px; border: 1px solid #334155;">
             <h3 style="margin: 0 0 12px 0; font-size: 14px; color: #38bdf8;">Your Next Quick Steps:</h3>
@@ -177,12 +177,12 @@ export class MailService {
    * 2. Password Reset
    */
   async sendPasswordResetEmail(to: string, resetUrl: string) {
-    const subject = "Reset your BrandOS Eye password";
+    const subject = "Reset your AIVisibility SEO password";
     const html = `
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 550px; margin: 0 auto; background-color: #020617; color: #f8fafc; border-radius: 16px; border: 1px solid #1e293b; padding: 32px;">
         <h2 style="color: #ffffff; margin-top: 0;">Password Reset Request</h2>
         <p style="color: #94a3b8; font-size: 14px; line-height: 1.6;">
-          We received a request to reset your password for BrandOS Eye. Click the button below to choose a new password:
+          We received a request to reset your password for AIVisibility SEO. Click the button below to choose a new password:
         </p>
         <div style="text-align: center; margin: 28px 0;">
           <a href="${resetUrl}" style="background-color: #2563eb; color: #ffffff; padding: 12px 24px; border-radius: 8px; font-weight: 700; text-decoration: none; display: inline-block; font-size: 14px;">
@@ -298,7 +298,7 @@ export class MailService {
         <div style="padding: 32px;">
           <p style="font-size: 15px; line-height: 1.6; color: #cbd5e1;">Hi ${name},</p>
           <p style="font-size: 14px; line-height: 1.6; color: #94a3b8;">
-            It's been two weeks since you registered <strong>${businessName}</strong> on BrandOS Eye. We recorded your initial baseline snapshot on Day 1, and your online presence metrics have evolved!
+            It's been two weeks since you registered <strong>${businessName}</strong> on AIVisibility SEO. We recorded your initial baseline snapshot on Day 1, and your online presence metrics have evolved!
           </p>
 
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 24px 0;">

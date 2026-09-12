@@ -540,7 +540,7 @@ export default function DashboardPage() {
 
       {/* Footer controls */}
       <div className="flex flex-col sm:flex-row items-center justify-between pt-6 border-t border-slate-800/80 text-xs sm:text-sm text-slate-400 gap-3">
-        <p>BrandOS Eye • Helping businesses build a trusted, profitable online presence.</p>
+        <p>AIVisibility SEO • Helping businesses build a trusted, profitable online presence.</p>
         <button
           onClick={handleResetLayout}
           className="text-slate-400 hover:text-white transition underline"

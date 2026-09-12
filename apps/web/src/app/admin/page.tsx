@@ -38,7 +38,7 @@ const FALLBACK_USERS = [
     isSuperAdmin: true,
     activeSessionsCount: 1,
     createdAt: new Date().toISOString(),
-    businesses: [{ id: "biz_hq", name: "BrandOS Global Headquarters", role: "SUPER_ADMIN" }],
+    businesses: [{ id: "biz_hq", name: "AIVisibility SEO Global Headquarters", role: "SUPER_ADMIN" }],
   },
   {
     id: "usr_alex",

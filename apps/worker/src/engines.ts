@@ -39,7 +39,7 @@ export async function askOpenRouter(
         "Content-Type": "application/json",
         Authorization: `Bearer ${key}`,
         "HTTP-Referer": process.env.FRONTEND_URL || "https://icandothat.online",
-        "X-Title": "BrandOS",
+        "X-Title": "AIVisibility SEO",
       },
       body: JSON.stringify({
         model,

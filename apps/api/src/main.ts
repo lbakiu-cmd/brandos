@@ -57,6 +57,7 @@ async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
     new FastifyAdapter(),
+    { rawBody: true },
   );
 
   // Register the cookie plugin safely on the underlying Fastify instance

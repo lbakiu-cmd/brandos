@@ -49,7 +49,7 @@ export function WordpressWidget({ data, onRemove, initialTimeRange = "7D" }: Wor
           </div>
           <p className="text-xs text-slate-300 font-medium mb-1">WordPress Plugin Not Connected</p>
           <p className="text-[11px] text-slate-400 max-w-xs mx-auto mb-4">
-            Install the BrandOS AIVision WordPress plugin to auto-publish /llms.txt, JSON-LD Schema and auto-fix SEO errors.
+            Install the AIVisibility SEO WordPress plugin to auto-publish /llms.txt, JSON-LD Schema and auto-fix SEO errors.
           </p>
           <Link
             href="/dashboard/integrations"

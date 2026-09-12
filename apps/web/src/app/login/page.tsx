@@ -23,7 +23,7 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import QRCode from "qrcode";
-import { authApi } from "@/lib/api";
+import { authApi, apiFetch } from "@/lib/api";
 
 type AuthStep = "credentials" | "2fa_setup" | "2fa_challenge";
 
@@ -62,6 +62,11 @@ function LoginForm() {
 
   // Check URL parameters on mount (for Google OAuth callback or 2FA redirection)
   useEffect(() => {
+    const planParam = searchParams.get("plan");
+    if (planParam) {
+      setIsLogin(false);
+    }
+
     const code = searchParams.get("code");
     const errorParam = searchParams.get("error");
     const provider = searchParams.get("provider");
@@ -73,6 +78,10 @@ function LoginForm() {
 
     const tokenParam = searchParams.get("token");
     if (tokenParam) {
+      try {
+        localStorage.removeItem("brandos_active_business_id");
+        document.cookie = "brandos_active_business_id=; path=/; max-age=0; SameSite=Lax";
+      } catch {}
       document.cookie = `brandos_session=${tokenParam}; path=/; max-age=${30 * 24 * 3600}; SameSite=Lax; Secure`;
       const ret = searchParams.get("returnUrl") || "/dashboard";
       router.push(ret);
@@ -93,9 +102,9 @@ function LoginForm() {
       const s = secretParam || "JBSWY3DPEHPK3PXP";
       setTotpSecret(s);
       const acc = emailParam || "Google User";
-      const uri = `otpauth://totp/BrandOS%20Eye:${encodeURIComponent(
+      const uri = `otpauth://totp/AIVisibility%20SEO:${encodeURIComponent(
         acc
-      )}?secret=${s}&issuer=BrandOS%20Eye&algorithm=SHA1&digits=6&period=30`;
+      )}?secret=${s}&issuer=AIVisibility%20SEO&algorithm=SHA1&digits=6&period=30`;
       QRCode.toDataURL(uri, { width: 220, margin: 1, color: { dark: "#0f172a", light: "#ffffff" } })
         .then(setQrCodeDataUrl)
         .catch(() => {});
@@ -132,7 +141,7 @@ function LoginForm() {
               setStep("2fa_challenge");
             }
           } else {
-            router.push("/dashboard");
+            completeAuthAndRedirect();
           }
         })
         .catch((err) => {
@@ -141,6 +150,31 @@ function LoginForm() {
         .finally(() => setGoogleLoading(false));
     }
   }, [searchParams, router]);
+
+  async function completeAuthAndRedirect() {
+    try {
+      localStorage.removeItem("brandos_active_business_id");
+      document.cookie = "brandos_active_business_id=; path=/; max-age=0; SameSite=Lax";
+    } catch {}
+
+    const plan = searchParams.get("plan");
+    const cycle = searchParams.get("cycle") || "monthly";
+    if (plan) {
+      try {
+        const checkoutRes = await apiFetch<{ url?: string }>("/billing/create-checkout-session", {
+          method: "POST",
+          body: JSON.stringify({ tier: plan, cycle, redirect: false }),
+        });
+        if (checkoutRes?.url) {
+          window.location.href = checkoutRes.url;
+          return;
+        }
+      } catch (e) {
+        console.error("Auto checkout redirect error:", e);
+      }
+    }
+    router.push("/dashboard");
+  }
 
   // Focus first OTP box when entering 2FA step
   useEffect(() => {
@@ -186,7 +220,7 @@ function LoginForm() {
           setStep("2fa_challenge");
         }
       } else {
-        router.push("/dashboard");
+        await completeAuthAndRedirect();
       }
     } catch (err: any) {
       setError(err.message || "Authentication failed. Please check your credentials.");
@@ -214,7 +248,7 @@ function LoginForm() {
       });
       setSuccessMsg("Two-Factor Authentication verified successfully! Redirecting...");
       setTimeout(() => {
-        router.push("/dashboard");
+        completeAuthAndRedirect();
       }, 800);
     } catch (err: any) {
       setError(err.message || "Invalid verification code. Please check Google Authenticator.");
@@ -245,7 +279,7 @@ function LoginForm() {
       });
       setSuccessMsg("Verification successful! Redirecting to your dashboard...");
       setTimeout(() => {
-        router.push("/dashboard");
+        completeAuthAndRedirect();
       }, 600);
     } catch (err: any) {
       setError(err.message || "Invalid 2FA security code. Please try again.");
@@ -298,12 +332,12 @@ function LoginForm() {
   };
 
   const handleDownloadBackupCodes = () => {
-    const content = `BRANDOS EYE - 2FA BACKUP RECOVERY CODES\nGenerated: ${new Date().toISOString()}\nAccount: ${targetAccountEmail}\n\nKeep these codes in a safe place. Each code can be used once if you lose access to Google Authenticator:\n\n${backupCodes.map((c, i) => `${i + 1}. ${c}`).join("\n")}\n`;
+    const content = `AIVISIBILITY SEO - 2FA BACKUP RECOVERY CODES\nGenerated: ${new Date().toISOString()}\nAccount: ${targetAccountEmail}\n\nKeep these codes in a safe place. Each code can be used once if you lose access to Google Authenticator:\n\n${backupCodes.map((c, i) => `${i + 1}. ${c}`).join("\n")}\n`;
     const blob = new Blob([content], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `brandos-backup-codes-${Date.now()}.txt`;
+    a.download = `aivisibility-seo-backup-codes-${Date.now()}.txt`;
     a.click();
   };
 
@@ -325,13 +359,14 @@ function LoginForm() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-zinc-950 px-4 py-12 relative selection:bg-zinc-800 selection:text-white">
       <div className="relative w-full max-w-md rounded-xl border border-zinc-800 bg-zinc-900/90 p-8 shadow-2xl">
+
         {/* Brand Header */}
         <div className="text-center mb-6">
-          <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-zinc-100 text-zinc-950 font-bold text-base shadow-sm">
-            B
+          <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-zinc-100 text-zinc-950 font-bold text-xs shadow-sm">
+            AI
           </div>
           <h1 className="text-xl font-semibold tracking-tight text-white flex items-center justify-center gap-2">
-            BrandOS
+            AIVisibility SEO
           </h1>
           <p className="mt-1 text-xs text-zinc-400">
             {step === "2fa_setup"
@@ -530,6 +565,7 @@ function LoginForm() {
                 </p>
               )}
             </div>
+
           </>
         )}
 
@@ -701,7 +737,7 @@ function LoginForm() {
               ) : (
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                    Backup Recovery Code (e.g. BRANDOS-8492-1049)
+                    Backup Recovery Code (e.g. AIVISIBILITY-8492-1049)
                   </label>
                   <div className="relative">
                     <KeyRound className="pointer-events-none absolute left-3.5 top-3.5 h-4 w-4 text-slate-500" />
@@ -710,7 +746,7 @@ function LoginForm() {
                       required
                       value={backupCodeInput}
                       onChange={(e) => setBackupCodeInput(e.target.value)}
-                      placeholder="BRANDOS-XXXX-XXXX"
+                      placeholder="AIVISIBILITY-XXXX-XXXX"
                       className="w-full rounded-2xl border border-slate-800 bg-slate-950/80 py-3 pl-10 pr-4 text-sm text-white placeholder-slate-600 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition font-mono uppercase"
                     />
                   </div>

@@ -23,7 +23,7 @@ export default function CopilotPage() {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "COPILOT",
-      content: `👋 Hello! I am your **BrandOS AI Copilot & Growth Strategist**.\n\nI have full diagnostic awareness of your business profile, competitors, and omnichannel audit gaps. What would you like to optimize today?`,
+      content: `👋 Hello! I am your **AIVisibility SEO Copilot & Growth Strategist**.\n\nI have full diagnostic awareness of your business profile, competitors, and omnichannel audit gaps. What would you like to optimize today?`,
       suggestedActions: [
         "Generate Schema.org JSON-LD",
         "Write AEO Direct Answer Block",

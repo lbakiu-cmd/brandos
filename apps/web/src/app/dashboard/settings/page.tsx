@@ -190,9 +190,9 @@ export default function SettingsPage() {
 
   // Generate real scannable TOTP QR code for Google Authenticator / Authy / 1Password
   useEffect(() => {
-    const userEmail = userForm.email || "user@brandoseye.com";
-    const label = encodeURIComponent(`BrandOS Eye (${userEmail})`);
-    const issuer = encodeURIComponent("BrandOS Eye");
+    const userEmail = userForm.email || "user@aivisibilityseo.com";
+    const label = encodeURIComponent(`AIVisibility SEO (${userEmail})`);
+    const issuer = encodeURIComponent("AIVisibility SEO");
     const otpAuthUrl = `otpauth://totp/${label}?secret=${secretKey}&issuer=${issuer}&algorithm=SHA1&digits=6&period=30`;
 
     // Standard high-resolution QR service as reliable default & instant fallback
@@ -635,7 +635,7 @@ export default function SettingsPage() {
                   <div>
                     <h2 className="text-lg font-bold text-white">1. Select Business Vertical / Industry</h2>
                     <p className="mt-1 text-xs text-slate-400">
-                      BrandOS customizes all Schema.org markup, E-E-A-T audits, and AI search benchmark queries to this vertical.
+                      AIVisibility SEO customizes all Schema.org markup, E-E-A-T audits, and AI search benchmark queries to this vertical.
                     </p>
                   </div>
                   {isInitialSetupDone && (
@@ -1167,7 +1167,7 @@ export default function SettingsPage() {
                   <div>
                     <h4 className="text-sm font-bold text-white">Enter the 6-Digit App Code</h4>
                     <p className="text-xs text-slate-400 mt-1">
-                      Type the 6-digit code currently displayed in your Google Authenticator app for <strong>BrandOS Eye</strong>.
+                      Type the 6-digit code currently displayed in your Google Authenticator app for <strong>AIVisibility SEO</strong>.
                     </p>
                   </div>
 
@@ -1306,7 +1306,7 @@ export default function SettingsPage() {
                 <span>What happens when you switch industry verticals?</span>
               </div>
               <p className="text-slate-300 leading-relaxed">
-                BrandOS will update all machine-readable Schema.org entities, audit algorithms, E-E-A-T scoring criteria, and target AI search prompts to target <strong>{pendingVertical.label}</strong>.
+                AIVisibility SEO will update all machine-readable Schema.org entities, audit algorithms, E-E-A-T scoring criteria, and target AI search prompts to target <strong>{pendingVertical.label}</strong>.
               </p>
             </div>
 

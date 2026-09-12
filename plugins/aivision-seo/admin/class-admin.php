@@ -100,7 +100,7 @@ class AIVision_Admin {
                 <div class="aivision-logo">
                     <span class="aivision-logo-icon">🎯</span>
                     <div>
-                        <h1>AIVision SEO, AEO &amp; GEO Engine</h1>
+                        <h1 style="display:inline-flex; align-items:center; gap:8px;">AIVision SEO, AEO &amp; GEO Engine <span class="aivision-version-badge" style="background:rgba(59, 130, 246, 0.18); color:#60a5fa; border:1px solid rgba(59, 130, 246, 0.35); font-size:11px; font-weight:700; padding:2px 8px; border-radius:12px; letter-spacing:0.4px;">v<?php echo esc_html( AIVISION_VERSION ); ?></span></h1>
                         <p>Real-time optimization for Search Engines, Answer Engines &amp; Generative AI</p>
                     </div>
                 </div>
@@ -446,7 +446,7 @@ class AIVision_Admin {
         ?>
         <div class="aivision-wrap">
             <div class="aivision-header">
-                <div class="aivision-logo"><span class="aivision-logo-icon">🤖</span><div><h1>AI Crawler &amp; Robots Manager</h1><p>Control crawler access and auto-optimize your robots.txt file</p></div></div>
+                <div class="aivision-logo"><span class="aivision-logo-icon">🤖</span><div><h1 style="display:inline-flex; align-items:center; gap:8px;">AI Crawler &amp; Robots Manager <span class="aivision-version-badge" style="background:rgba(59, 130, 246, 0.18); color:#60a5fa; border:1px solid rgba(59, 130, 246, 0.35); font-size:11px; font-weight:700; padding:2px 8px; border-radius:12px; letter-spacing:0.4px;">v<?php echo esc_html( AIVISION_VERSION ); ?></span></h1><p>Control crawler access and auto-optimize your robots.txt file</p></div></div>
                 <button type="button" class="aivision-btn aivision-btn-primary" id="av-auto-optimize-robots-btn" style="background:#4f46e5; border-color:#4338ca;">⚡ Auto-Optimize robots.txt (1-Click)</button>
             </div>
             <div class="aivision-two-col">
@@ -497,27 +497,31 @@ class AIVision_Admin {
         $settings  = get_option( 'aivision_settings', [] );
         $site_type = $settings['site_type'] ?? 'general';
         $site_ai_bio = $settings['site_ai_bio'] ?? '';
-        $brandos_settings = AIVision_BrandOS_Integration::get_settings();
-        $is_connected = AIVision_BrandOS_Integration::is_connected();
+        $aivisibility_settings = AIVisibility_Integration::get_settings();
+        $is_connected = AIVisibility_Integration::is_connected();
         ?>
         <div class="aivision-wrap">
             <div class="aivision-header">
-                <div class="aivision-logo"><span class="aivision-logo-icon">⚙️</span><div><h1>Settings &amp; Integrations</h1><p>Configure AIVision SEO parameters and BrandOS Cloud connection</p></div></div>
+                <div class="aivision-logo"><span class="aivision-logo-icon">⚙️</span><div><h1 style="display:inline-flex; align-items:center; gap:8px;">Settings &amp; Integrations <span class="aivision-version-badge" style="background:rgba(59, 130, 246, 0.18); color:#60a5fa; border:1px solid rgba(59, 130, 246, 0.35); font-size:11px; font-weight:700; padding:2px 8px; border-radius:12px; letter-spacing:0.4px;">v<?php echo esc_html( AIVISION_VERSION ); ?></span></h1><p>Configure AIVision SEO parameters and AIVisibility SEO Cloud connection</p></div></div>
             </div>
 
-            <!-- BrandOS Cloud Integration Card -->
+            <!-- AIVisibility SEO Cloud Integration Card -->
             <div class="aivision-card" style="border: 1px solid <?php echo $is_connected ? 'rgba(59, 130, 246, 0.4)' : 'rgba(255, 255, 255, 0.08)'; ?>; background: <?php echo $is_connected ? 'linear-gradient(180deg, rgba(30, 58, 138, 0.25) 0%, rgba(15, 23, 42, 0.95) 100%)' : 'rgba(30, 41, 59, 0.7)'; ?>; margin-bottom: 24px;">
                 <div class="aivision-card-header" style="display:flex; justify-content:space-between; align-items:center;">
                     <div style="display:flex; align-items:center; gap:10px;">
                         <span style="font-size:22px;">⚡</span>
                         <div>
-                            <h2 style="margin:0; font-size:16px; font-weight:700;">BrandOS Cloud &amp; AI Integration</h2>
-                            <p style="margin:2px 0 0; font-size:12px; color:#94a3b8;">Standalone mode is 100% active. Connect to BrandOS to unlock cloud AI features.</p>
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <h2 style="margin:0; font-size:16px; font-weight:700;">AIVisibility SEO Cloud &amp; AI Integration</h2>
+                                <span class="aivision-version-badge" style="background:rgba(59, 130, 246, 0.2); color:#93c5fd; border:1px solid rgba(59, 130, 246, 0.45); font-size:11px; font-weight:700; padding:2px 8px; border-radius:12px; letter-spacing:0.4px;">v<?php echo esc_html( AIVISION_VERSION ); ?></span>
+                                <span class="aivision-badge" style="background:rgba(16, 185, 129, 0.15); color:#34d399; border:1px solid rgba(16, 185, 129, 0.35); font-size:11px; font-weight:700; padding:2px 8px; border-radius:12px; letter-spacing:0.4px;">⚡ Auto-Updates Enabled</span>
+                            </div>
+                            <p style="margin:2px 0 0; font-size:12px; color:#94a3b8;">Standalone mode is 100% active. Connect to AIVisibility SEO to unlock cloud AI features.</p>
                         </div>
                     </div>
                     <div>
                         <?php if ( $is_connected ) : ?>
-                            <span class="aivision-badge" style="background:#10b981; color:#fff; font-weight:600; padding:4px 10px; border-radius:20px; font-size:12px;">🟢 Connected to BrandOS</span>
+                            <span class="aivision-badge" style="background:#10b981; color:#fff; font-weight:600; padding:4px 10px; border-radius:20px; font-size:12px;">🟢 Connected to AIVisibility SEO</span>
                         <?php else : ?>
                             <span class="aivision-badge" style="background:#64748b; color:#fff; font-weight:600; padding:4px 10px; border-radius:20px; font-size:12px;">⚪ Standalone Mode</span>
                         <?php endif; ?>
@@ -525,35 +529,38 @@ class AIVision_Admin {
                 </div>
 
                 <div style="padding: 16px 0 0;">
-                    <form id="av-brandos-form">
+                    <form id="av-aivisibility-form">
                         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
                             <div class="aivision-form-group">
-                                <label style="font-weight:600; font-size:13px; color:#e2e8f0;">BrandOS API URL</label>
-                                <input type="url" name="brandos_api_url" id="av-brandos-api-url" value="<?php echo esc_attr( $brandos_settings['api_url'] ?: 'https://brandoseye.com' ); ?>" placeholder="https://brandoseye.com" style="width:100%; padding:9px 12px; border-radius:8px; background:#0f172a; border:1px solid #334155; color:#fff;">
-                                <p class="aivision-hint">Your BrandOS API instance endpoint (e.g. <code>https://brandoseye.com</code>).</p>
+                                <label style="font-weight:600; font-size:13px; color:#e2e8f0;">AIVisibility SEO API URL</label>
+                                <input type="url" name="aivisibility_api_url" id="av-aivisibility-api-url" value="<?php echo esc_attr( $aivisibility_settings['api_url'] ?: 'https://icandothat.online' ); ?>" placeholder="https://icandothat.online" style="width:100%; padding:9px 12px; border-radius:8px; background:#0f172a; border:1px solid #334155; color:#fff;">
+                                <p class="aivision-hint">Your AIVisibility SEO API instance endpoint (e.g. <code>https://icandothat.online</code>).</p>
                             </div>
                             <div class="aivision-form-group">
-                                <label style="font-weight:600; font-size:13px; color:#e2e8f0;">BrandOS API Key / Business Token</label>
-                                <input type="text" name="brandos_api_key" id="av-brandos-api-key" value="<?php echo esc_attr( $brandos_settings['api_key'] ); ?>" placeholder="bos_live_..." style="width:100%; padding:9px 12px; border-radius:8px; background:#0f172a; border:1px solid #334155; color:#fff;">
-                                <p class="aivision-hint">Found in your BrandOS Dashboard → Integrations &amp; OAuth.</p>
+                                <label style="font-weight:600; font-size:13px; color:#e2e8f0;">AIVisibility SEO API Key / Business Token</label>
+                                <input type="text" name="aivisibility_api_key" id="av-aivisibility-api-key" value="<?php echo esc_attr( $aivisibility_settings['api_key'] ); ?>" placeholder="bos_live_..." style="width:100%; padding:9px 12px; border-radius:8px; background:#0f172a; border:1px solid #334155; color:#fff;">
+                                <p class="aivision-hint">Found in your AIVisibility SEO Dashboard → Integrations &amp; OAuth.</p>
                             </div>
                         </div>
 
                         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-top:14px; padding-top:14px; border-top:1px solid rgba(255,255,255,0.06);">
-                            <div style="display:flex; gap:10px; align-items:center;">
-                                <button type="button" class="aivision-btn aivision-btn-primary" id="av-test-brandos-btn" style="background:#3b82f6; border-color:#2563eb;">
-                                    <?php echo $is_connected ? '⚡ Re-Test Connection' : '⚡ Connect to BrandOS'; ?>
+                            <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                                <button type="button" class="aivision-btn aivision-btn-primary" id="av-test-aivisibility-btn" style="background:#3b82f6; border-color:#2563eb;">
+                                    <?php echo $is_connected ? '⚡ Re-Test Connection' : '⚡ Connect to AIVisibility SEO'; ?>
+                                </button>
+                                <button type="button" class="aivision-btn" id="av-check-updates-btn" style="background:rgba(255,255,255,0.08); color:#e2e8f0; border:1px solid rgba(255,255,255,0.18);">
+                                    🚀 Check for Updates
                                 </button>
                                 <?php if ( $is_connected ) : ?>
-                                    <button type="button" class="aivision-btn aivision-btn-secondary" id="av-sync-brandos-btn">🔄 Sync Telemetry</button>
-                                    <button type="button" class="aivision-btn" id="av-disconnect-brandos-btn" style="background:#dc2626; color:#fff; border:none;">Disconnect</button>
+                                    <button type="button" class="aivision-btn aivision-btn-secondary" id="av-sync-aivisibility-btn">🔄 Sync Telemetry</button>
+                                    <button type="button" class="aivision-btn" id="av-disconnect-aivisibility-btn" style="background:#dc2626; color:#fff; border:none;">Disconnect</button>
                                 <?php endif; ?>
                             </div>
-                            <?php if ( $is_connected && ! empty( $brandos_settings['last_synced_at'] ) ) : ?>
-                                <span style="font-size:12px; color:#94a3b8;">Last Synced: <?php echo esc_html( $brandos_settings['last_synced_at'] ); ?></span>
+                            <?php if ( $is_connected && ! empty( $aivisibility_settings['last_synced_at'] ) ) : ?>
+                                <span style="font-size:12px; color:#94a3b8;">Last Synced: <?php echo esc_html( $aivisibility_settings['last_synced_at'] ); ?></span>
                             <?php endif; ?>
                         </div>
-                        <div id="av-brandos-status" style="margin-top:12px; display:none; padding:10px 14px; border-radius:8px; font-size:13px;"></div>
+                        <div id="av-aivisibility-status" style="margin-top:12px; display:none; padding:10px 14px; border-radius:8px; font-size:13px;"></div>
                     </form>
 
                     <!-- Feature comparison pills -->
@@ -563,8 +570,8 @@ class AIVision_Admin {
                             <span style="background:rgba(255,255,255,0.06); padding:4px 8px; border-radius:6px; font-size:12px; color:#cbd5e1;">✅ 3-Pillar In-Editor Scoring (Standalone)</span>
                             <span style="background:rgba(255,255,255,0.06); padding:4px 8px; border-radius:6px; font-size:12px; color:#cbd5e1;">✅ /llms.txt &amp; robots.txt (Standalone)</span>
                             <span style="background:rgba(255,255,255,0.06); padding:4px 8px; border-radius:6px; font-size:12px; color:#cbd5e1;">✅ 14 JSON-LD Schema Types (Standalone)</span>
-                            <span style="background:rgba(59, 130, 246, 0.15); border:1px solid rgba(59,130,246,0.3); padding:4px 8px; border-radius:6px; font-size:12px; color:#93c5fd;">⚡ 1-Click Remote Fix Dispatcher (BrandOS)</span>
-                            <span style="background:rgba(59, 130, 246, 0.15); border:1px solid rgba(59,130,246,0.3); padding:4px 8px; border-radius:6px; font-size:12px; color:#93c5fd;">⚡ Copilot Auto-Publishing (BrandOS)</span>
+                            <span style="background:rgba(59, 130, 246, 0.15); border:1px solid rgba(59,130,246,0.3); padding:4px 8px; border-radius:6px; font-size:12px; color:#93c5fd;">⚡ 1-Click Remote Fix Dispatcher (AIVisibility SEO)</span>
+                            <span style="background:rgba(59, 130, 246, 0.15); border:1px solid rgba(59,130,246,0.3); padding:4px 8px; border-radius:6px; font-size:12px; color:#93c5fd;">⚡ Copilot Auto-Publishing (AIVisibility SEO)</span>
                         </div>
                     </div>
                 </div>

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { apiFetch } from "@/lib/api";
 
 const PLANS = [
   {
@@ -59,6 +60,28 @@ const PLANS = [
 
 export default function PricingPage() {
   const [billingCycle, setBillingCycle] = useState<"MONTHLY" | "ANNUAL">("MONTHLY");
+  const [loadingTier, setLoadingTier] = useState<string | null>(null);
+
+  async function handleSelectPlan(tierId: string) {
+    setLoadingTier(tierId);
+    try {
+      const res = await apiFetch<{ url?: string }>("/billing/create-checkout-session", {
+        method: "POST",
+        body: JSON.stringify({
+          tier: tierId,
+          cycle: billingCycle.toLowerCase(),
+          redirect: false,
+        }),
+      });
+      if (res?.url) {
+        window.location.href = res.url;
+        return;
+      }
+    } catch {
+      // If unauthorized or not logged in, route through login/signup with plan
+    }
+    window.location.href = `/login?plan=${tierId}&cycle=${billingCycle.toLowerCase()}`;
+  }
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 selection:bg-zinc-800 selection:text-white">
@@ -66,10 +89,10 @@ export default function PricingPage() {
       <header className="sticky top-0 z-50 border-b border-zinc-800/80 bg-zinc-950/80 backdrop-blur-md">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3.5">
           <Link href="/" className="flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-100 text-zinc-950 font-bold text-sm shadow-sm">
-              B
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-100 text-zinc-950 font-bold text-xs shadow-sm">
+              AI
             </div>
-            <span className="text-base font-semibold tracking-tight text-white">BrandOS</span>
+            <span className="text-base font-semibold tracking-tight text-white">AIVisibility SEO</span>
           </Link>
           <div className="flex items-center gap-3 sm:gap-4">
             <Link href="/scan" className="text-xs font-medium text-zinc-400 hover:text-white transition">
@@ -168,16 +191,18 @@ export default function PricingPage() {
                 </div>
 
                 <div className="mt-8 pt-6 border-t border-zinc-800/80">
-                  <Link
-                    href={`/login?plan=${plan.id}`}
-                    className={`block w-full text-center rounded-lg py-2.5 text-xs font-semibold transition shadow-sm ${
+                  <button
+                    type="button"
+                    onClick={() => handleSelectPlan(plan.id)}
+                    disabled={loadingTier === plan.id}
+                    className={`block w-full text-center rounded-lg py-2.5 text-xs font-semibold transition shadow-sm cursor-pointer ${
                       plan.badge
                         ? "bg-white text-zinc-950 hover:bg-zinc-200"
                         : "border border-zinc-800 bg-zinc-950 text-zinc-200 hover:bg-zinc-900"
-                    }`}
+                    } ${loadingTier === plan.id ? "opacity-75 cursor-wait" : ""}`}
                   >
-                    Start 14-Day Free Trial
-                  </Link>
+                    {loadingTier === plan.id ? "Redirecting to Stripe..." : "Start 14-Day Free Trial"}
+                  </button>
                 </div>
               </div>
             );
@@ -194,7 +219,7 @@ export default function PricingPage() {
           <Link href="/privacy" className="hover:text-zinc-300 transition">Privacy Policy</Link>
           <Link href="/terms" className="hover:text-zinc-300 transition">Terms of Service</Link>
         </div>
-        <p>© 2026 BrandOS · Search Visibility & Presence Platform. All rights reserved.</p>
+        <p>© 2026 AIVisibility SEO · Search Visibility & Presence Platform. All rights reserved.</p>
       </footer>
     </div>
   );

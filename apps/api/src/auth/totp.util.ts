@@ -112,7 +112,7 @@ export function generateBackupCodes(count = 6): string[] {
   for (let i = 0; i < count; i++) {
     const p1 = Math.floor(1000 + Math.random() * 9000);
     const p2 = Math.floor(1000 + Math.random() * 9000);
-    codes.push(`BRANDOS-${p1}-${p2}`);
+    codes.push(`AIVISIBILITY-${p1}-${p2}`);
   }
   return codes;
 }
@@ -121,7 +121,7 @@ export function generateBackupCodes(count = 6): string[] {
  * Builds the standard otpauth URI formatted for QR code generation
  */
 export function getOtpAuthUrl({
-  issuer = "BrandOS Eye",
+  issuer = "AIVisibility SEO",
   accountName,
   secret,
 }: {

@@ -14,7 +14,7 @@ export class MetaOAuthService {
     const appId = process.env.META_APP_ID || "";
     const appSecret = process.env.META_APP_SECRET || "";
     const redirectUri =
-      process.env.META_REDIRECT_URI || "https://brandoseye.com/api/oauth/meta/callback";
+      process.env.META_REDIRECT_URI || `${process.env.DOMAIN || "https://icandothat.online"}/api/oauth/meta/callback`;
 
     return { appId, appSecret, redirectUri };
   }

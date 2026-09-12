@@ -324,6 +324,23 @@ export default function AuditPage() {
     }
   }
 
+  async function autoRemediateAll() {
+    if (wpApplying) return;
+    setWpApplying(true);
+    setWpResult(null);
+    try {
+      const res = await apiFetch<any>("/wordpress/auto-remediate", {
+        method: "POST",
+      });
+      setWpResult(res.message || "✔ Successfully auto-remediated all audit issues on WordPress!");
+      await runWebsiteAudit();
+    } catch (err: any) {
+      setWpResult("❌ " + (err.message || "Failed to auto-remediate WordPress."));
+    } finally {
+      setWpApplying(false);
+    }
+  }
+
   const findings: Finding[] = selectedAudit?.findings ?? [];
   const passedFindings = findings.filter((f) => f.passed);
   const criticalFindings = findings.filter((f) => !f.passed && (f.severity === "CRITICAL" || f.severity === "HIGH"));
@@ -480,6 +497,34 @@ export default function AuditPage() {
                       <span className="text-slate-500 text-sm font-bold"> / 100</span>
                     </div>
                   </div>
+
+              {/* Platform Auto-Remediation Banner */}
+              {data?.wordpress?.connected && (criticalFindings.length > 0 || opportunityFindings.length > 0) && (
+                <div className="rounded-2xl border border-indigo-500/30 bg-gradient-to-r from-indigo-950/50 via-purple-950/30 to-slate-900 p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xl shadow-indigo-950/30">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
+                        <Zap className="h-4 w-4" />
+                      </span>
+                      <h4 className="text-sm font-bold text-white">Platform Auto-Remediation Available</h4>
+                      <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
+                        <CheckCircle2 className="h-3 w-3" /> AIVision SEO Plugin Active
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-300 max-w-xl">
+                      Automate deployment of optimal AI crawler directives (GPTBot, PerplexityBot, Google-Extended), generate your official /llms.txt knowledge manifest, and inject Schema.org JSON-LD in 1 automated click.
+                    </p>
+                  </div>
+                  <button
+                    onClick={autoRemediateAll}
+                    disabled={wpApplying}
+                    className="shrink-0 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-indigo-600/30 transition flex items-center gap-2 disabled:opacity-50"
+                  >
+                    <Zap className="h-4 w-4 fill-current" />
+                    {wpApplying ? "Auto-Remediating Site..." : "⚡ Auto-Fix All on WordPress"}
+                  </button>
+                </div>
+              )}
 
               {/* Bucket 1: Fixes Needed (Critical) */}
               {criticalFindings.length > 0 && (

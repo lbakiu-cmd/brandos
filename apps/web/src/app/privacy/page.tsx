@@ -1,8 +1,8 @@
 import Link from "next/link";
 
 export const metadata = {
-  title: "Privacy Policy | BrandOS Eye",
-  description: "Learn how BrandOS Eye collects, uses, protects, and handles your data and Google/Meta integration data.",
+  title: "Privacy Policy | AIVisibility SEO",
+  description: "Learn how AIVisibility SEO collects, uses, protects, and handles your data and Google/Meta integration data.",
 };
 
 export default function PrivacyPolicyPage() {
@@ -13,10 +13,10 @@ export default function PrivacyPolicyPage() {
         <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
           <Link href="/" className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 font-bold text-white shadow-lg shadow-blue-500/25">
-              B
+              A
             </div>
             <span className="text-xl font-bold tracking-tight text-white">
-              Brand<span className="text-blue-400">OS</span> Eye
+              AIVisibility <span className="text-blue-400">SEO</span>
             </span>
           </Link>
           <div className="flex items-center gap-4 text-xs font-semibold">
@@ -51,7 +51,7 @@ export default function PrivacyPolicyPage() {
           <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-8 backdrop-blur-sm">
             <h2 className="text-xl font-bold text-white mb-3">1. Introduction</h2>
             <p>
-              Welcome to <strong>BrandOS Eye</strong> (&quot;BrandOS&quot;, &quot;we&quot;, &quot;our&quot;, or &quot;us&quot;), operated at{" "}
+              Welcome to <strong>AIVisibility SEO</strong> (&quot;the Platform&quot;, &quot;we&quot;, &quot;our&quot;, or &quot;us&quot;), operated at{" "}
               <a href="https://onlinepresence.space" className="text-blue-400 underline">https://onlinepresence.space</a>. We are committed to safeguarding your privacy and ensuring you have a transparent, secure experience when using our AI search visibility, SEO audit, and omnichannel growth platform.
             </p>
             <p className="mt-3">
@@ -65,7 +65,7 @@ export default function PrivacyPolicyPage() {
               <div>
                 <h3 className="font-semibold text-white">A. Account & Profile Data:</h3>
                 <p className="text-slate-400 mt-1">
-                  When you register for BrandOS Eye, we collect your name, email address, company or business name, industry, website URL, phone number, and physical business address (for local NAP consistency analysis).
+                  When you register for AIVisibility SEO, we collect your name, email address, company or business name, industry, website URL, phone number, and physical business address (for local NAP consistency analysis).
                 </p>
               </div>
               <div>
@@ -86,7 +86,7 @@ export default function PrivacyPolicyPage() {
           <section className="rounded-2xl border border-blue-500/30 bg-blue-950/20 p-8 backdrop-blur-sm">
             <h2 className="text-xl font-bold text-blue-400 mb-3">3. Google API User Data & Limited Use Disclosure</h2>
             <p>
-              BrandOS Eye&#39;s use and transfer to any other app of information received from Google APIs will adhere to the{" "}
+              AIVisibility SEO&#39;s use and transfer to any other app of information received from Google APIs will adhere to the{" "}
               <a
                 href="https://developers.google.com/terms/api-services-user-data-policy"
                 target="_blank"
@@ -116,7 +116,7 @@ export default function PrivacyPolicyPage() {
           <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-8 backdrop-blur-sm">
             <h2 className="text-xl font-bold text-white mb-3">4. How We Use Your Information</h2>
             <ul className="list-disc pl-5 space-y-2 text-slate-300">
-              <li>To provide, personalize, and operate the BrandOS Eye platform and audit engine.</li>
+              <li>To provide, personalize, and operate the AIVisibility SEO platform and audit engine.</li>
               <li>To simulate and measure your business visibility across AI search assistants (ChatGPT, Claude, Perplexity, Gemini).</li>
               <li>To generate automated Schema.org structured data, llms.txt manifests, and review response recommendations.</li>
               <li>To send essential transactional notifications (welcome onboarding, password resets, website checkup alerts, weekly growth summaries).</li>
@@ -134,7 +134,7 @@ export default function PrivacyPolicyPage() {
               page in your dashboard.
             </p>
             <p className="mt-3">
-              You can also revoke BrandOS Eye&#39;s access to your Google account at any time via your{" "}
+              You can also revoke AIVisibility SEO&#39;s access to your Google account at any time via your{" "}
               <a
                 href="https://myaccount.google.com/permissions"
                 target="_blank"
@@ -159,7 +159,7 @@ export default function PrivacyPolicyPage() {
               If you have any questions, concerns, or requests regarding this Privacy Policy or your personal information, please contact our Data Protection Team at:
             </p>
             <div className="mt-4 rounded-xl border border-slate-700 bg-slate-950 p-4 font-mono text-xs text-blue-300">
-              <p><strong>BrandOS Eye Privacy & Security</strong></p>
+              <p><strong>AIVisibility SEO Privacy & Security</strong></p>
               <p>Email: <a href="mailto:support@onlinepresence.space" className="underline text-white">support@onlinepresence.space</a></p>
               <p>Website: <a href="https://onlinepresence.space" className="underline text-white">https://onlinepresence.space</a></p>
             </div>
@@ -175,7 +175,7 @@ export default function PrivacyPolicyPage() {
           <Link href="/privacy" className="text-blue-400 font-semibold">Privacy Policy</Link>
           <Link href="/terms" className="hover:text-slate-300">Terms of Service</Link>
         </div>
-        <p>© 2026 BrandOS Eye · AI Visibility Operating System for Small Business. All rights reserved.</p>
+        <p>© 2026 AIVisibility SEO · AI Visibility Operating System for Small Business. All rights reserved.</p>
       </footer>
     </div>
   );

@@ -59,9 +59,9 @@ export class BusinessService {
         data: {
           name: bizName,
           industry: "General Business",
-          city: "Austin, TX",
-          website: `https://${userEmail.split("@")[1] || "example.com"}`,
-          phone: "(512) 555-0100",
+          city: null,
+          website: null,
+          phone: null,
           email: userEmail,
         },
       });
@@ -274,30 +274,33 @@ export class BusinessService {
       email?: string;
     },
   ) {
-    let membership = await prisma.membership.findFirst({
-      where: { userId },
-      orderBy: { createdAt: "desc" },
-    });
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    let membership = null;
+    if (user?.activeBusinessId) {
+      membership = await prisma.membership.findFirst({
+        where: { userId, businessId: user.activeBusinessId },
+      });
+    }
+    if (!membership) {
+      membership = await prisma.membership.findFirst({
+        where: { userId },
+        orderBy: { createdAt: "desc" },
+      });
+    }
 
     let businessId: string;
 
     if (!membership) {
-      let business = await prisma.business.findFirst({
-        orderBy: { createdAt: "asc" },
+      const business = await prisma.business.create({
+        data: {
+          name: data.name?.trim() || "Your Business",
+          city: data.city?.trim() || null,
+          industry: data.industry?.trim() || "Professional Services",
+          website: data.website?.trim() || null,
+          phone: data.phone?.trim() || null,
+          email: data.email?.trim() || null,
+        },
       });
-
-      if (!business) {
-        business = await prisma.business.create({
-          data: {
-            name: data.name?.trim() || "Your Business",
-            city: data.city?.trim() || null,
-            industry: data.industry?.trim() || "Professional Services",
-            website: data.website?.trim() || null,
-            phone: data.phone?.trim() || null,
-            email: data.email?.trim() || null,
-          },
-        });
-      }
 
       await prisma.membership.create({
         data: {
@@ -305,6 +308,11 @@ export class BusinessService {
           businessId: business.id,
           role: Role.OWNER,
         },
+      }).catch(() => {});
+
+      await prisma.user.update({
+        where: { id: userId },
+        data: { activeBusinessId: business.id },
       }).catch(() => {});
 
       businessId = business.id;

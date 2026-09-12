@@ -1,6 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const zlib = require("zlib");
+const crypto = require("crypto");
 
 // Simple pure Node.js ZIP archive creator compliant with ZIP spec (APPNOTE.TXT)
 // storing UNIX forward slashes in header paths
@@ -139,9 +140,109 @@ function getPluginVersion(pluginDir) {
   return match ? match[1].trim() : "1.0.0";
 }
 
+function extractChangelogForVersion(readmePath, version) {
+  if (!fs.existsSync(readmePath)) return [];
+  const content = fs.readFileSync(readmePath, "utf8");
+  const escapedV = version.replace(/\./g, "\\.");
+  const regex = new RegExp(`=\\s*${escapedV}\\s*=\\s*([\\s\\S]*?)(?=\\n=\\s*[0-9.]+\\s*=|\\n==|$)`, "i");
+  const match = content.match(regex);
+  if (!match) return [];
+
+  return match[1]
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith("*"))
+    .map((line) => line.replace(/^\*\s*/, ""));
+}
+
+function updateVersionRegistry(version, zipBuffer, files) {
+  const versionsFilePath = path.resolve(__dirname, "versions.json");
+  const webPublicVersionsPath = path.resolve(__dirname, "..", "apps", "web", "public", "versions.json");
+  const readmePath = path.resolve(__dirname, "aivision-seo", "readme.txt");
+
+  let registry = {
+    latest: version,
+    name: "aivision-seo",
+    description: "AIVision SEO WordPress Plugin for Search Engines (SEO), Answer Engines (AEO), and Generative AI (GEO)",
+    versions: [],
+  };
+
+  if (fs.existsSync(versionsFilePath)) {
+    try {
+      registry = JSON.parse(fs.readFileSync(versionsFilePath, "utf8"));
+    } catch (e) {
+      console.warn("Could not parse existing versions.json, initializing fresh registry.");
+    }
+  }
+
+  const sha256 = crypto.createHash("sha256").update(zipBuffer).digest("hex");
+  const sizeBytes = zipBuffer.length;
+  const sizeFormatted = `${(sizeBytes / 1024).toFixed(1)} KB`;
+  const filename = `aivision-seo-v${version}.zip`;
+  const extractedChangelog = extractChangelogForVersion(readmePath, version);
+
+  const newEntry = {
+    version,
+    releasedAt: new Date().toISOString(),
+    filename,
+    size: sizeBytes,
+    sizeFormatted,
+    sha256,
+    fileCount: files.length,
+    status: "stable",
+    minPhp: "8.0",
+    minWp: "6.0",
+    changelog: extractedChangelog.length > 0 ? extractedChangelog : [
+      `Release of AIVision SEO v${version}`
+    ],
+  };
+
+  // Mark all older versions as archived
+  if (Array.isArray(registry.versions)) {
+    registry.versions = registry.versions.map((v) => {
+      if (v.version !== version) {
+        return { ...v, status: v.status === "deprecated" ? "deprecated" : "archived" };
+      }
+      return v;
+    });
+
+    const existingIndex = registry.versions.findIndex((v) => v.version === version);
+    if (existingIndex >= 0) {
+      // Retain previous changelog if existing has richer notes
+      const existing = registry.versions[existingIndex];
+      registry.versions[existingIndex] = {
+        ...existing,
+        ...newEntry,
+        changelog: existing.changelog && existing.changelog.length >= newEntry.changelog.length
+          ? existing.changelog
+          : newEntry.changelog,
+      };
+    } else {
+      registry.versions.unshift(newEntry);
+    }
+  } else {
+    registry.versions = [newEntry];
+  }
+
+  registry.latest = version;
+  registry.updatedAt = new Date().toISOString();
+
+  const formattedJson = JSON.stringify(registry, null, 2);
+  fs.writeFileSync(versionsFilePath, formattedJson);
+  console.log(`📋 Updated version registry: ${versionsFilePath}`);
+
+  if (fs.existsSync(path.dirname(webPublicVersionsPath))) {
+    fs.writeFileSync(webPublicVersionsPath, formattedJson);
+    console.log(`📋 Synchronized version registry to web public: ${webPublicVersionsPath}`);
+  }
+
+  return newEntry;
+}
+
 function buildPluginZip() {
   const pluginDir = path.resolve(__dirname, "aivision-seo");
   const version = getPluginVersion(pluginDir);
+  const versionedFilename = `aivision-seo-v${version}.zip`;
   console.log(`\n📦 Building AIVision SEO Plugin v${version}...`);
 
   const files = collectFiles(pluginDir);
@@ -157,12 +258,12 @@ function buildPluginZip() {
   const zipBuffer = zip.toBuffer();
 
   const outPaths = [
+    path.resolve(__dirname, versionedFilename),
     path.resolve(__dirname, "aivision-seo.zip"),
-    path.resolve(__dirname, `aivision-seo-v${version}.zip`),
+    path.resolve(__dirname, "aivision-seo", versionedFilename),
     path.resolve(__dirname, "aivision-seo", "aivision-seo.zip"),
-    path.resolve(__dirname, "aivision-seo", `aivision-seo-v${version}.zip`),
+    path.resolve(__dirname, "..", "apps", "web", "public", versionedFilename),
     path.resolve(__dirname, "..", "apps", "web", "public", "aivision-seo.zip"),
-    path.resolve(__dirname, "..", "apps", "web", "public", `aivision-seo-v${version}.zip`),
   ];
 
   console.log(`\n💾 Writing distribution packages:`);
@@ -172,7 +273,13 @@ function buildPluginZip() {
     console.log(`  Wrote ${zipBuffer.length} bytes to ${outPath}`);
   }
 
-  console.log(`\n✅ AIVision SEO v${version} packaged successfully!\n`);
+  // Update version tracking registry
+  const meta = updateVersionRegistry(version, zipBuffer, files);
+
+  console.log(`\n✅ AIVision SEO v${version} packaged successfully!`);
+  console.log(`   Archive: ${versionedFilename} (${meta.sizeFormatted})`);
+  console.log(`   SHA256:  ${meta.sha256}`);
+  console.log(`   Files:   ${meta.fileCount} items\n`);
 }
 
 buildPluginZip();

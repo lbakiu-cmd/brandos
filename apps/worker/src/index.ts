@@ -6,6 +6,7 @@ dotenv.config({ path: path.resolve(__dirname, "../../../.env") });
 import { Worker } from "bullmq";
 import { runWebsiteAudit, runGbpAudit, runSocialAudit } from "./audit-runner";
 import { runAiVisibilityReport } from "./ai-visibility-runner";
+import { runWordpressSync, runWordpressAutopilotJob } from "./wordpress-runner";
 
 function redisConnection() {
   const url = process.env.REDIS_URL || "redis://localhost:6379";
@@ -33,6 +34,16 @@ const aiWorker = new Worker("ai-visibility", async (job) => {
   await runAiVisibilityReport(String(job.data.reportId), job.data.query);
 }, { connection: redisConnection() });
 
+const wpSyncWorker = new Worker("wordpress-sync", async (job) => {
+  console.log("⚡ wordpress-sync job:", job.id);
+  await runWordpressSync(String(job.data.businessId));
+}, { connection: redisConnection() });
+
+const wpAutopilotWorker = new Worker("wordpress-autopilot", async (job) => {
+  console.log("🚀 wordpress-autopilot job:", job.id);
+  await runWordpressAutopilotJob(String(job.data.businessId));
+}, { connection: redisConnection() });
+
 auditWorker.on("failed", (job, err) => {
   console.error("❌ website audit failed:", job?.id, err.message);
 });
@@ -45,5 +56,11 @@ socialWorker.on("failed", (job, err) => {
 aiWorker.on("failed", (job, err) => {
   console.error("❌ ai-visibility failed:", job?.id, err.message);
 });
+wpSyncWorker.on("failed", (job, err) => {
+  console.error("❌ wordpress-sync failed:", job?.id, err.message);
+});
+wpAutopilotWorker.on("failed", (job, err) => {
+  console.error("❌ wordpress-autopilot failed:", job?.id, err.message);
+});
 
-console.log("⚙️ BrandOS Worker listening on: audit, gbp-audit, social-audit, ai-visibility");
+console.log("⚙️ BrandOS Worker listening on: audit, gbp-audit, social-audit, ai-visibility, wordpress-sync, wordpress-autopilot");

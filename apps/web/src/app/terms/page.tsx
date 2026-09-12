@@ -1,8 +1,8 @@
 import Link from "next/link";
 
 export const metadata = {
-  title: "Terms of Service | BrandOS Eye",
-  description: "Read the Terms and Conditions for using BrandOS Eye's AI search visibility and audit platform.",
+  title: "Terms of Service | AIVisibility SEO",
+  description: "Read the Terms and Conditions for using AIVisibility SEO's AI search visibility and audit platform.",
 };
 
 export default function TermsOfServicePage() {
@@ -13,10 +13,10 @@ export default function TermsOfServicePage() {
         <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
           <Link href="/" className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 font-bold text-white shadow-lg shadow-blue-500/25">
-              B
+              A
             </div>
             <span className="text-xl font-bold tracking-tight text-white">
-              Brand<span className="text-blue-400">OS</span> Eye
+              AIVisibility <span className="text-blue-400">SEO</span>
             </span>
           </Link>
           <div className="flex items-center gap-4 text-xs font-semibold">
@@ -51,7 +51,7 @@ export default function TermsOfServicePage() {
           <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-8 backdrop-blur-sm">
             <h2 className="text-xl font-bold text-white mb-3">1. Agreement to Terms</h2>
             <p>
-              By accessing or using <strong>BrandOS Eye</strong> (&quot;the Platform&quot;), available at{" "}
+              By accessing or using <strong>AIVisibility SEO</strong> (&quot;the Platform&quot;), available at{" "}
               <a href="https://onlinepresence.space" className="text-blue-400 underline">https://onlinepresence.space</a>, you agree to be bound by these Terms of Service (&quot;Terms&quot;) and our Privacy Policy. If you do not agree to these Terms, please do not use our Platform.
             </p>
           </section>
@@ -59,7 +59,7 @@ export default function TermsOfServicePage() {
           <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-8 backdrop-blur-sm">
             <h2 className="text-xl font-bold text-white mb-3">2. Description of Services</h2>
             <p>
-              BrandOS Eye provides small businesses, agencies, and marketers with AI search engine optimization (AIO/GEO) audits, Google Search Console & Google Analytics telemetry, Google Business Profile local rankings tracking, Schema.org code generation, automated WordPress integration, and omnichannel visibility diagnostics.
+              AIVisibility SEO provides small businesses, agencies, and marketers with AI search engine optimization (AIO/GEO) audits, Google Search Console & Google Analytics telemetry, Google Business Profile local rankings tracking, Schema.org code generation, automated WordPress integration, and omnichannel visibility diagnostics.
             </p>
           </section>
 
@@ -75,14 +75,14 @@ export default function TermsOfServicePage() {
           <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-8 backdrop-blur-sm">
             <h2 className="text-xl font-bold text-white mb-3">4. Third-Party Integrations & APIs</h2>
             <p>
-              Our platform allows you to connect third-party services including Google (Search Console, Analytics 4, Business Profile) and Meta. By connecting these accounts, you grant BrandOS Eye the authorized permissions necessary to fetch and display your marketing metrics. You can revoke this access at any time through your integration settings or third-party provider settings.
+              Our platform allows you to connect third-party services including Google (Search Console, Analytics 4, Business Profile) and Meta. By connecting these accounts, you grant AIVisibility SEO the authorized permissions necessary to fetch and display your marketing metrics. You can revoke this access at any time through your integration settings or third-party provider settings.
             </p>
           </section>
 
           <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-8 backdrop-blur-sm">
             <h2 className="text-xl font-bold text-white mb-3">5. Intellectual Property Rights</h2>
             <p>
-              All code, designs, algorithms, user interfaces, trademarks, and documentation provided on BrandOS Eye are the exclusive property of BrandOS Eye and its licensors. You are granted a non-exclusive, non-transferable, revocable license to access and use the platform for your legitimate business operations.
+              All code, designs, algorithms, user interfaces, trademarks, and documentation provided on AIVisibility SEO are the exclusive property of AIVisibility SEO and its licensors. You are granted a non-exclusive, non-transferable, revocable license to access and use the platform for your legitimate business operations.
             </p>
           </section>
 
@@ -98,7 +98,7 @@ export default function TermsOfServicePage() {
           <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-8 backdrop-blur-sm">
             <h2 className="text-xl font-bold text-white mb-3">7. Limitation of Liability</h2>
             <p>
-              BrandOS Eye provides SEO recommendations, AI visibility assessments, and code snippets on an &quot;as-is&quot; and &quot;as-available&quot; basis. While our tools adhere to modern search engine guidelines and Schema.org standards, we do not guarantee specific organic ranking positions or traffic volumes, as third-party search engine algorithms are subject to autonomous change.
+              AIVisibility SEO provides SEO recommendations, AI visibility assessments, and code snippets on an &quot;as-is&quot; and &quot;as-available&quot; basis. While our tools adhere to modern search engine guidelines and Schema.org standards, we do not guarantee specific organic ranking positions or traffic volumes, as third-party search engine algorithms are subject to autonomous change.
             </p>
           </section>
 
@@ -115,7 +115,7 @@ export default function TermsOfServicePage() {
               If you have any questions regarding these Terms of Service, please contact our legal and support team:
             </p>
             <div className="mt-4 rounded-xl border border-slate-700 bg-slate-950 p-4 font-mono text-xs text-blue-300">
-              <p><strong>BrandOS Eye Legal & Support</strong></p>
+              <p><strong>AIVisibility SEO Legal & Support</strong></p>
               <p>Email: <a href="mailto:support@onlinepresence.space" className="underline text-white">support@onlinepresence.space</a></p>
               <p>Website: <a href="https://onlinepresence.space" className="underline text-white">https://onlinepresence.space</a></p>
             </div>
@@ -131,7 +131,7 @@ export default function TermsOfServicePage() {
           <Link href="/privacy" className="hover:text-slate-300">Privacy Policy</Link>
           <Link href="/terms" className="text-blue-400 font-semibold">Terms of Service</Link>
         </div>
-        <p>© 2026 BrandOS Eye · AI Visibility Operating System for Small Business. All rights reserved.</p>
+        <p>© 2026 AIVisibility SEO · AI Visibility Operating System for Small Business. All rights reserved.</p>
       </footer>
     </div>
   );

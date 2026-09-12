@@ -117,12 +117,12 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       {/* Brand Header */}
       <div className="flex items-center justify-between px-2 mb-6">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-zinc-100 text-zinc-950 font-black text-base shadow-sm">
-            B
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-zinc-100 text-zinc-950 font-black text-xs shadow-sm">
+            AI
           </div>
           <div>
             <span className="text-base font-bold tracking-tight text-white flex items-center gap-1.5">
-              BrandOS Eye
+              AIVisibility SEO
             </span>
             <p className="text-xs text-zinc-400 font-medium">Search Visibility Platform</p>
           </div>

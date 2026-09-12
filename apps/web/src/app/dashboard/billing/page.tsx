@@ -23,6 +23,7 @@ type BillingStatus = {
   tier: string;
   status: string;
   currentPeriodEnd: string;
+  hasStripeCustomer?: boolean;
   plan: Plan;
   allPlans: Plan[];
 };
@@ -31,6 +32,8 @@ export default function BillingPage() {
   const [data, setData] = useState<BillingStatus | null>(null);
   const [billingCycle, setBillingCycle] = useState<"MONTHLY" | "ANNUAL">("MONTHLY");
   const [upgradingTier, setUpgradingTier] = useState<string | null>(null);
+  const [openingPortal, setOpeningPortal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
@@ -38,33 +41,73 @@ export default function BillingPage() {
       const res = await apiFetch<BillingStatus>("/billing/status");
       setData(res);
     } catch (err) {
-      console.error(err);
+      console.error("Failed to load billing status:", err);
     }
   }, []);
 
   useEffect(() => {
     refresh();
+
+    // Check for success or canceled from Stripe redirect query params
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("success") === "true") {
+        setSuccessMessage("🎉 Subscription activated successfully! Welcome to your new plan.");
+      } else if (params.get("canceled") === "true") {
+        setErrorMessage("Checkout was canceled. Your plan remains unchanged.");
+      }
+    }
   }, [refresh]);
 
   async function handleUpgrade(targetTier: string) {
     setUpgradingTier(targetTier);
+    setErrorMessage(null);
     setSuccessMessage(null);
     try {
-      await apiFetch("/billing/upgrade", {
+      const res = await apiFetch<{ url?: string }>("/billing/create-checkout-session", {
         method: "POST",
-        body: JSON.stringify({ tier: targetTier }),
+        body: JSON.stringify({
+          tier: targetTier,
+          cycle: billingCycle.toLowerCase(),
+          redirect: false,
+        }),
       });
-      setSuccessMessage(`🎉 Plan successfully updated to ${targetTier}!`);
-      await refresh();
-    } catch (err) {
-      console.error(err);
+      if (res?.url) {
+        window.location.href = res.url;
+        return;
+      }
+      throw new Error("Unable to initialize Stripe checkout session.");
+    } catch (err: any) {
+      console.error("Checkout creation failed:", err);
+      setErrorMessage(err.message || "Failed to start checkout. Please try again or contact support.");
     } finally {
       setUpgradingTier(null);
     }
   }
 
+  async function handleOpenPortal() {
+    setOpeningPortal(true);
+    setErrorMessage(null);
+    try {
+      const res = await apiFetch<{ url?: string }>("/billing/create-portal-session", {
+        method: "POST",
+      });
+      if (res?.url) {
+        window.location.href = res.url;
+        return;
+      }
+      throw new Error("Unable to open customer billing portal.");
+    } catch (err: any) {
+      console.error("Billing portal error:", err);
+      setErrorMessage(err.message || "Failed to load billing portal. Ensure you have an active subscription.");
+    } finally {
+      setOpeningPortal(false);
+    }
+  }
+
   const currentTier = data?.tier || "FREE";
   const plans = data?.allPlans || [];
+  const hasPaidPlan = currentTier !== "FREE" || data?.hasStripeCustomer;
 
   return (
     <main className="min-h-screen bg-slate-950 p-8 text-slate-100">
@@ -83,7 +126,19 @@ export default function BillingPage() {
         </div>
 
         <div className="flex items-center gap-3">
-          <Link href="/dashboard" className="rounded-xl border border-slate-800 bg-slate-900 px-4 py-2.5 text-xs font-semibold text-slate-300 hover:bg-slate-800">
+          {hasPaidPlan && (
+            <button
+              onClick={handleOpenPortal}
+              disabled={openingPortal}
+              className="rounded-xl border border-blue-500/30 bg-blue-600/20 px-4 py-2 text-xs font-semibold text-blue-300 hover:bg-blue-600/30 transition disabled:opacity-50"
+            >
+              {openingPortal ? "Loading Portal…" : "Manage Billing & Invoices ↗"}
+            </button>
+          )}
+          <Link
+            href="/dashboard"
+            className="rounded-xl border border-slate-800 bg-slate-900 px-4 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-800"
+          >
             ← Dashboard
           </Link>
         </div>
@@ -92,6 +147,12 @@ export default function BillingPage() {
       {successMessage && (
         <div className="mb-8 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm font-semibold text-emerald-400">
           {successMessage}
+        </div>
+      )}
+
+      {errorMessage && (
+        <div className="mb-8 rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm font-semibold text-rose-400">
+          {errorMessage}
         </div>
       )}
 
@@ -106,11 +167,13 @@ export default function BillingPage() {
 
           <div className="text-right">
             <span className="rounded-full bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 text-xs font-bold text-emerald-400">
-              Active Status
+              {data?.status ? `${data.status.toUpperCase()} STATUS` : "ACTIVE STATUS"}
             </span>
-            <p className="mt-2 text-xs text-slate-500">
-              Renewal Date: {new Date(data?.currentPeriodEnd || Date.now()).toLocaleDateString()}
-            </p>
+            {currentTier !== "FREE" && (
+              <p className="mt-2 text-xs text-slate-500">
+                Renewal Date: {new Date(data?.currentPeriodEnd || Date.now()).toLocaleDateString()}
+              </p>
+            )}
           </div>
         </div>
 
@@ -210,7 +273,7 @@ export default function BillingPage() {
                       disabled={upgradingTier === p.id}
                       className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 py-3 text-xs font-bold text-white shadow-lg shadow-blue-600/30 hover:from-blue-500 hover:to-indigo-500 transition disabled:opacity-50"
                     >
-                      {upgradingTier === p.id ? "Upgrading…" : `Switch to ${p.name}`}
+                      {upgradingTier === p.id ? "Connecting to Checkout…" : `Subscribe to ${p.name}`}
                     </button>
                   )}
                 </div>

@@ -275,8 +275,8 @@ async function run() {
 
   // 4. Create site.webmanifest
   const webmanifest = {
-    name: 'BrandOS Eye',
-    short_name: 'BrandOS',
+    name: 'AIVisibility SEO',
+    short_name: 'AIVisibility SEO',
     description: 'AI Visibility & Omnichannel SEO Engine for Small Business',
     icons: [
       {

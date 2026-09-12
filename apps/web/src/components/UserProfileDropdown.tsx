@@ -146,6 +146,8 @@ export function UserProfileDropdown() {
 
   const handleLogout = async () => {
     try {
+      localStorage.removeItem("brandos_active_business_id");
+      document.cookie = "brandos_active_business_id=; path=/; max-age=0; SameSite=Lax";
       await authApi.logout().catch(() => {});
     } catch {
       // Ignore

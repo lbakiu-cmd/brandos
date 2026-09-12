@@ -375,7 +375,7 @@ export function BusinessSwitcher() {
               <div>
                 <h3 className="text-base font-bold text-white">Create New Business Workspace</h3>
                 <p className="text-xs text-zinc-400">
-                  Add another business profile or client website to your BrandOS account.
+                  Add another business profile or client website to your AIVisibility SEO account.
                 </p>
               </div>
             </div>
