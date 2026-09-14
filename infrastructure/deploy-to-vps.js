@@ -177,7 +177,14 @@ cp /opt/brandos/.env /opt/brandos/apps/api/.env
     console.log("\n🏗️ Building production artifacts (NestJS API & Next.js Web App)...");
     await runRemoteCommand(
       conn,
-      "cd /opt/brandos && rm -rf apps/web/.next/cache && pnpm build --force"
+      `cd /opt/brandos
+       rm -rf apps/web/.next/cache
+       # Clear stale incremental TS build outputs/caches so a tsconfig change (e.g. rootDir)
+       # can never cause tsc to silently skip emitting files against an old cache (see incident
+       # where apps/api/dist survived a rootDir change and app.controller.js was never re-emitted).
+       find apps packages -maxdepth 2 -type d -name dist -not -path "*/node_modules/*" -exec rm -rf {} +
+       find apps packages -maxdepth 2 -name "*.tsbuildinfo" -not -path "*/node_modules/*" -delete
+       pnpm build --force`
     );
 
     // Step 12: Install PM2 process manager
