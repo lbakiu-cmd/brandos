@@ -43,7 +43,7 @@ export class IntegrationsController {
     const biz = await this.business.get(req.user.id, req.user.activeBusinessId);
     const token = await this.googleOAuth.getFreshAccessToken(biz.id, IntegrationProvider.GOOGLE_ANALYTICS_4);
     if (!token) throw new BadRequestException("Google Analytics is not connected.");
-    const metrics = await this.googleOAuth.fetchGa4Metrics(token, biz.website || undefined, biz.name, dayCount);
+    const metrics = await this.googleOAuth.fetchGa4Metrics(token, biz.website || biz.wordpressUrl || undefined, biz.name, dayCount);
     if (!metrics) throw new BadRequestException("Google Analytics data is unavailable for this business and date range.");
     return metrics;
   }
@@ -58,7 +58,7 @@ export class IntegrationsController {
     const biz = await this.business.get(req.user.id, req.user.activeBusinessId);
     const token = await this.googleOAuth.getFreshAccessToken(biz.id, IntegrationProvider.GOOGLE_BUSINESS_PROFILE);
     if (!token) throw new BadRequestException("Google Business Profile is not connected.");
-    const metrics = await this.googleOAuth.fetchGbpMetrics(token, biz.name, biz.website || undefined, biz.city || undefined, dayCount, biz.id);
+    const metrics = await this.googleOAuth.fetchGbpMetrics(token, biz.name, biz.website || biz.wordpressUrl || undefined, biz.city || undefined, dayCount, biz.id);
     if (!metrics) throw new BadRequestException("Google Business Profile data is unavailable for this business and date range.");
     return metrics;
   }

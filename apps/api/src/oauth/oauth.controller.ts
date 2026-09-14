@@ -268,7 +268,7 @@ export class OAuthController {
       }
 
       const business = await prisma.business.findUnique({ where: { id: businessId } });
-      const siteUrl = business?.website || targetOrigin;
+      const siteUrl = business?.website || business?.wordpressUrl || targetOrigin;
 
       const redirectUri =
         process.env.GOOGLE_AUTH_REDIRECT_URI ||
