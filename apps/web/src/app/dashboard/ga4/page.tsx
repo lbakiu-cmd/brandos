@@ -30,6 +30,9 @@ export default function Ga4Page() {
   const [business, setBusiness] = useState<any>(null);
   const { data: ga4Data, error, loading } = useGa4Metrics(timeRange);
   const [isConnected, setIsConnected] = useState(false);
+  const [properties, setProperties] = useState<Array<{ property: string; displayName: string; accountName: string }>>([]);
+  const [currentPropertyId, setCurrentPropertyId] = useState<string | null>(null);
+  const [switchingProperty, setSwitchingProperty] = useState(false);
 
   useEffect(() => {
     async function loadData() {
@@ -52,6 +55,39 @@ export default function Ga4Page() {
     }
     loadData();
   }, []);
+
+  useEffect(() => {
+    if (!isConnected) return;
+    apiFetch<{ properties: typeof properties; currentPropertyId: string | null }>("/integrations/google/ga4-properties")
+      .then((res) => {
+        if (res?.properties) setProperties(res.properties);
+        setCurrentPropertyId(res?.currentPropertyId ?? null);
+      })
+      .catch(() => {});
+  }, [isConnected]);
+
+  const handleSelectProperty = async (propertyId: string) => {
+    if (!propertyId || propertyId === currentPropertyId) return;
+    const chosen = properties.find((p) => p.property === propertyId);
+    const confirmed = window.confirm(
+      `Switch this business's Google Analytics data source to "${chosen?.displayName || propertyId}"?\n\n` +
+      `This changes which property's traffic data is shown across the whole dashboard for ${business?.name || "this business"}. ` +
+      `Only do this if you're sure -- if you picked the wrong one by accident, you can always switch back.`
+    );
+    if (!confirmed) return;
+
+    setSwitchingProperty(true);
+    try {
+      await apiFetch("/integrations/google/select-ga4-property", {
+        method: "POST",
+        body: JSON.stringify({ propertyId }),
+      });
+      window.location.reload();
+    } catch (err) {
+      console.error("Failed to switch GA4 property:", err);
+      setSwitchingProperty(false);
+    }
+  };
 
   const bName = business?.name || "Your Business";
 
@@ -97,6 +133,26 @@ export default function Ga4Page() {
           <p className="text-xs text-slate-400 mt-1">
             Tracking visitors arriving from ChatGPT, Gemini, Perplexity and social channels for <strong className="text-white">{bName}</strong> ({getTimeRangeLabel(timeRange)})
           </p>
+          {isConnected && properties.length > 1 && (
+            <div className="mt-2 flex items-center gap-2">
+              <label htmlFor="ga4-property-select" className="text-[11px] text-slate-500">GA4 Property:</label>
+              <select
+                id="ga4-property-select"
+                value={currentPropertyId || ""}
+                disabled={switchingProperty}
+                onChange={(e) => handleSelectProperty(e.target.value)}
+                className="rounded-lg bg-slate-900 border border-slate-800 px-2 py-1 text-[11px] text-slate-200 focus:outline-none focus:border-amber-500 disabled:opacity-50"
+              >
+                {!currentPropertyId && <option value="">Select a property…</option>}
+                {properties.map((p) => (
+                  <option key={p.property} value={p.property}>
+                    {p.displayName} {p.accountName ? `(${p.accountName})` : ""}
+                  </option>
+                ))}
+              </select>
+              <span className="text-[10px] text-slate-500">{properties.length} properties found on this Google account</span>
+            </div>
+          )}
         </div>
 
         <TimeRangeFilter

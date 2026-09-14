@@ -187,6 +187,11 @@ model Business {
   wordpressSiteName      String?
   wordpressTelemetry     Json?
 
+  // Explicit Google property/location overrides -- set when a user picks one
+  // manually from multiple candidates instead of relying on domain/name matching.
+  ga4PropertyId   String?
+  gbpLocationName String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

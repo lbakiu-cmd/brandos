@@ -346,54 +346,60 @@ export class GoogleOAuthService {
   /**
    * Fetch live GA4 sessions and AI referrals filtered by business domain / name
    */
-  async fetchGa4Metrics(accessToken: string, targetDomain?: string, targetBusinessName?: string, days = 28) {
+  async fetchGa4Metrics(accessToken: string, targetDomain?: string, targetBusinessName?: string, days = 28, explicitPropertyId?: string) {
     if (!Number.isInteger(days) || days < 0 || days > 365) return null;
     try {
-      const accountRes = await fetch(
-        "https://analyticsadmin.googleapis.com/v1beta/accountSummaries",
-        {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        }
-      );
-
-      if (!accountRes.ok) {
-        this.logger.warn(`GA4 accountSummaries request failed: HTTP ${accountRes.status} ${await accountRes.text().catch(() => "")}`);
-        return null;
-      }
-      const accountData = await accountRes.json();
-      const accounts = accountData.accountSummaries || [];
-
-      // Find matching property based on declared domain or business name
       let matchedProperty: string | null = null;
-      const cleanDomain = (targetDomain || "").replace(/^https?:\/\//, "").replace(/\/.*$/, "").toLowerCase();
-      const cleanName = (targetBusinessName || "").toLowerCase().trim();
 
-      for (const acc of accounts) {
-        const properties = acc.propertySummaries || [];
-        for (const p of properties) {
-          const propName = (p.displayName || "").toLowerCase();
-          if (
-            (cleanDomain && propName.includes(cleanDomain)) ||
-            (cleanName && propName.includes(cleanName))
-          ) {
-            matchedProperty = p.property;
-            break;
+      if (explicitPropertyId) {
+        // User explicitly picked a property from the list -- skip auto-matching entirely.
+        matchedProperty = explicitPropertyId.startsWith("properties/") ? explicitPropertyId : `properties/${explicitPropertyId}`;
+      } else {
+        const accountRes = await fetch(
+          "https://analyticsadmin.googleapis.com/v1beta/accountSummaries",
+          {
+            headers: { Authorization: `Bearer ${accessToken}` },
           }
-        }
-        if (matchedProperty) break;
-      }
-
-      // Fallback to first property if no exact domain match found
-      if (!matchedProperty && !cleanDomain && !cleanName && accounts.length === 1 && accounts[0]?.propertySummaries?.length === 1) {
-        matchedProperty = accounts[0].propertySummaries[0].property;
-      }
-
-      if (!matchedProperty) {
-        const allPropertyNames = accounts.flatMap((a: any) => (a.propertySummaries || []).map((p: any) => p.displayName));
-        this.logger.warn(
-          `No GA4 property matched domain="${cleanDomain}" name="${cleanName}". Available properties on this Google account: ${allPropertyNames.length ? allPropertyNames.join(", ") : "(none -- account has no GA4 properties visible to this token)"}`
         );
-        return null;
+
+        if (!accountRes.ok) {
+          this.logger.warn(`GA4 accountSummaries request failed: HTTP ${accountRes.status} ${await accountRes.text().catch(() => "")}`);
+          return null;
+        }
+        const accountData = await accountRes.json();
+        const accounts = accountData.accountSummaries || [];
+
+        // Find matching property based on declared domain or business name
+        const cleanDomain = (targetDomain || "").replace(/^https?:\/\//, "").replace(/\/.*$/, "").toLowerCase();
+        const cleanName = (targetBusinessName || "").toLowerCase().trim();
+
+        for (const acc of accounts) {
+          const properties = acc.propertySummaries || [];
+          for (const p of properties) {
+            const propName = (p.displayName || "").toLowerCase();
+            if (
+              (cleanDomain && propName.includes(cleanDomain)) ||
+              (cleanName && propName.includes(cleanName))
+            ) {
+              matchedProperty = p.property;
+              break;
+            }
+          }
+          if (matchedProperty) break;
+        }
+
+        // Fallback to first property if no exact domain match found
+        if (!matchedProperty && !cleanDomain && !cleanName && accounts.length === 1 && accounts[0]?.propertySummaries?.length === 1) {
+          matchedProperty = accounts[0].propertySummaries[0].property;
+        }
+
+        if (!matchedProperty) {
+          const allPropertyNames = accounts.flatMap((a: any) => (a.propertySummaries || []).map((p: any) => p.displayName));
+          this.logger.warn(
+            `No GA4 property matched domain="${cleanDomain}" name="${cleanName}". Available properties on this Google account: ${allPropertyNames.length ? allPropertyNames.join(", ") : "(none -- account has no GA4 properties visible to this token)"}`
+          );
+          return null;
+        }
       }
 
       const propertyId = matchedProperty.replace("properties/", "");
@@ -466,6 +472,36 @@ export class GoogleOAuthService {
   }
 
   /**
+   * List every GA4 property visible to this token, across every account --
+   * used to let a user pick the right one when auto-matching can't be trusted
+   * (e.g. an agency's single Google account holding many clients' properties).
+   */
+  async getGa4PropertiesList(accessToken: string): Promise<Array<{ property: string; displayName: string; accountName: string }>> {
+    try {
+      const res = await fetch("https://analyticsadmin.googleapis.com/v1beta/accountSummaries", {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (!res.ok) return [];
+      const data = await res.json();
+      const accounts = data.accountSummaries || [];
+      const list: Array<{ property: string; displayName: string; accountName: string }> = [];
+      for (const acc of accounts) {
+        for (const p of acc.propertySummaries || []) {
+          list.push({
+            property: p.property,
+            displayName: p.displayName || p.property,
+            accountName: acc.displayName || "",
+          });
+        }
+      }
+      return list;
+    } catch (err: any) {
+      this.logger.warn(`Failed to list GA4 properties: ${err.message}`);
+      return [];
+    }
+  }
+
+  /**
    * Fetch live Google Business Profile reviews and performance filtered by business name / domain
    */
   async fetchGbpMetrics(
@@ -474,7 +510,8 @@ export class GoogleOAuthService {
     targetDomain?: string,
     targetCity?: string,
     days = 28,
-    businessId?: string
+    businessId?: string,
+    explicitLocationName?: string
   ) {
     let averageRating: number | null = null;
     let totalReviews: number | null = null;
@@ -486,69 +523,75 @@ export class GoogleOAuthService {
       }
     }
     try {
-      const accountsRes = await fetch(
-        "https://mybusinessaccountmanagement.googleapis.com/v1/accounts",
-        {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        }
-      );
-
-      if (!accountsRes.ok) {
-        this.logger.warn(`GBP accounts request failed: HTTP ${accountsRes.status} ${await accountsRes.text().catch(() => "")}`);
-        return null;
-      }
-      const accountsData = await accountsRes.json();
-      const accounts = accountsData.accounts || [];
-      if (accounts.length === 0) {
-        this.logger.warn("GBP: this Google account has no Business Profile accounts visible to the granted token.");
-        return null;
-      }
-
-      const cleanName = (targetBusinessName || "").toLowerCase().trim();
-      const cleanDomain = (targetDomain || "").replace(/^https?:\/\//, "").replace(/\/.*$/, "").toLowerCase();
-      const cleanCity = (targetCity || "").toLowerCase().trim();
-
       let matchedLocation: any = null;
-      const allLocationTitles: string[] = [];
 
-      // Iterate through all accounts and locations to find matching business profile
-      for (const acc of accounts) {
-        const locRes = await fetch(
-          `https://mybusinessbusinessinformation.googleapis.com/v1/${acc.name}/locations?readMask=name,title,storefrontAddress,websiteUri,phoneNumbers`,
+      if (explicitLocationName) {
+        // User explicitly picked a location from the list -- skip auto-matching entirely.
+        matchedLocation = { name: explicitLocationName, title: undefined };
+      } else {
+        const accountsRes = await fetch(
+          "https://mybusinessaccountmanagement.googleapis.com/v1/accounts",
           {
             headers: { Authorization: `Bearer ${accessToken}` },
           }
         );
 
-        if (!locRes.ok) {
-          this.logger.warn(`GBP locations request failed for account ${acc.name}: HTTP ${locRes.status}`);
+        if (!accountsRes.ok) {
+          this.logger.warn(`GBP accounts request failed: HTTP ${accountsRes.status} ${await accountsRes.text().catch(() => "")}`);
+          return null;
+        }
+        const accountsData = await accountsRes.json();
+        const accounts = accountsData.accounts || [];
+        if (accounts.length === 0) {
+          this.logger.warn("GBP: this Google account has no Business Profile accounts visible to the granted token.");
+          return null;
         }
 
-        if (locRes.ok) {
-          const locData = await locRes.json();
-          const locations = locData.locations || [];
+        const cleanName = (targetBusinessName || "").toLowerCase().trim();
+        const cleanDomain = (targetDomain || "").replace(/^https?:\/\//, "").replace(/\/.*$/, "").toLowerCase();
+        const cleanCity = (targetCity || "").toLowerCase().trim();
 
-          for (const loc of locations) {
-            allLocationTitles.push(loc.title || loc.name);
-            const title = (loc.title || "").toLowerCase();
-            const web = (loc.websiteUri || "").toLowerCase();
-            const city = (loc.storefrontAddress?.locality || "").toLowerCase();
+        const allLocationTitles: string[] = [];
 
-            const nameMatch = cleanName && (title.includes(cleanName) || cleanName.includes(title));
-            const domainMatch = cleanDomain && (web.includes(cleanDomain) || cleanDomain.includes(web));
-            const cityMatch = cleanCity && city.includes(cleanCity);
-
-            if (nameMatch || domainMatch || (cleanCity && cityMatch)) {
-              matchedLocation = loc;
-              break;
+        // Iterate through all accounts and locations to find matching business profile
+        for (const acc of accounts) {
+          const locRes = await fetch(
+            `https://mybusinessbusinessinformation.googleapis.com/v1/${acc.name}/locations?readMask=name,title,storefrontAddress,websiteUri,phoneNumbers`,
+            {
+              headers: { Authorization: `Bearer ${accessToken}` },
             }
+          );
+
+          if (!locRes.ok) {
+            this.logger.warn(`GBP locations request failed for account ${acc.name}: HTTP ${locRes.status}`);
           }
-          if (matchedLocation) break;
-          if (!matchedLocation && locations.length > 0) {
-            matchedLocation = locations[0]; // fallback
-            this.logger.warn(
-              `GBP: no location matched name="${cleanName}" domain="${cleanDomain}" city="${cleanCity}" -- falling back to first listed location "${allLocationTitles[0]}". All locations seen: ${allLocationTitles.join(", ")}`
-            );
+
+          if (locRes.ok) {
+            const locData = await locRes.json();
+            const locations = locData.locations || [];
+
+            for (const loc of locations) {
+              allLocationTitles.push(loc.title || loc.name);
+              const title = (loc.title || "").toLowerCase();
+              const web = (loc.websiteUri || "").toLowerCase();
+              const city = (loc.storefrontAddress?.locality || "").toLowerCase();
+
+              const nameMatch = cleanName && (title.includes(cleanName) || cleanName.includes(title));
+              const domainMatch = cleanDomain && (web.includes(cleanDomain) || cleanDomain.includes(web));
+              const cityMatch = cleanCity && city.includes(cleanCity);
+
+              if (nameMatch || domainMatch || (cleanCity && cityMatch)) {
+                matchedLocation = loc;
+                break;
+              }
+            }
+            if (matchedLocation) break;
+            if (!matchedLocation && locations.length > 0) {
+              matchedLocation = locations[0]; // fallback
+              this.logger.warn(
+                `GBP: no location matched name="${cleanName}" domain="${cleanDomain}" city="${cleanCity}" -- falling back to first listed location "${allLocationTitles[0]}". All locations seen: ${allLocationTitles.join(", ")}`
+              );
+            }
           }
         }
       }
@@ -634,5 +677,38 @@ export class GoogleOAuthService {
       this.logger.warn(`Failed to query live Google Business Profile: ${err.message}`);
     }
     return null;
+  }
+
+  /**
+   * List every Business Profile location visible to this token, across every
+   * account -- used to let a user pick the right one instead of relying on
+   * name/domain/city matching (e.g. an agency's account with many clients).
+   */
+  async getGbpLocationsList(accessToken: string): Promise<Array<{ name: string; title: string; accountName: string }>> {
+    try {
+      const accountsRes = await fetch("https://mybusinessaccountmanagement.googleapis.com/v1/accounts", {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (!accountsRes.ok) return [];
+      const accountsData = await accountsRes.json();
+      const accounts = accountsData.accounts || [];
+
+      const list: Array<{ name: string; title: string; accountName: string }> = [];
+      for (const acc of accounts) {
+        const locRes = await fetch(
+          `https://mybusinessbusinessinformation.googleapis.com/v1/${acc.name}/locations?readMask=name,title`,
+          { headers: { Authorization: `Bearer ${accessToken}` } }
+        );
+        if (!locRes.ok) continue;
+        const locData = await locRes.json();
+        for (const loc of locData.locations || []) {
+          list.push({ name: loc.name, title: loc.title || loc.name, accountName: acc.accountName || acc.name });
+        }
+      }
+      return list;
+    } catch (err: any) {
+      this.logger.warn(`Failed to list GBP locations: ${err.message}`);
+      return [];
+    }
   }
 }

@@ -85,6 +85,43 @@ export default function GbpPage() {
     }
   }, []);
 
+  const [locations, setLocations] = useState<Array<{ name: string; title: string; accountName: string }>>([]);
+  const [currentLocationName, setCurrentLocationName] = useState<string | null>(null);
+  const [switchingLocation, setSwitchingLocation] = useState(false);
+
+  useEffect(() => {
+    if (!isConnected) return;
+    apiFetch<{ locations: typeof locations; currentLocationName: string | null }>("/integrations/google/gbp-locations")
+      .then((res) => {
+        if (res?.locations) setLocations(res.locations);
+        setCurrentLocationName(res?.currentLocationName ?? null);
+      })
+      .catch(() => {});
+  }, [isConnected]);
+
+  const handleSelectLocation = async (locationName: string) => {
+    if (!locationName || locationName === currentLocationName) return;
+    const chosen = locations.find((l) => l.name === locationName);
+    const confirmed = window.confirm(
+      `Switch this business's Google Business Profile data source to "${chosen?.title || locationName}"?\n\n` +
+      `This changes which listing's map views, calls, and reviews are shown across the whole dashboard for ${business?.name || "this business"}. ` +
+      `Only do this if you're sure -- if you picked the wrong one by accident, you can always switch back.`
+    );
+    if (!confirmed) return;
+
+    setSwitchingLocation(true);
+    try {
+      await apiFetch("/integrations/google/select-gbp-location", {
+        method: "POST",
+        body: JSON.stringify({ locationName }),
+      });
+      window.location.reload();
+    } catch (err) {
+      console.error("Failed to switch GBP location:", err);
+      setSwitchingLocation(false);
+    }
+  };
+
   useEffect(() => {
     async function loadData() {
       try {
@@ -352,6 +389,28 @@ export default function GbpPage() {
             <p className="text-xs text-[#78716C] dark:text-zinc-400 mt-1">
               Optimize Google Maps 3-Pack, local justifications, and generative AI search visibility{bCity ? ` in ${bCity}` : ""}.
             </p>
+            {isConnected && locations.length > 1 && (
+              <div className="mt-2 flex items-center gap-2">
+                <label htmlFor="gbp-location-select" className="text-[11px] text-[#78716C] dark:text-zinc-500">
+                  Business Profile Location:
+                </label>
+                <select
+                  id="gbp-location-select"
+                  value={currentLocationName || ""}
+                  disabled={switchingLocation}
+                  onChange={(e) => handleSelectLocation(e.target.value)}
+                  className="rounded-lg bg-white dark:bg-zinc-900 border border-[#DECDBB] dark:border-zinc-700 px-2 py-1 text-[11px] text-[#1C1917] dark:text-zinc-200 focus:outline-none focus:border-[#8A5333] disabled:opacity-50"
+                >
+                  {!currentLocationName && <option value="">Select a location…</option>}
+                  {locations.map((l) => (
+                    <option key={l.name} value={l.name}>
+                      {l.title} {l.accountName ? `(${l.accountName})` : ""}
+                    </option>
+                  ))}
+                </select>
+                <span className="text-[10px] text-[#78716C] dark:text-zinc-500">{locations.length} locations found on this Google account</span>
+              </div>
+            )}
           </div>
 
           {/* View Switcher Tabs */}

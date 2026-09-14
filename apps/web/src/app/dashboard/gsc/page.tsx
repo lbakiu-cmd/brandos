@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { Search, TrendingUp, MousePointerClick, Eye, Globe, Sparkles, Filter, RefreshCw, ChevronDown, Check, Plug } from "lucide-react";
+import { Search, TrendingUp, MousePointerClick, Eye, Globe, Sparkles, Filter, RefreshCw, Plug } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
 import { TimeRangeFilter } from "@/components/TimeRangeFilter";
@@ -31,7 +31,6 @@ export default function GscPage() {
   const [selectedDomain, setSelectedDomain] = useState<string>("");
   const [gscData, setGscData] = useState<any>(null);
   const [business, setBusiness] = useState<any>(null);
-  const [siteDropdownOpen, setSiteDropdownOpen] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
 
   const fetchSiteMetrics = useCallback(async (siteUrl: string, range?: TimeRangeKey) => {
@@ -85,10 +84,18 @@ export default function GscPage() {
     loadData();
   }, [fetchSiteMetrics]);
 
-  const handleSelectSite = async (site: GscSite) => {
+  const handleSelectSite = async (site: GscSite, skipConfirm = false) => {
+    if (!skipConfirm && site.domain !== selectedDomain) {
+      const confirmed = window.confirm(
+        `Switch this business's Google Search Console data source to "${site.domain}"?\n\n` +
+        `This changes which site's clicks, impressions and queries are shown across the whole dashboard for ${business?.name || "this business"}. ` +
+        `Only do this if you're sure -- if you picked the wrong one by accident, you can always switch back.`
+      );
+      if (!confirmed) return;
+    }
+
     setSelectedSite(site.siteUrl);
     setSelectedDomain(site.domain);
-    setSiteDropdownOpen(false);
 
     try {
       await apiFetch("/integrations/select-site", {
@@ -149,45 +156,30 @@ export default function GscPage() {
           <p className="text-xs text-slate-400 mt-1">
             Monitoring organic search queries, clicks, impressions and average ranking for <strong className="text-white">{selectedDomain || bName}</strong> ({getTimeRangeLabel(timeRange)})
           </p>
+          {isConnected && sites.length > 1 && (
+            <div className="mt-2 flex items-center gap-2">
+              <label htmlFor="gsc-site-select" className="text-[11px] text-slate-500">Search Console Property:</label>
+              <select
+                id="gsc-site-select"
+                value={selectedSite}
+                onChange={(e) => {
+                  const site = sites.find((s) => s.siteUrl === e.target.value);
+                  if (site) handleSelectSite(site);
+                }}
+                className="rounded-lg bg-slate-900 border border-slate-800 px-2 py-1 text-[11px] text-slate-200 focus:outline-none focus:border-blue-500"
+              >
+                {sites.map((s) => (
+                  <option key={s.siteUrl} value={s.siteUrl}>
+                    {s.domain}
+                  </option>
+                ))}
+              </select>
+              <span className="text-[10px] text-slate-500">{sites.length} properties found on this Google account</span>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Site Selector Dropdown */}
-          {sites.length > 0 && (
-            <div className="relative">
-              <button
-                onClick={() => setSiteDropdownOpen(!siteDropdownOpen)}
-                className="flex items-center gap-2 rounded-xl bg-slate-900 border border-slate-700 px-3 py-1.5 text-xs font-semibold text-white hover:border-blue-500/50 transition"
-              >
-                <Globe className="h-3.5 w-3.5 text-blue-400" />
-                <span>{selectedDomain || "Select Domain"}</span>
-                <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
-              </button>
-
-              {siteDropdownOpen && (
-                <div className="absolute right-0 mt-2 w-64 rounded-xl border border-slate-700 bg-slate-900 p-1.5 shadow-2xl z-50">
-                  <p className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    Switch GSC Domain ({sites.length})
-                  </p>
-                  <div className="max-h-56 overflow-y-auto space-y-1">
-                    {sites.map((s) => (
-                      <button
-                        key={s.siteUrl}
-                        onClick={() => handleSelectSite(s)}
-                        className={`flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-xs transition ${
-                          selectedDomain === s.domain ? "bg-blue-600/20 text-blue-400 font-bold" : "text-slate-300 hover:bg-slate-800"
-                        }`}
-                      >
-                        <span className="truncate">{s.domain}</span>
-                        {selectedDomain === s.domain && <Check className="h-3.5 w-3.5" />}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
           {/* Sync Button */}
           {isConnected && (
             <button

@@ -43,9 +43,38 @@ export class IntegrationsController {
     const biz = await this.business.get(req.user.id, req.user.activeBusinessId);
     const token = await this.googleOAuth.getFreshAccessToken(biz.id, IntegrationProvider.GOOGLE_ANALYTICS_4);
     if (!token) throw new BadRequestException("Google Analytics is not connected.");
-    const metrics = await this.googleOAuth.fetchGa4Metrics(token, biz.website || biz.wordpressUrl || undefined, biz.name, dayCount);
+    const metrics = await this.googleOAuth.fetchGa4Metrics(token, biz.website || biz.wordpressUrl || undefined, biz.name, dayCount, biz.ga4PropertyId || undefined);
     if (!metrics) throw new BadRequestException("Google Analytics data is unavailable for this business and date range.");
     return metrics;
+  }
+
+  /**
+   * List every GA4 property visible to the connected Google account, so the
+   * user can pick the right one instead of relying on name/domain matching.
+   */
+  @Get("google/ga4-properties")
+  @UseGuards(AuthGuard)
+  async listGa4Properties(@Req() req: any) {
+    const biz = await this.business.get(req.user.id, req.user.activeBusinessId);
+    const token = await this.googleOAuth.getFreshAccessToken(biz.id, IntegrationProvider.GOOGLE_ANALYTICS_4);
+    if (!token) throw new BadRequestException("Google Analytics is not connected.");
+    const properties = await this.googleOAuth.getGa4PropertiesList(token);
+    return { properties, currentPropertyId: biz.ga4PropertyId || null };
+  }
+
+  /**
+   * Explicitly pin this business to one GA4 property.
+   */
+  @Post("google/select-ga4-property")
+  @UseGuards(AuthGuard)
+  async selectGa4Property(@Req() req: any, @Body() body: { propertyId: string }) {
+    if (!body?.propertyId) throw new BadRequestException("propertyId is required");
+    const biz = await this.business.get(req.user.id, req.user.activeBusinessId);
+    await prisma.business.update({
+      where: { id: biz.id },
+      data: { ga4PropertyId: body.propertyId },
+    });
+    return { success: true, propertyId: body.propertyId };
   }
 
   @Get("google/gbp")
@@ -58,9 +87,39 @@ export class IntegrationsController {
     const biz = await this.business.get(req.user.id, req.user.activeBusinessId);
     const token = await this.googleOAuth.getFreshAccessToken(biz.id, IntegrationProvider.GOOGLE_BUSINESS_PROFILE);
     if (!token) throw new BadRequestException("Google Business Profile is not connected.");
-    const metrics = await this.googleOAuth.fetchGbpMetrics(token, biz.name, biz.website || biz.wordpressUrl || undefined, biz.city || undefined, dayCount, biz.id);
+    const metrics = await this.googleOAuth.fetchGbpMetrics(token, biz.name, biz.website || biz.wordpressUrl || undefined, biz.city || undefined, dayCount, biz.id, biz.gbpLocationName || undefined);
     if (!metrics) throw new BadRequestException("Google Business Profile data is unavailable for this business and date range.");
     return metrics;
+  }
+
+  /**
+   * List every Business Profile location visible to the connected Google
+   * account, so the user can pick the right one instead of relying on
+   * name/domain/city matching.
+   */
+  @Get("google/gbp-locations")
+  @UseGuards(AuthGuard)
+  async listGbpLocations(@Req() req: any) {
+    const biz = await this.business.get(req.user.id, req.user.activeBusinessId);
+    const token = await this.googleOAuth.getFreshAccessToken(biz.id, IntegrationProvider.GOOGLE_BUSINESS_PROFILE);
+    if (!token) throw new BadRequestException("Google Business Profile is not connected.");
+    const locations = await this.googleOAuth.getGbpLocationsList(token);
+    return { locations, currentLocationName: biz.gbpLocationName || null };
+  }
+
+  /**
+   * Explicitly pin this business to one Business Profile location.
+   */
+  @Post("google/select-gbp-location")
+  @UseGuards(AuthGuard)
+  async selectGbpLocation(@Req() req: any, @Body() body: { locationName: string }) {
+    if (!body?.locationName) throw new BadRequestException("locationName is required");
+    const biz = await this.business.get(req.user.id, req.user.activeBusinessId);
+    await prisma.business.update({
+      where: { id: biz.id },
+      data: { gbpLocationName: body.locationName },
+    });
+    return { success: true, locationName: body.locationName };
   }
 
   /**
