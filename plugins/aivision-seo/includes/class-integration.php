@@ -443,13 +443,28 @@ class AIVisibility_Integration {
         $meta_description = sanitize_textarea_field( $request->get_param( 'meta_description' ) ?: ( $meta['description'] ?? '' ) );
         $focus_keyword    = sanitize_text_field( $request->get_param( 'focus_keyword' ) ?: ( $meta['target_keyword'] ?? '' ) );
 
-        if ( $meta_title || $meta_description || $focus_keyword || ! empty( $meta ) ) {
+        // Schemas -- the platform sends a "schemas" array of full JSON-LD
+        // documents (e.g. FAQPage, LocalBusiness). This previously wasn't read
+        // at all, so every published post scored 0 schemas in the GEO analyzer
+        // (see multi_schema check) no matter what the platform sent.
+        $schemas_param = $request->get_param( 'schemas' );
+        $schemas_meta  = [];
+        if ( is_array( $schemas_param ) ) {
+            foreach ( $schemas_param as $schema ) {
+                if ( is_array( $schema ) && ! empty( $schema ) ) {
+                    $schemas_meta[] = [ 'json' => wp_json_encode( $schema ) ];
+                }
+            }
+        }
+
+        if ( $meta_title || $meta_description || $focus_keyword || ! empty( $meta ) || ! empty( $schemas_meta ) ) {
             $seo_data = [
                 'title'          => $meta_title ?: $title,
                 'description'    => $meta_description,
                 'target_keyword' => $focus_keyword,
                 'direct_answer'  => sanitize_textarea_field( $meta['direct_answer'] ?? '' ),
                 'faqs'           => is_array( $meta['faqs'] ?? null ) ? $meta['faqs'] : [],
+                'schemas'        => $schemas_meta,
             ];
             update_post_meta( $post_id, AIVISION_META_KEY, $seo_data );
         }

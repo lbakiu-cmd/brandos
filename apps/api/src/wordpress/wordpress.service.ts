@@ -1143,10 +1143,13 @@ Format the article with clean Markdown:
 - Direct 45-word answer block highlighted in blockquote (engineered for ChatGPT, Perplexity & Google AI Overviews)
 - Clear H2 and H3 subheadings with actionable expert insights
 - Step-by-step guidance for patients/clients
-- Statistical density & quantitative facts (e.g. satisfaction rates, transparent pricing, warranties)
+- At least 1000 words of substantive content
+- Keep sentences concise (aim for 22 words or fewer) -- this measurably improves how accurately LLMs synthesize and cite the content
 - A dedicated FAQ section with 3 distinct questions and answers
 - A natural call-to-action encouraging readers in ${city} to contact ${name} via ${website} or ${phone}
-- When linking to the website, use descriptive anchor text (e.g. "Book Online" or "Visit our website") -- never make the link text the raw URL itself, since that reads as the address being shown twice`;
+- When linking to the website, use descriptive anchor text (e.g. "Book Online" or "Visit our website") -- never make the link text the raw URL itself, since that reads as the address being shown twice
+
+CRITICAL -- do not fabricate: never invent specific numbers you cannot know are true for this business -- no made-up satisfaction percentages, success rates, prices, or warranty terms, and never claim "in our testing/experience we found..." since the business did not commission any such study. Where a general, widely-established fact from the field is genuinely useful (e.g. citing a recognized authority like the American Dental Association, Mayo Clinic, or CDC for a broadly known fact -- not a specific number attributed to them), you may reference it by name, but do not attribute invented statistics to real organizations. Where a business-specific number would normally go (pricing, satisfaction rate, warranty length), write around it -- e.g. "contact us for current pricing" -- rather than inventing one.`;
 
     if (openRouterKey) {
       try {
