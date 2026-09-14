@@ -356,7 +356,10 @@ export class GoogleOAuthService {
         }
       );
 
-      if (!accountRes.ok) return null;
+      if (!accountRes.ok) {
+        this.logger.warn(`GA4 accountSummaries request failed: HTTP ${accountRes.status} ${await accountRes.text().catch(() => "")}`);
+        return null;
+      }
       const accountData = await accountRes.json();
       const accounts = accountData.accountSummaries || [];
 
@@ -385,7 +388,13 @@ export class GoogleOAuthService {
         matchedProperty = accounts[0].propertySummaries[0].property;
       }
 
-      if (!matchedProperty) return null;
+      if (!matchedProperty) {
+        const allPropertyNames = accounts.flatMap((a: any) => (a.propertySummaries || []).map((p: any) => p.displayName));
+        this.logger.warn(
+          `No GA4 property matched domain="${cleanDomain}" name="${cleanName}". Available properties on this Google account: ${allPropertyNames.length ? allPropertyNames.join(", ") : "(none -- account has no GA4 properties visible to this token)"}`
+        );
+        return null;
+      }
 
       const propertyId = matchedProperty.replace("properties/", "");
       const dateRange = { startDate: days === 0 ? "2015-08-14" : `${days}daysAgo`, endDate: "yesterday" };
@@ -484,16 +493,23 @@ export class GoogleOAuthService {
         }
       );
 
-      if (!accountsRes.ok) return null;
+      if (!accountsRes.ok) {
+        this.logger.warn(`GBP accounts request failed: HTTP ${accountsRes.status} ${await accountsRes.text().catch(() => "")}`);
+        return null;
+      }
       const accountsData = await accountsRes.json();
       const accounts = accountsData.accounts || [];
-      if (accounts.length === 0) return null;
+      if (accounts.length === 0) {
+        this.logger.warn("GBP: this Google account has no Business Profile accounts visible to the granted token.");
+        return null;
+      }
 
       const cleanName = (targetBusinessName || "").toLowerCase().trim();
       const cleanDomain = (targetDomain || "").replace(/^https?:\/\//, "").replace(/\/.*$/, "").toLowerCase();
       const cleanCity = (targetCity || "").toLowerCase().trim();
 
       let matchedLocation: any = null;
+      const allLocationTitles: string[] = [];
 
       // Iterate through all accounts and locations to find matching business profile
       for (const acc of accounts) {
@@ -504,11 +520,16 @@ export class GoogleOAuthService {
           }
         );
 
+        if (!locRes.ok) {
+          this.logger.warn(`GBP locations request failed for account ${acc.name}: HTTP ${locRes.status}`);
+        }
+
         if (locRes.ok) {
           const locData = await locRes.json();
           const locations = locData.locations || [];
 
           for (const loc of locations) {
+            allLocationTitles.push(loc.title || loc.name);
             const title = (loc.title || "").toLowerCase();
             const web = (loc.websiteUri || "").toLowerCase();
             const city = (loc.storefrontAddress?.locality || "").toLowerCase();
@@ -525,8 +546,15 @@ export class GoogleOAuthService {
           if (matchedLocation) break;
           if (!matchedLocation && locations.length > 0) {
             matchedLocation = locations[0]; // fallback
+            this.logger.warn(
+              `GBP: no location matched name="${cleanName}" domain="${cleanDomain}" city="${cleanCity}" -- falling back to first listed location "${allLocationTitles[0]}". All locations seen: ${allLocationTitles.join(", ")}`
+            );
           }
         }
+      }
+
+      if (!matchedLocation) {
+        this.logger.warn("GBP: no Business Profile locations found on any account visible to this token.");
       }
 
       if (matchedLocation) {
@@ -580,6 +608,7 @@ export class GoogleOAuthService {
               lastFetchedAt: new Date().toISOString(),
             };
           }
+          this.logger.warn(`GBP Performance API request failed for location ${matchedLocation.name}: HTTP ${perfRes.status} ${await perfRes.text().catch(() => "")}`);
         } catch (perfErr: any) {
           this.logger.warn(`Performance API failed for location ${matchedLocation.name}: ${perfErr.message}`);
         }
@@ -593,8 +622,8 @@ export class GoogleOAuthService {
           directionRequests: 0,
           websiteClicks: 0,
           totalInteractions: 0,
-          averageRating: null,
-          totalReviews: null,
+          averageRating,
+          totalReviews,
           days: rangeDays,
           isLiveOAuth: true,
           notice: "No performance data available yet for this Google Business Profile listing.",
