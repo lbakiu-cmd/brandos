@@ -52,6 +52,7 @@ export default function GbpPage() {
 
   // Tool States
   const [toolLoading, setToolLoading] = useState(false);
+  const [toolError, setToolError] = useState<string | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   // Category Finder State
@@ -232,14 +233,16 @@ export default function GbpPage() {
     setActiveModal("category");
     if (!categoryData) {
       setToolLoading(true);
+      setToolError(null);
       try {
         const res = await apiFetch<any>("/local-seo-tools/categories", {
           method: "POST",
           body: JSON.stringify({ industry: bIndustry }),
         });
         setCategoryData(res);
-      } catch (err) {
+      } catch (err: any) {
         console.error("Categories fetch error:", err);
+        setToolError(err?.message || "AI category generation failed. Please try again.");
       } finally {
         setToolLoading(false);
       }
@@ -249,14 +252,16 @@ export default function GbpPage() {
   // Trigger Post Generator
   const handleGeneratePost = async () => {
     setToolLoading(true);
+    setToolError(null);
     try {
       const res = await apiFetch<any>("/local-seo-tools/post", {
         method: "POST",
         body: JSON.stringify({ postType, topic: postTopic, tone: postTone }),
       });
       setPostResult(res);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Post generation error:", err);
+      setToolError(err?.message || "AI post generation failed. Please try again.");
     } finally {
       setToolLoading(false);
     }
@@ -267,14 +272,16 @@ export default function GbpPage() {
     setActiveModal("qa");
     if (!qaData) {
       setToolLoading(true);
+      setToolError(null);
       try {
         const res = await apiFetch<any>("/local-seo-tools/qa", {
           method: "POST",
           body: JSON.stringify({}),
         });
         setQaData(res);
-      } catch (err) {
+      } catch (err: any) {
         console.error("QA fetch error:", err);
+        setToolError(err?.message || "AI Q&A generation failed. Please try again.");
       } finally {
         setToolLoading(false);
       }
@@ -286,14 +293,16 @@ export default function GbpPage() {
     setActiveModal("description");
     if (!descResult) {
       setToolLoading(true);
+      setToolError(null);
       try {
         const res = await apiFetch<any>("/local-seo-tools/description", {
           method: "POST",
           body: JSON.stringify({}),
         });
         setDescResult(res);
-      } catch (err) {
+      } catch (err: any) {
         console.error("Description fetch error:", err);
+        setToolError(err?.message || "AI description generation failed. Please try again.");
       } finally {
         setToolLoading(false);
       }
@@ -305,14 +314,16 @@ export default function GbpPage() {
     setActiveModal("services");
     if (!servicesData) {
       setToolLoading(true);
+      setToolError(null);
       try {
         const res = await apiFetch<any>("/local-seo-tools/services", {
           method: "POST",
           body: JSON.stringify({}),
         });
         setServicesData(res);
-      } catch (err) {
+      } catch (err: any) {
         console.error("Services fetch error:", err);
+        setToolError(err?.message || "AI service suggestions failed. Please try again.");
       } finally {
         setToolLoading(false);
       }
@@ -324,14 +335,16 @@ export default function GbpPage() {
     setActiveModal("facebook");
     if (!fbResult) {
       setToolLoading(true);
+      setToolError(null);
       try {
         const res = await apiFetch<any>("/local-seo-tools/post", {
           method: "POST",
           body: JSON.stringify({ postType: "OFFER", topic: "Facebook Community Announcement", tone: "Engaging & Friendly" }),
         });
         setFbResult(res);
-      } catch (err) {
+      } catch (err: any) {
         console.error("Facebook post error:", err);
+        setToolError(err?.message || "AI post generation failed. Please try again.");
       } finally {
         setToolLoading(false);
       }
@@ -834,6 +847,8 @@ export default function GbpPage() {
                 <RefreshCw className="h-4 w-4 animate-spin text-[#8A5333]" />
                 <span>Auditing Google categories taxonomy…</span>
               </div>
+            ) : toolError && !categoryData ? (
+              <div role="alert" className="py-8 text-center text-xs text-red-500 dark:text-red-400">{toolError}</div>
             ) : (
               categoryData && (
                 <div className="space-y-4">
@@ -1027,6 +1042,11 @@ export default function GbpPage() {
               </div>
             </div>
 
+            {/* Generation Error */}
+            {toolError && !postResult && !toolLoading && (
+              <div role="alert" className="py-4 text-center text-xs text-red-500 dark:text-red-400">{toolError}</div>
+            )}
+
             {/* Generated Post Result */}
             {postResult && (
               <div className="space-y-4">
@@ -1117,6 +1137,8 @@ export default function GbpPage() {
                 <RefreshCw className="h-4 w-4 animate-spin text-[#8A5333]" />
                 <span>Formulating authoritative Q&As…</span>
               </div>
+            ) : toolError && !qaData ? (
+              <div role="alert" className="py-8 text-center text-xs text-red-500 dark:text-red-400">{toolError}</div>
             ) : (
               qaData && (
                 <div className="space-y-4">
@@ -1210,6 +1232,8 @@ export default function GbpPage() {
                 <RefreshCw className="h-4 w-4 animate-spin text-[#8A5333]" />
                 <span>Crafting geo-anchored description…</span>
               </div>
+            ) : toolError && !descResult ? (
+              <div role="alert" className="py-8 text-center text-xs text-red-500 dark:text-red-400">{toolError}</div>
             ) : (
               descResult && (
                 <div className="space-y-4">
@@ -1295,6 +1319,8 @@ export default function GbpPage() {
                 <RefreshCw className="h-4 w-4 animate-spin text-[#8A5333]" />
                 <span>Auditing high-intent local services…</span>
               </div>
+            ) : toolError && !servicesData ? (
+              <div role="alert" className="py-8 text-center text-xs text-red-500 dark:text-red-400">{toolError}</div>
             ) : (
               servicesData && (
                 <div className="space-y-3">
@@ -1362,6 +1388,17 @@ export default function GbpPage() {
                 <X className="h-5 w-5" />
               </button>
             </div>
+
+            {toolLoading && !fbResult && (
+              <div className="py-8 text-center text-xs text-[#78716C] flex items-center justify-center gap-2">
+                <RefreshCw className="h-4 w-4 animate-spin text-[#8A5333]" />
+                <span>Writing Facebook post…</span>
+              </div>
+            )}
+
+            {toolError && !fbResult && !toolLoading && (
+              <div role="alert" className="py-4 text-center text-xs text-red-500 dark:text-red-400">{toolError}</div>
+            )}
 
             {fbResult && (
               <div className="space-y-4">
