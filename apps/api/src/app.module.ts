@@ -1,4 +1,5 @@
 import { Module } from "@nestjs/common";
+import { ScheduleModule } from "@nestjs/schedule";
 import { AppController } from "./app.controller";
 import { AuthModule } from "./auth/auth.module";
 import { ActivityModule } from "./activity/activity.module";
@@ -20,6 +21,7 @@ import { LocalSeoToolsModule } from "./local-seo-tools/local-seo-tools.module";
 @Module({
   controllers: [AppController],
   imports: [
+    ScheduleModule.forRoot(),
     AuthModule,
     ActivityModule,
     UsersModule,
