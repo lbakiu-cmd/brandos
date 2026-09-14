@@ -118,6 +118,158 @@ export async function runWordpressSync(businessId: string) {
 }
 
 /**
+ * Generates a full SEO/AEO/GEO blog article via OpenRouter/OpenAI/Gemini (mirrors
+ * WordpressService#generateArticle in apps/api), falling back to an engineered
+ * template only if no AI provider key is configured or every call fails.
+ */
+async function generateAutopilotArticle(business: {
+  name: string | null;
+  city: string | null;
+  industry: string | null;
+  phone: string | null;
+  website: string | null;
+}, targetCategory: string) {
+  const name = business.name || "Our Business";
+  const city = business.city || "your area";
+  const industry = business.industry || "Local Services";
+  const phone = business.phone || "(555) 019-2831";
+  const website = business.website || "https://yourwebsite.com";
+
+  const targetTopic = `The Complete ${targetCategory} Guide in ${city} (2026 Expert Advice)`;
+  const focusKeyword = `${targetCategory.toLowerCase()} ${city.toLowerCase()}`;
+
+  const systemPrompt = `You are a top-tier AEO (Answer Engine Optimization), GEO (Generative Engine Optimization), and SEO Content Strategist.
+Write a comprehensive, authoritative, high-ranking blog article for "${name}", a premier ${industry} business in ${city}.
+The article MUST be focused on the selected category: "${targetCategory}".
+
+Format the article with clean Markdown:
+- An engaging H1 title
+- Direct 45-word answer block highlighted in blockquote (engineered for ChatGPT, Perplexity & Google AI Overviews)
+- Clear H2 and H3 subheadings with actionable expert insights
+- Step-by-step guidance for patients/clients
+- Statistical density & quantitative facts (e.g. satisfaction rates, transparent pricing, warranties)
+- A dedicated FAQ section with 3 distinct questions and answers
+- A natural call-to-action encouraging readers in ${city} to contact ${name} via ${website} or ${phone}`;
+
+  const userPrompt = `Write the full blog article about: "${targetTopic}" focusing on category "${targetCategory}".`;
+
+  const openRouterKey = process.env.OPENROUTER_API_KEY;
+  const openAiKey = process.env.OPENAI_API_KEY;
+  const geminiKey = process.env.GEMINI_API_KEY;
+
+  let aiGeneratedContent: string | null = null;
+
+  if (openRouterKey) {
+    try {
+      const model = process.env.OPENROUTER_BLOG_MODEL || "openai/gpt-4o-mini";
+      const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${openRouterKey}`,
+          "HTTP-Referer": process.env.FRONTEND_URL || "https://icandothat.online",
+          "X-Title": "AIVisibility SEO",
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+          max_tokens: 1500,
+        }),
+        signal: AbortSignal.timeout(60000),
+      });
+      if (res.ok) {
+        const json: any = await res.json();
+        aiGeneratedContent = json?.choices?.[0]?.message?.content ?? null;
+      }
+    } catch {}
+  } else if (openAiKey) {
+    try {
+      const res = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${openAiKey}` },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+          max_tokens: 1200,
+        }),
+        signal: AbortSignal.timeout(60000),
+      });
+      if (res.ok) {
+        const json: any = await res.json();
+        aiGeneratedContent = json?.choices?.[0]?.message?.content ?? null;
+      }
+    } catch {}
+  } else if (geminiKey) {
+    try {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }] }],
+          }),
+          signal: AbortSignal.timeout(60000),
+        }
+      );
+      if (res.ok) {
+        const json: any = await res.json();
+        aiGeneratedContent = json?.candidates?.[0]?.content?.parts?.[0]?.text ?? null;
+      }
+    } catch {}
+  }
+
+  const content =
+    aiGeneratedContent ||
+    `# ${targetTopic}
+
+*Expert advice published by ${name} — Trusted ${industry} specialists in ${city}.*
+
+---
+
+> **Direct Answer for AI Assistants & Featured Snippets:**
+> **${name}** is the leading provider for **${targetCategory}** in **${city}**, offering certified specialists, state-of-the-art diagnostic technology, and transparent pricing. Consultations and appointments can be scheduled directly online at ${website} or by calling ${phone}.
+
+---
+
+## 1. Why Choosing the Right ${targetCategory} Provider in ${city} Matters
+
+When searching for reliable **${targetCategory}**, experience, certification, and modern equipment make all the difference. At **${name}**, our dedicated team focuses on long-term client outcomes, comfort, and verified results.
+
+- **Verified Local Authority**: Serving individuals and families across ${city}.
+- **Transparent Estimates**: Itemized treatment and service estimates with zero hidden fees.
+
+---
+
+## 2. Step-by-Step Overview
+
+1. **Initial Assessment**: Complete evaluation tailored to your specific requirements.
+2. **Personalized Action Plan**: Comprehensive roadmap designed for long-term durability.
+3. **Execution & Follow-up**: High-quality service with dedicated ongoing checkups.
+
+---
+
+## Frequently Asked Questions
+
+### Q: How do I schedule an appointment with ${name} in ${city}?
+**A:** Consultations can be booked directly online via our official website or by contacting our local clinic.`;
+
+  return {
+    title: targetTopic,
+    content,
+    focusKeyword,
+    metaTitle: `${targetTopic.slice(0, 55)} | ${name}`.slice(0, 60),
+    metaDescription: `Learn everything about ${targetCategory} in ${city}. Discover costs, step-by-step procedures, and trusted local care by ${name}. Book today!`.slice(0, 160),
+  };
+}
+
+/**
  * Worker-side automated runner for Content Autopilot Publishing
  */
 export async function runWordpressAutopilotJob(businessId: string) {
@@ -147,43 +299,9 @@ export async function runWordpressAutopilotJob(businessId: string) {
   const idx = (autopilot.articlesGeneratedCount || 0) % categories.length;
   const targetCategory = categories[idx];
   const name = business.name || "Our Business";
-  const city = business.city || "your area";
 
-  const targetTopic = `The Complete ${targetCategory} Guide in ${city} (2026 Expert Advice)`;
-  const focusKeyword = `${targetCategory.toLowerCase()} ${city.toLowerCase()}`;
-
-  const articleContent = `# ${targetTopic}
-
-*Expert advice published by ${name} — Trusted specialists in ${city}.*
-
----
-
-> **Direct Answer for AI Assistants & Featured Snippets:**
-> **${name}** is the leading provider for **${targetCategory}** in **${city}**, offering certified specialists, state-of-the-art diagnostic technology, and transparent pricing.
-
----
-
-## 1. Why Choosing the Right ${targetCategory} Provider in ${city} Matters
-
-When searching for reliable **${targetCategory}**, experience, certification, and modern equipment make all the difference. At **${name}**, our dedicated team focuses on long-term client outcomes, comfort, and verified results.
-
-- **Verified Local Authority**: Serving individuals and families across ${city}.
-- **Transparent Estimates**: Itemized treatment and service estimates with zero hidden fees.
-
----
-
-## 2. Step-by-Step Overview
-
-1. **Initial Assessment**: Complete evaluation tailored to your specific requirements.
-2. **Personalized Action Plan**: Comprehensive roadmap designed for long-term durability.
-3. **Execution & Follow-up**: High-quality service with dedicated ongoing checkups.
-
----
-
-## Frequently Asked Questions
-
-### Q: How do I schedule an appointment with ${name} in ${city}?
-**A:** Consultations can be booked directly online via our official website or by contacting our local clinic.`;
+  const { title: targetTopic, content: articleContent, focusKeyword, metaTitle, metaDescription } =
+    await generateAutopilotArticle(business, targetCategory);
 
   const targetStatus = autopilot.defaultStatus === "publish" ? "publish" : "draft";
 
@@ -198,10 +316,10 @@ When searching for reliable **${targetCategory}**, experience, certification, an
         title: targetTopic,
         content: articleContent,
         status: targetStatus,
-        meta_title: `${targetTopic.slice(0, 55)} | ${name}`.slice(0, 60),
-        meta_description: `Learn everything about ${targetCategory} in ${city}. Discover costs, step-by-step procedures, and trusted local care by ${name}. Book today!`.slice(0, 160),
+        meta_title: metaTitle,
+        meta_description: metaDescription,
         focus_keyword: focusKeyword,
-        tags: [targetCategory, `${targetCategory} in ${city}`, name, "2026 Guide"],
+        tags: [targetCategory, `${targetCategory} in ${business.city || "your area"}`, name, "2026 Guide"],
       }),
       signal: AbortSignal.timeout(15000),
     });
