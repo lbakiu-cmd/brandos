@@ -871,6 +871,12 @@ export class WordpressService {
 
     const endpoint = `${siteUrl}/wp-json/aivision-seo/v1/publish-post`;
 
+    // Publishing with a featured image makes WordPress sideload/decode the image
+    // and generate multiple resized copies server-side, which can be genuinely
+    // slow on shared hosting -- give it more headroom than a plain text publish.
+    const hasImage = !!(postData.featured_image_url || postData.featured_image_base64);
+    const timeoutMs = hasImage ? 60000 : 15000;
+
     try {
       const res = await fetch(endpoint, {
         method: "POST",
@@ -879,7 +885,7 @@ export class WordpressService {
           "Authorization": `Bearer ${apiKey}`,
         },
         body: JSON.stringify(postData),
-        signal: AbortSignal.timeout(15000),
+        signal: AbortSignal.timeout(timeoutMs),
       });
 
       if (!res.ok) {

@@ -298,6 +298,7 @@ export default function ContentPage() {
           schemas: genRes.schemas,
           tags: genRes.tags,
         }),
+        signal: AbortSignal.timeout(75000),
       });
 
       setPublishResult({
@@ -392,6 +393,7 @@ export default function ContentPage() {
           tags: tagsInput.split(",").map((t) => t.trim()).filter(Boolean),
           featured_image_base64: featuredImage || undefined,
         }),
+        signal: AbortSignal.timeout(75000),
       });
 
       setPublishResult({
