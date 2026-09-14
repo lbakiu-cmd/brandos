@@ -74,6 +74,9 @@ AIVision SEO can be used alongside other SEO plugins, but you should disable dup
 
 == Changelog ==
 
+= 1.6.6 =
+* Fixed 1-Click Fix admin actions (Generate Sitemap XML, llms.txt, robots.txt, etc.) showing the unhelpful message "Error generating [x]: error" whenever the AJAX request itself failed. Now shows the real HTTP status and response snippet (e.g. a 403 from a security plugin, a 500 from a PHP error, or a timeout) so the actual cause is visible instead of jQuery's generic "error" placeholder.
+
 = 1.6.5 =
 * Fixed "Unknown fix_type" errors on every 1-Click Fix / Auto-Fix All on WordPress action -- the AIVisibility SEO dashboard was calling this plugin's apply-fix endpoint with fix type names it never recognized, so schema, robots.txt, and llms.txt fixes always failed.
 * Fixed the Schema.org 1-Click Fix silently doing nothing on the live site -- it saved settings that nothing ever read back out. Site-wide LocalBusiness/Organization/FAQPage JSON-LD now actually renders in the page head.

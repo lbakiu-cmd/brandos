@@ -1,8 +1,23 @@
 {
-  "latest": "1.6.5",
+  "latest": "1.6.6",
   "name": "aivision-seo",
   "description": "AIVision SEO WordPress Plugin for Search Engines (SEO), Answer Engines (AEO), and Generative AI (GEO)",
   "versions": [
+    {
+      "version": "1.6.6",
+      "releasedAt": "2026-09-14T18:57:39.905Z",
+      "filename": "aivision-seo-v1.6.6.zip",
+      "size": 70785,
+      "sizeFormatted": "69.1 KB",
+      "sha256": "67cbc58ae4350b72b3bfb4d385b355be2f5114e75cbd63b4bea23999e5d583e5",
+      "fileCount": 14,
+      "status": "stable",
+      "minPhp": "8.0",
+      "minWp": "6.0",
+      "changelog": [
+        "Fixed 1-Click Fix admin actions (Generate Sitemap XML, llms.txt, robots.txt, etc.) showing the unhelpful message \"Error generating [x]: error\" whenever the AJAX request itself failed. Now shows the real HTTP status and response snippet (e.g. a 403 from a security plugin, a 500 from a PHP error, or a timeout) so the actual cause is visible instead of jQuery's generic \"error\" placeholder."
+      ]
+    },
     {
       "version": "1.6.5",
       "releasedAt": "2026-09-14T17:48:12.337Z",
@@ -11,7 +26,7 @@
       "sizeFormatted": "68.6 KB",
       "sha256": "b6d40575c6b56126edfea56008b396b0959c70016fb6cd3c0e8a4f4ec9e20f9c",
       "fileCount": 14,
-      "status": "stable",
+      "status": "archived",
       "minPhp": "8.0",
       "minWp": "6.0",
       "changelog": [
@@ -198,5 +213,5 @@
       ]
     }
   ],
-  "updatedAt": "2026-09-14T17:48:12.344Z"
+  "updatedAt": "2026-09-14T18:57:39.908Z"
 }

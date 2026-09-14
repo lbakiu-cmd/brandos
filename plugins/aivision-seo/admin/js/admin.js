@@ -7,9 +7,22 @@
     // ── Utility ───────────────────────────────────────────────────────────────
     function request(action, data, cb) {
         $.post(ajax_url, { action, nonce, ...data }, cb).fail(function (xhr, status, error) {
-            notify('Request failed: ' + (error || status || 'Server error'), 'error');
+            // jQuery's own textStatus (`status`) is usually just the literal word
+            // "error" for a plain HTTP failure and errorThrown is often empty, so
+            // falling back to `error || status` surfaced an unhelpful "error" with
+            // no way to tell a 403 (blocked/permissions) from a 500 (PHP fatal)
+            // from a timeout. Use the real HTTP status when we have one instead.
+            let detail = error || status || 'Server error';
+            if (xhr && xhr.status) {
+                detail = 'HTTP ' + xhr.status + (xhr.statusText ? ' ' + xhr.statusText : '');
+                const bodySnippet = (xhr.responseText || '').replace(/<[^>]*>/g, '').trim().slice(0, 200);
+                if (bodySnippet) detail += ' -- ' + bodySnippet;
+            } else if (status === 'timeout') {
+                detail = 'Request timed out';
+            }
+            notify('Request failed: ' + detail, 'error');
             if (typeof cb === 'function') {
-                cb({ success: false, data: error || status });
+                cb({ success: false, data: detail });
             }
         });
     }
