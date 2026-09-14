@@ -52,7 +52,7 @@ export default function PrivacyPolicyPage() {
             <h2 className="text-xl font-bold text-white mb-3">1. Introduction</h2>
             <p>
               Welcome to <strong>AIVisibility SEO</strong> (&quot;the Platform&quot;, &quot;we&quot;, &quot;our&quot;, or &quot;us&quot;), operated at{" "}
-              <a href="https://onlinepresence.space" className="text-blue-400 underline">https://onlinepresence.space</a>. We are committed to safeguarding your privacy and ensuring you have a transparent, secure experience when using our AI search visibility, SEO audit, and omnichannel growth platform.
+              <a href="https://icandothat.online" className="text-blue-400 underline">https://icandothat.online</a>. We are committed to safeguarding your privacy and ensuring you have a transparent, secure experience when using our AI search visibility, SEO audit, and omnichannel growth platform.
             </p>
             <p className="mt-3">
               This Privacy Policy explains what personal data and business information we collect, how we use and protect it, and your rights regarding your information.
@@ -161,7 +161,7 @@ export default function PrivacyPolicyPage() {
             <div className="mt-4 rounded-xl border border-slate-700 bg-slate-950 p-4 font-mono text-xs text-blue-300">
               <p><strong>AIVisibility SEO Privacy & Security</strong></p>
               <p>Email: <a href="mailto:support@onlinepresence.space" className="underline text-white">support@onlinepresence.space</a></p>
-              <p>Website: <a href="https://onlinepresence.space" className="underline text-white">https://onlinepresence.space</a></p>
+              <p>Website: <a href="https://icandothat.online" className="underline text-white">https://icandothat.online</a></p>
             </div>
           </section>
         </div>

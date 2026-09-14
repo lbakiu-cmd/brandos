@@ -71,10 +71,6 @@ async function bootstrap() {
   app.enableCors({
     origin: [
       "http://localhost:3000",
-      "https://onlinepresence.space",
-      "https://www.onlinepresence.space",
-      "https://brandoseye.com",
-      "https://www.brandoseye.com",
       "https://icandothat.online",
       "https://www.icandothat.online",
     ],

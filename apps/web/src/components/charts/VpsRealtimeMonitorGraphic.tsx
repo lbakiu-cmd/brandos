@@ -167,7 +167,7 @@ export function VpsRealtimeMonitorGraphic({
   };
 
   const vpsHost = latestData?.vps.host || "169.58.227.157";
-  const vpsDomain = latestData?.vps.domain || "onlinepresence.space";
+  const vpsDomain = latestData?.vps.domain || "icandothat.online";
   const vpsUptimeSec = latestData?.vps.uptimeSeconds || 284020;
   const uptimeHours = Math.floor(vpsUptimeSec / 3600);
   const uptimeDays = Math.floor(uptimeHours / 24);

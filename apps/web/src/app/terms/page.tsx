@@ -52,7 +52,7 @@ export default function TermsOfServicePage() {
             <h2 className="text-xl font-bold text-white mb-3">1. Agreement to Terms</h2>
             <p>
               By accessing or using <strong>AIVisibility SEO</strong> (&quot;the Platform&quot;), available at{" "}
-              <a href="https://onlinepresence.space" className="text-blue-400 underline">https://onlinepresence.space</a>, you agree to be bound by these Terms of Service (&quot;Terms&quot;) and our Privacy Policy. If you do not agree to these Terms, please do not use our Platform.
+              <a href="https://icandothat.online" className="text-blue-400 underline">https://icandothat.online</a>, you agree to be bound by these Terms of Service (&quot;Terms&quot;) and our Privacy Policy. If you do not agree to these Terms, please do not use our Platform.
             </p>
           </section>
 
@@ -117,7 +117,7 @@ export default function TermsOfServicePage() {
             <div className="mt-4 rounded-xl border border-slate-700 bg-slate-950 p-4 font-mono text-xs text-blue-300">
               <p><strong>AIVisibility SEO Legal & Support</strong></p>
               <p>Email: <a href="mailto:support@onlinepresence.space" className="underline text-white">support@onlinepresence.space</a></p>
-              <p>Website: <a href="https://onlinepresence.space" className="underline text-white">https://onlinepresence.space</a></p>
+              <p>Website: <a href="https://icandothat.online" className="underline text-white">https://icandothat.online</a></p>
             </div>
           </section>
         </div>

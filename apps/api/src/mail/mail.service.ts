@@ -160,7 +160,7 @@ export class MailService {
             </ul>
           </div>
           <div style="text-align: center; margin: 32px 0;">
-            <a href="${process.env.FRONTEND_URL || "https://onlinepresence.space"}/dashboard" style="background-color: #2563eb; color: #ffffff; padding: 14px 28px; border-radius: 10px; font-weight: 700; text-decoration: none; display: inline-block; font-size: 14px;">
+            <a href="${process.env.FRONTEND_URL || "https://icandothat.online"}/dashboard" style="background-color: #2563eb; color: #ffffff; padding: 14px 28px; border-radius: 10px; font-weight: 700; text-decoration: none; display: inline-block; font-size: 14px;">
               Open Growth Dashboard →
             </a>
           </div>
@@ -215,7 +215,7 @@ export class MailService {
           <p style="margin: 8px 0 0 0; font-size: 12px; color: #94a3b8;">Overall Online Growth & Search Grade</p>
         </div>
         <div style="text-align: center; margin-top: 24px;">
-          <a href="${process.env.FRONTEND_URL || "https://onlinepresence.space"}/dashboard/audit" style="background-color: #2563eb; color: #ffffff; padding: 12px 24px; border-radius: 8px; font-weight: 700; text-decoration: none; display: inline-block; font-size: 14px;">
+          <a href="${process.env.FRONTEND_URL || "https://icandothat.online"}/dashboard/audit" style="background-color: #2563eb; color: #ffffff; padding: 12px 24px; border-radius: 8px; font-weight: 700; text-decoration: none; display: inline-block; font-size: 14px;">
             View Detailed Findings & 1-Click Fixes →
           </a>
         </div>
@@ -259,7 +259,7 @@ export class MailService {
             </div>
           </div>
           <div style="text-align: center; margin-top: 24px;">
-            <a href="${process.env.FRONTEND_URL || "https://onlinepresence.space"}/dashboard" style="background-color: #2563eb; color: #ffffff; padding: 12px 24px; border-radius: 8px; font-weight: 700; text-decoration: none; display: inline-block; font-size: 14px;">
+            <a href="${process.env.FRONTEND_URL || "https://icandothat.online"}/dashboard" style="background-color: #2563eb; color: #ffffff; padding: 12px 24px; border-radius: 8px; font-weight: 700; text-decoration: none; display: inline-block; font-size: 14px;">
               Open Full Dashboard →
             </a>
           </div>
@@ -279,7 +279,7 @@ export class MailService {
     initialScore: number,
     currentScore: number,
     resolvedCount: number = 0,
-    comparisonUrl: string = `${process.env.FRONTEND_URL || "https://onlinepresence.space"}/dashboard`
+    comparisonUrl: string = `${process.env.FRONTEND_URL || "https://icandothat.online"}/dashboard`
   ) {
     const delta = currentScore - initialScore;
     const deltaPrefix = delta > 0 ? `+${delta}` : `${delta}`;
@@ -334,7 +334,7 @@ export class MailService {
           </div>
 
           <p style="font-size: 12px; color: #64748b; margin-top: 28px; border-top: 1px solid #1e293b; padding-top: 16px;">
-            Want to run a new deep audit? Access your <a href="${process.env.FRONTEND_URL || "https://onlinepresence.space"}/dashboard/audit" style="color: #38bdf8;">Website Health Checkup</a> at any time.
+            Want to run a new deep audit? Access your <a href="${process.env.FRONTEND_URL || "https://icandothat.online"}/dashboard/audit" style="color: #38bdf8;">Website Health Checkup</a> at any time.
           </p>
         </div>
       </div>

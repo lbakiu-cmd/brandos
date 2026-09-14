@@ -186,9 +186,7 @@ export class OAuthController {
         const redirectUri =
           process.env.GOOGLE_AUTH_REDIRECT_URI ||
           process.env.GOOGLE_REDIRECT_URI ||
-          (host?.includes("brandoseye")
-            ? "https://brandoseye.com/api/oauth/google/callback"
-            : `${targetOrigin}/api/oauth/google/callback`);
+          `${targetOrigin}/api/oauth/google/callback`;
 
         const result = await this.authService.loginWithGoogle(
           { code, redirectUri },
@@ -275,9 +273,7 @@ export class OAuthController {
       const redirectUri =
         process.env.GOOGLE_AUTH_REDIRECT_URI ||
         process.env.GOOGLE_REDIRECT_URI ||
-        (host?.includes("brandoseye")
-          ? "https://brandoseye.com/api/oauth/google/callback"
-          : `${targetOrigin}/api/oauth/google/callback`);
+        `${targetOrigin}/api/oauth/google/callback`;
 
       // 1. Exchange tokens
       const tokens = await this.googleOAuth.exchangeCode(code, redirectUri);

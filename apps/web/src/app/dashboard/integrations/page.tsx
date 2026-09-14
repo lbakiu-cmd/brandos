@@ -65,7 +65,7 @@ export default function IntegrationsPage() {
   const [showSetupGuide, setShowSetupGuide] = useState(false);
   const [latestVersion, setLatestVersion] = useState("1.6.0");
 
-  const brandosApiUrl = typeof window !== "undefined" ? window.location.origin : "https://brandoseye.com";
+  const brandosApiUrl = typeof window !== "undefined" ? window.location.origin : "https://icandothat.online";
   const googleCallbackUri = `${brandosApiUrl}/api/oauth/google/callback`;
   const metaCallbackUri = `${brandosApiUrl}/api/oauth/meta/callback`;
 

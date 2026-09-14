@@ -94,7 +94,7 @@ export class IntegrationsController {
       throw new BadRequestException("Google Search Console is not connected.");
     }
 
-    const target = siteUrl || biz.website || "https://brandoseye.com";
+    const target = siteUrl || biz.website || "https://icandothat.online";
     const dayCount = days ? parseInt(days, 10) : 28;
 
     const metrics = await this.googleOAuth.fetchGscMetrics(token, target, dayCount);

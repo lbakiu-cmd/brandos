@@ -624,7 +624,7 @@ export class BusinessService {
       initialScore,
       currentScore,
       resolvedCount,
-      "https://brandoseye.com/dashboard"
+      `${process.env.FRONTEND_URL || "https://icandothat.online"}/dashboard`
     );
 
     if (comparison.initialSnapshot.id) {

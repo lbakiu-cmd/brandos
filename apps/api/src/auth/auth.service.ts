@@ -418,7 +418,7 @@ export class AuthService {
           input.redirectUri ||
           process.env.GOOGLE_AUTH_REDIRECT_URI ||
           process.env.GOOGLE_REDIRECT_URI ||
-          "https://brandoseye.com/api/oauth/google/callback";
+          "https://icandothat.online/api/oauth/google/callback";
 
         const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
           method: "POST",
