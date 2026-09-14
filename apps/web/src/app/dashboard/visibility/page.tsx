@@ -937,10 +937,10 @@ export default function VisibilityPage() {
                 <div className="text-[11px] text-[#78716C] dark:text-zinc-400 mb-1">
                   {reportData.questions?.length || 0} questions × 2 AI engines
                 </div>
-                <div className="grid grid-cols-12 text-[10px] font-bold tracking-wider text-[#78716C] dark:text-zinc-400 uppercase items-center">
-                  <div className="col-span-8 flex items-center justify-between pr-4">
+                <div className="flex items-center gap-3 text-[10px] font-bold tracking-wider text-[#78716C] dark:text-zinc-400 uppercase">
+                  <div className="flex flex-1 min-w-0 items-center justify-between gap-3 pr-4">
                     <span>QUESTION (CLICK ROW TO EXPAND / COLLAPSE)</span>
-                    <div className="flex gap-2">
+                    <div className="flex shrink-0 gap-2">
                       <button
                         onClick={expandAll}
                         className="text-[10px] lowercase text-[#8A5333] dark:text-amber-400 hover:underline"
@@ -956,10 +956,10 @@ export default function VisibilityPage() {
                       </button>
                     </div>
                   </div>
-                  <div className="col-span-2 text-center text-blue-600 dark:text-blue-400 font-bold tracking-wider text-xs">
+                  <div className="w-28 sm:w-32 shrink-0 text-center text-blue-600 dark:text-blue-400 font-bold tracking-wider text-xs">
                     GOOGLE GEMINI
                   </div>
-                  <div className="col-span-2 text-center text-emerald-600 dark:text-emerald-400 font-bold tracking-wider text-xs">
+                  <div className="w-28 sm:w-32 shrink-0 text-center text-emerald-600 dark:text-emerald-400 font-bold tracking-wider text-xs">
                     OPENAI CHATGPT
                   </div>
                 </div>
@@ -978,9 +978,9 @@ export default function VisibilityPage() {
                       {/* Summary Row */}
                       <div
                         onClick={() => toggleQuestion(q.id)}
-                        className="grid grid-cols-12 px-5 py-4 cursor-pointer select-none items-center"
+                        className="flex items-start gap-3 px-5 py-4 cursor-pointer select-none"
                       >
-                        <div className="col-span-8 pr-4 space-y-0.5">
+                        <div className="flex-1 min-w-0 pr-4 space-y-0.5">
                           <h4 className="text-sm font-bold text-[#1C1917] dark:text-white flex items-center gap-2">
                             {q.question}
                           </h4>
@@ -990,7 +990,7 @@ export default function VisibilityPage() {
                         </div>
 
                         {/* Google Gemini Indicator */}
-                        <div className="col-span-2 flex justify-center">
+                        <div className="w-28 sm:w-32 shrink-0 flex justify-center pt-0.5">
                           {geminiDetail?.mentioned ? (
                             <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-semibold text-xs bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800">
                               ✓ Mentioned
@@ -1003,7 +1003,7 @@ export default function VisibilityPage() {
                         </div>
 
                         {/* ChatGPT Indicator */}
-                        <div className="col-span-2 flex justify-center">
+                        <div className="w-28 sm:w-32 shrink-0 flex justify-center pt-0.5">
                           {chatGptDetail?.mentioned ? (
                             <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-semibold text-xs bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800">
                               ✓ Mentioned
