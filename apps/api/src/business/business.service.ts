@@ -205,8 +205,9 @@ export class BusinessService {
       const tierRank: Record<string, number> = {
         FREE: 1,
         STARTER: 1,
-        GROWTH: 3,
-        AGENCY: 15,
+        PRO: 10,
+        GROWTH: 10,
+        AGENCY: 50,
       };
 
       let maxAllowed = 1;
@@ -222,7 +223,7 @@ export class BusinessService {
 
       if (existingMemberships.length >= maxAllowed) {
         throw new BadRequestException(
-          `Workspace limit reached (${existingMemberships.length}/${maxAllowed} on ${highestTier} Plan). Please upgrade to Pro Growth (3 workspaces) or Agency Plan (15 workspaces) to create more client businesses.`
+          `Workspace limit reached (${existingMemberships.length}/${maxAllowed} on ${highestTier} Plan). Please upgrade to Pro (up to 10 businesses) or Agency Plan (up to 50 businesses) to create more client businesses.`
         );
       }
     }

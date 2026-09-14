@@ -23,24 +23,24 @@ const stripe = new Stripe(STRIPE_SECRET_KEY);
 const PLANS_CONFIG = [
   {
     tier: "STARTER",
-    name: "Starter Growth",
-    description: "Complete visibility & monitoring engine for growing local businesses.",
-    monthlyAmount: 4900, // $49.00 USD
-    annualAmount: 47000, // $470.00 USD
+    name: "Starter",
+    description: "Single workspace/business, free website and business email. Full AI & SEO suite included.",
+    monthlyAmount: 2500, // $25.00 USD
+    annualAmount: 24000, // $240.00 USD
   },
   {
-    tier: "GROWTH",
-    name: "AI Dominance",
-    description: "Advanced AI search optimization, competitor tracking, and review auto-responder.",
-    monthlyAmount: 9900, // $99.00 USD
-    annualAmount: 95000, // $950.00 USD
+    tier: "PRO",
+    name: "Pro",
+    description: "Up to 10 businesses with full AI & SEO suite.",
+    monthlyAmount: 4500, // $45.00 USD
+    annualAmount: 43000, // $430.00 USD
   },
   {
     tier: "AGENCY",
-    name: "Agency / Enterprise",
-    description: "Scale AI search optimization and multi-platform analytics across client portfolios.",
-    monthlyAmount: 29900, // $299.00 USD
-    annualAmount: 287000, // $2870.00 USD
+    name: "Agency",
+    description: "Up to 50 businesses with full AI & SEO suite.",
+    monthlyAmount: 22000, // $220.00 USD
+    annualAmount: 210000, // $2100.00 USD
   },
 ];
 
@@ -76,6 +76,11 @@ async function setup() {
       console.log(`  Created Product: ${product.id}`);
     } else {
       console.log(`  Found existing Product: ${product.id}`);
+      await stripe.products.update(product.id, {
+        name: plan.name,
+        description: plan.description,
+      });
+      console.log(`  Updated Product info: ${plan.name}`);
     }
 
     // Monthly Price
@@ -112,6 +117,13 @@ async function setup() {
     createdPrices[`STRIPE_PRICE_${plan.tier}_ANNUAL`] = annualPrice.id;
   }
 
+  // Alias GROWTH to PRO prices for backward compatibility
+  if (createdPrices["STRIPE_PRICE_PRO"]) {
+    createdPrices["STRIPE_PRICE_GROWTH"] = createdPrices["STRIPE_PRICE_PRO"];
+    createdPrices["STRIPE_PRICE_GROWTH_MONTHLY"] = createdPrices["STRIPE_PRICE_PRO_MONTHLY"];
+    createdPrices["STRIPE_PRICE_GROWTH_ANNUAL"] = createdPrices["STRIPE_PRICE_PRO_ANNUAL"];
+  }
+
   // 3. Setup Webhook Endpoint
   console.log(`\n🔔 Configuring Webhook Endpoint (${WEBHOOK_URL})...`);
   const existingWebhooks = await stripe.webhookEndpoints.list({ limit: 10 });
@@ -142,34 +154,40 @@ async function setup() {
     console.log(`  Webhook Secret: ${webhookSecret ? webhookSecret.substring(0, 10) + "..." : "Not returned"}`);
   }
 
-  // 4. Update root .env
-  const envPath = path.resolve(__dirname, "..", ".env");
-  if (fs.existsSync(envPath)) {
-    let envContent = fs.readFileSync(envPath, "utf8");
+  // 4. Update root .env and apps/api/.env
+  const envPaths = [
+    path.resolve(__dirname, "..", ".env"),
+    path.resolve(__dirname, "..", "apps", "api", ".env"),
+  ];
 
-    // Set default price ID
-    createdPrices["STRIPE_PRICE_ID"] = createdPrices["STRIPE_PRICE_STARTER"];
+  for (const envPath of envPaths) {
+    if (fs.existsSync(envPath)) {
+      let envContent = fs.readFileSync(envPath, "utf8");
 
-    for (const [key, val] of Object.entries(createdPrices)) {
-      const reg = new RegExp(`^${key}=.*$`, "m");
-      if (reg.test(envContent)) {
-        envContent = envContent.replace(reg, `${key}="${val}"`);
-      } else {
-        envContent += `\n${key}="${val}"`;
+      // Set default price ID
+      createdPrices["STRIPE_PRICE_ID"] = createdPrices["STRIPE_PRICE_STARTER"];
+
+      for (const [key, val] of Object.entries(createdPrices)) {
+        const reg = new RegExp(`^${key}=.*$`, "m");
+        if (reg.test(envContent)) {
+          envContent = envContent.replace(reg, `${key}="${val}"`);
+        } else {
+          envContent += `\n${key}="${val}"`;
+        }
       }
-    }
 
-    if (webhookSecret) {
-      const reg = /^STRIPE_WEBHOOK_SECRET=.*$/m;
-      if (reg.test(envContent)) {
-        envContent = envContent.replace(reg, `STRIPE_WEBHOOK_SECRET="${webhookSecret}"`);
-      } else {
-        envContent += `\nSTRIPE_WEBHOOK_SECRET="${webhookSecret}"`;
+      if (webhookSecret) {
+        const reg = /^STRIPE_WEBHOOK_SECRET=.*$/m;
+        if (reg.test(envContent)) {
+          envContent = envContent.replace(reg, `STRIPE_WEBHOOK_SECRET="${webhookSecret}"`);
+        } else {
+          envContent += `\nSTRIPE_WEBHOOK_SECRET="${webhookSecret}"`;
+        }
       }
-    }
 
-    fs.writeFileSync(envPath, envContent.trim() + "\n");
-    console.log(`\n📋 Updated environment file: ${envPath}`);
+      fs.writeFileSync(envPath, envContent.trim() + "\n");
+      console.log(`\n📋 Updated environment file: ${envPath}`);
+    }
   }
 
   console.log("\n✅ Stripe Sandbox configuration finished successfully!");

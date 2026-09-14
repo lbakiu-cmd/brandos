@@ -93,6 +93,7 @@ enum RecommendationStatus {
 enum SubscriptionTier {
   FREE
   STARTER
+  PRO
   GROWTH
   AGENCY
 }

@@ -197,8 +197,11 @@ export default function BillingPage() {
       {/* Plan Switcher / Upgrade Grid */}
       <section>
         <div className="text-center mb-8">
+          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-0.5 text-xs font-semibold text-emerald-400">
+            <span>✨</span> All features unlocked on every plan · Choose workspace capacity
+          </div>
           <h2 className="text-2xl font-bold text-white">Available Plans & Upgrades</h2>
-          <p className="mt-1 text-xs text-slate-400">Choose the plan that matches your business growth velocity</p>
+          <p className="mt-1 text-xs text-slate-400">All plans include 100% of platform tools & features. Starter Plan exclusively includes free website & business email.</p>
 
           <div className="mt-4 inline-flex items-center rounded-xl border border-slate-800 bg-slate-900 p-1 text-xs font-semibold">
             <button
@@ -222,19 +225,20 @@ export default function BillingPage() {
 
         <div className="grid gap-6 md:grid-cols-3">
           {plans.filter((p) => p.id !== "FREE").map((p) => {
-            const isCurrent = currentTier === p.id;
+            const isCurrent = currentTier === p.id || (p.id === "PRO" && currentTier === "GROWTH");
             const price = billingCycle === "MONTHLY" ? p.priceMonthly : Math.round(p.priceAnnual / 12);
+            const isFeatured = p.id === "PRO" || p.id === "GROWTH";
 
             return (
               <div
                 key={p.id}
                 className={`rounded-3xl border p-6 flex flex-col justify-between transition ${
-                  p.id === "GROWTH"
+                  isFeatured
                     ? "border-blue-500/50 bg-gradient-to-b from-blue-950/40 via-slate-900 to-slate-950 shadow-2xl relative"
                     : "border-slate-800 bg-slate-900/60"
                 }`}
               >
-                {p.id === "GROWTH" && (
+                {isFeatured && (
                   <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 px-3 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-white shadow-md">
                     Most Popular
                   </span>

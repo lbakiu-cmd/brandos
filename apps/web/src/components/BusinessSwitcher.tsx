@@ -22,8 +22,9 @@ import { businessApi, BusinessItem } from "@/lib/api";
 const TIER_LIMITS: Record<string, { max: number; label: string; color: string }> = {
   FREE: { max: 1, label: "Free", color: "bg-zinc-800 text-zinc-400 border-zinc-700" },
   STARTER: { max: 1, label: "Starter", color: "bg-zinc-800 text-zinc-300 border-zinc-700" },
-  GROWTH: { max: 3, label: "Pro Growth", color: "bg-violet-500/15 text-violet-300 border-violet-500/30" },
-  AGENCY: { max: 15, label: "Agency", color: "bg-amber-500/15 text-amber-300 border-amber-500/30" },
+  PRO: { max: 10, label: "Pro", color: "bg-violet-500/15 text-violet-300 border-violet-500/30" },
+  GROWTH: { max: 10, label: "Pro", color: "bg-violet-500/15 text-violet-300 border-violet-500/30" },
+  AGENCY: { max: 50, label: "Agency", color: "bg-amber-500/15 text-amber-300 border-amber-500/30" },
 };
 
 export function BusinessSwitcher() {

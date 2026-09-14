@@ -2,6 +2,18 @@ import { BadRequestException, Injectable, NotFoundException } from "@nestjs/comm
 import { prisma, SubscriptionTier } from "@brandos/database";
 import Stripe from "stripe";
 
+const COMMON_FEATURES = [
+  "4-Pillar AI & Local SEO Presence Scanner",
+  "Multi-Engine LLM Citation Monitoring (ChatGPT, Perplexity, Gemini, Claude)",
+  "Google Search Console & GA4 AI Traffic Analytics",
+  "Google Business Profile & Automated AI Review Responder",
+  "1-Click Code Generation (JSON-LD Schema, /llms.txt, WordPress sync)",
+  "Multi-Channel Content Studio & Scheduled Auto-Publishing",
+  "Unified Customer Inbox (Instagram, Messenger)",
+  "Executive White-Label PDF Client Reports",
+  "Instant Discovery Alerts & Recommendations",
+];
+
 export const PRICING_PLANS = {
   FREE: {
     id: "FREE",
@@ -26,69 +38,75 @@ export const PRICING_PLANS = {
   },
   STARTER: {
     id: "STARTER",
-    name: "Starter Growth",
-    priceMonthly: 49,
-    priceAnnual: 470,
-    description: "Complete visibility & monitoring engine for growing local businesses.",
+    name: "Starter",
+    priceMonthly: 25,
+    priceAnnual: 240,
+    description: "Single workspace/business with free website and business email. Full platform access.",
     features: [
-      "1 Business Profile",
-      "Google Search Console & GA4 AI Traffic Integration",
-      "Google Business Profile & Review Monitoring",
-      "1-Click Copy Code Fixes (Schema, /llms.txt)",
-      "WordPress AIVision SEO Auto-Sync",
-      "10 Custom Dashboard Widgets",
+      "1 Business Workspace",
+      "Free Professional Website & Business Email",
+      ...COMMON_FEATURES,
     ],
     limits: {
       businesses: 1,
-      auditsPerMonth: 50,
-      competitors: 3,
-      widgetsLimit: 15,
-      monitoredChannels: 5,
-    },
-  },
-  GROWTH: {
-    id: "GROWTH",
-    name: "AI Dominance",
-    priceMonthly: 99,
-    priceAnnual: 950,
-    description: "Advanced AI search optimization, competitor tracking, and review auto-responder.",
-    features: [
-      "3 Business Profiles",
-      "All Google & Social Authority OAuth Connectors",
-      "Competitor AI Head-to-Head Benchmarking",
-      "Automated AI Google Review Responder",
-      "Daily Multi-Engine LLM Citation Monitoring",
-      "Unlimited Cyfe-Style Dashboard Widgets",
-      "Executive PDF White-Label Reports",
-    ],
-    limits: {
-      businesses: 3,
-      auditsPerMonth: 200,
-      competitors: 10,
+      auditsPerMonth: 1000,
+      competitors: 50,
       widgetsLimit: 50,
       monitoredChannels: 15,
     },
   },
-  AGENCY: {
-    id: "AGENCY",
-    name: "Agency / Enterprise",
-    priceMonthly: 299,
-    priceAnnual: 2870,
-    description: "Scale AI search optimization and multi-platform analytics across client portfolios.",
+  PRO: {
+    id: "PRO",
+    name: "Pro",
+    priceMonthly: 45,
+    priceAnnual: 430,
+    description: "Up to 10 businesses with full AI & SEO suite.",
     features: [
-      "15 Business Profiles",
-      "Unlimited Competitor Tracking & AI Probes",
-      "Full Custom Brand White-Labeling",
-      "Automated Monthly Client Analytics Reports",
-      "Multi-seat Team Management (10 Seats)",
-      "Dedicated Account Manager",
+      "Up to 10 Business Workspaces",
+      ...COMMON_FEATURES,
     ],
     limits: {
-      businesses: 15,
-      auditsPerMonth: 1000,
-      competitors: 50,
-      widgetsLimit: 200,
+      businesses: 10,
+      auditsPerMonth: 5000,
+      competitors: 150,
+      widgetsLimit: 150,
       monitoredChannels: 50,
+    },
+  },
+  GROWTH: {
+    id: "GROWTH",
+    name: "Pro",
+    priceMonthly: 45,
+    priceAnnual: 430,
+    description: "Up to 10 businesses with full AI & SEO suite.",
+    features: [
+      "Up to 10 Business Workspaces",
+      ...COMMON_FEATURES,
+    ],
+    limits: {
+      businesses: 10,
+      auditsPerMonth: 5000,
+      competitors: 150,
+      widgetsLimit: 150,
+      monitoredChannels: 50,
+    },
+  },
+  AGENCY: {
+    id: "AGENCY",
+    name: "Agency",
+    priceMonthly: 220,
+    priceAnnual: 2100,
+    description: "Up to 50 businesses with full AI & SEO suite.",
+    features: [
+      "Up to 50 Business Workspaces",
+      ...COMMON_FEATURES,
+    ],
+    limits: {
+      businesses: 50,
+      auditsPerMonth: 25000,
+      competitors: 500,
+      widgetsLimit: 500,
+      monitoredChannels: 200,
     },
   },
 };
@@ -118,7 +136,7 @@ export class BillingService {
       currentPeriodEnd: biz.currentPeriodEnd || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       hasStripeCustomer: !!biz.stripeCustomerId,
       plan,
-      allPlans: Object.values(PRICING_PLANS),
+      allPlans: [PRICING_PLANS.STARTER, PRICING_PLANS.PRO, PRICING_PLANS.AGENCY],
     };
   }
 
@@ -407,7 +425,7 @@ export class BillingService {
           // Detect if tier changed via customer portal
           const priceId = sub.items?.data?.[0]?.price?.id;
           if (priceId) {
-            for (const candidateTier of ["AGENCY", "GROWTH", "STARTER"] as SubscriptionTier[]) {
+            for (const candidateTier of ["AGENCY", "PRO", "GROWTH", "STARTER"] as SubscriptionTier[]) {
               if (
                 process.env[`STRIPE_PRICE_${candidateTier}`] === priceId ||
                 process.env[`STRIPE_PRICE_${candidateTier}_MONTHLY`] === priceId ||
