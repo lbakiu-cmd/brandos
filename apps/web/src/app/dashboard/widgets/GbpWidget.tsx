@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { MapPin, PhoneCall, Navigation, Globe, Star, TrendingUp, Plug } from "lucide-react";
+import { MapPin, PhoneCall, Navigation, Globe, Star, Plug } from "lucide-react";
 import { TimeRangeFilter } from "@/components/TimeRangeFilter";
-import { TimeRangeKey, getTimeRangeMultiplier, getTimeRangeLabel } from "@/lib/timeRanges";
+import { TimeRangeKey, getTimeRangeLabel } from "@/lib/timeRanges";
+import { useGbpMetrics } from "@/lib/useGbpMetrics";
 
 interface GbpWidgetProps {
   data?: any;
@@ -12,7 +13,7 @@ interface GbpWidgetProps {
   initialTimeRange?: TimeRangeKey;
 }
 
-export function GbpWidget({ data, onRemove, initialTimeRange = "7D" }: GbpWidgetProps) {
+export function GbpWidget({ onRemove, initialTimeRange = "7D" }: GbpWidgetProps) {
   const [timeRange, setTimeRange] = useState<TimeRangeKey>(initialTimeRange);
 
   useEffect(() => {
@@ -21,7 +22,8 @@ export function GbpWidget({ data, onRemove, initialTimeRange = "7D" }: GbpWidget
     }
   }, [initialTimeRange]);
 
-  const isConnected = Boolean(data && (data.searchViews !== undefined || data.mapsViews !== undefined || data.connected));
+  const { data, error, loading } = useGbpMetrics(timeRange);
+  const isConnected = data !== null;
 
   if (!isConnected) {
     return (
@@ -37,7 +39,7 @@ export function GbpWidget({ data, onRemove, initialTimeRange = "7D" }: GbpWidget
             </div>
           </div>
           <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">
-            Not Connected
+            {loading ? "Loading" : "Not Connected"}
           </span>
         </div>
 
@@ -45,7 +47,7 @@ export function GbpWidget({ data, onRemove, initialTimeRange = "7D" }: GbpWidget
           <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
             <MapPin className="h-5 w-5" />
           </div>
-          <p className="text-xs text-slate-300 font-medium mb-1">No Google Business Profile data yet</p>
+          <p className="text-xs text-slate-300 font-medium mb-1">{loading ? "Loading Google Business Profile data..." : error || "No Google Business Profile data yet"}</p>
           <p className="text-[11px] text-slate-400 max-w-xs mx-auto mb-4">
             Connect your Google Business listing to track local map views, direction requests and customer phone calls.
           </p>
@@ -70,25 +72,13 @@ export function GbpWidget({ data, onRemove, initialTimeRange = "7D" }: GbpWidget
     );
   }
 
-  const multiplier = getTimeRangeMultiplier(timeRange);
-  const baseSearchViews = data?.searchViews || 0;
-  const baseMapsViews = data?.mapsViews || 0;
-  const baseCalls = data?.callClicks || 0;
-  const baseDirections = data?.directionRequests || 0;
-  const baseWebsiteClicks = data?.websiteClicks || 0;
+  const searchViews = data?.searchViews || 0;
+  const mapsViews = data?.mapsViews || 0;
+  const calls = data?.callClicks || 0;
+  const directions = data?.directionRequests || 0;
+  const websiteClicks = data?.websiteClicks || 0;
   const rating = data?.averageRating || 0;
   const totalReviews = data?.totalReviews || 0;
-
-  const searchViews = Math.round(baseSearchViews * multiplier);
-  const mapsViews = Math.round(baseMapsViews * multiplier);
-  const calls = Math.round(baseCalls * multiplier);
-  const directions = Math.round(baseDirections * multiplier);
-  const websiteClicks = Math.round(baseWebsiteClicks * multiplier);
-
-  const searchGrowth =
-    timeRange === "7D" ? "+11.5%" : timeRange === "14D" ? "+14.0%" : timeRange === "3M" ? "+32.4%" : timeRange === "MAX" ? "+98.0%" : "+16.5%";
-  const mapsGrowth =
-    timeRange === "7D" ? "+14.8%" : timeRange === "14D" ? "+18.2%" : timeRange === "3M" ? "+41.0%" : timeRange === "MAX" ? "+125.0%" : "+21.0%";
 
   return (
     <div className="flex flex-col h-full rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-xl backdrop-blur">
@@ -132,17 +122,13 @@ export function GbpWidget({ data, onRemove, initialTimeRange = "7D" }: GbpWidget
         <div className="rounded-xl bg-slate-950/60 p-3 border border-slate-800/60">
           <p className="text-xs text-slate-400 font-medium">Google Search Views</p>
           <p className="text-xl font-bold text-white mt-1">{searchViews.toLocaleString()}</p>
-          <span className="text-xs text-emerald-400 font-semibold flex items-center gap-1 mt-0.5">
-            <TrendingUp className="h-3 w-3" /> {searchGrowth}
-          </span>
+          <span className="text-xs text-slate-500 mt-0.5 block">{getTimeRangeLabel(timeRange)}</span>
         </div>
 
         <div className="rounded-xl bg-slate-950/60 p-3 border border-slate-800/60">
           <p className="text-xs text-slate-400 font-medium">Google Maps Views</p>
           <p className="text-xl font-bold text-white mt-1">{mapsViews.toLocaleString()}</p>
-          <span className="text-xs text-emerald-400 font-semibold flex items-center gap-1 mt-0.5">
-            <TrendingUp className="h-3 w-3" /> {mapsGrowth}
-          </span>
+          <span className="text-xs text-slate-500 mt-0.5 block">{getTimeRangeLabel(timeRange)}</span>
         </div>
 
         <div className="rounded-xl bg-slate-950/60 p-3 border border-slate-800/60">

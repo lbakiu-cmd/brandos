@@ -6,7 +6,7 @@ import { Search, TrendingUp, MousePointerClick, Eye, Globe, Sparkles, Filter, Re
 import { apiFetch } from "@/lib/api";
 
 import { TimeRangeFilter } from "@/components/TimeRangeFilter";
-import { TimeRangeKey, getTimeRangeMultiplier, getTimeRangeLabel, getTimeRangeDays } from "@/lib/timeRanges";
+import { TimeRangeKey, getTimeRangeLabel, getTimeRangeDays } from "@/lib/timeRanges";
 import { PerformanceTimelineGraphic } from "@/components/charts/PerformanceTimelineGraphic";
 import { QueryRankDistributionGraphic } from "@/components/charts/QueryRankDistributionGraphic";
 
@@ -103,23 +103,15 @@ export default function GscPage() {
   };
 
   const bName = business?.name || "Your Business";
-  const multiplier = getTimeRangeMultiplier(timeRange);
 
-  const baseClicks = isConnected && gscData?.totalClicks ? gscData.totalClicks : 0;
-  const baseImpressions = isConnected && gscData?.totalImpressions ? gscData.totalImpressions : 0;
-  const clicks = Math.round(baseClicks * multiplier);
-  const impressions = Math.round(baseImpressions * multiplier);
+  const clicks = isConnected && gscData?.totalClicks ? gscData.totalClicks : 0;
+  const impressions = isConnected && gscData?.totalImpressions ? gscData.totalImpressions : 0;
   const ctr = isConnected && gscData?.averageCtr ? gscData.averageCtr : 0;
   const position = isConnected && gscData?.averagePosition ? gscData.averagePosition : 0;
 
-  const rawQueries = (isConnected && gscData?.topQueries && gscData.topQueries.length > 0)
+  const queries = (isConnected && gscData?.topQueries && gscData.topQueries.length > 0)
     ? gscData.topQueries
     : [];
-  const queries = rawQueries.map((q: any) => ({
-    ...q,
-    clicks: Math.round((q.clicks || 0) * multiplier),
-    impressions: Math.round((q.impressions || 0) * multiplier),
-  }));
 
   const filtered = queries.filter((q: any) => {
     const matchesQuery = q.query.toLowerCase().includes(filter.toLowerCase());

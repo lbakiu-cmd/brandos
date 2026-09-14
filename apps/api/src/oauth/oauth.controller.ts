@@ -286,7 +286,7 @@ export class OAuthController {
       const [gscMetrics, ga4Metrics, gbpMetrics] = await Promise.all([
         this.googleOAuth.fetchGscMetrics(tokens.access_token, siteUrl),
         this.googleOAuth.fetchGa4Metrics(tokens.access_token, siteUrl, business?.name),
-        this.googleOAuth.fetchGbpMetrics(tokens.access_token, business?.name, siteUrl, business?.city),
+        this.googleOAuth.fetchGbpMetrics(tokens.access_token, business?.name, siteUrl, business?.city, 28, businessId),
       ]);
 
       const expiresAt = new Date(Date.now() + (tokens.expires_in || 3600) * 1000);

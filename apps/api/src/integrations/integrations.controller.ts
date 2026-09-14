@@ -48,6 +48,21 @@ export class IntegrationsController {
     return metrics;
   }
 
+  @Get("google/gbp")
+  @UseGuards(AuthGuard)
+  async getGbp(@Req() req: any, @Query("days") days = "28") {
+    const dayCount = Number(days);
+    if (!/^[0-9]+$/.test(days) || ![0, 7, 14, 28, 30, 90, 365].includes(dayCount)) {
+      throw new BadRequestException("Unsupported analytics date range.");
+    }
+    const biz = await this.business.get(req.user.id, req.user.activeBusinessId);
+    const token = await this.googleOAuth.getFreshAccessToken(biz.id, IntegrationProvider.GOOGLE_BUSINESS_PROFILE);
+    if (!token) throw new BadRequestException("Google Business Profile is not connected.");
+    const metrics = await this.googleOAuth.fetchGbpMetrics(token, biz.name, biz.website || undefined, biz.city || undefined, dayCount, biz.id);
+    if (!metrics) throw new BadRequestException("Google Business Profile data is unavailable for this business and date range.");
+    return metrics;
+  }
+
   /**
    * Get all verified domains/sites from connected Google Search Console
    */

@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Search, TrendingUp, MousePointerClick, Eye, Plug } from "lucide-react";
+import { Search, MousePointerClick, Eye, Plug } from "lucide-react";
 import { TimeRangeFilter } from "@/components/TimeRangeFilter";
-import { TimeRangeKey, getTimeRangeMultiplier, getTimeRangeLabel } from "@/lib/timeRanges";
+import { TimeRangeKey, getTimeRangeLabel } from "@/lib/timeRanges";
+import { useGscMetrics } from "@/lib/useGscMetrics";
 import { PerformanceTimelineGraphic } from "@/components/charts/PerformanceTimelineGraphic";
 import { QueryRankDistributionGraphic } from "@/components/charts/QueryRankDistributionGraphic";
 
@@ -14,7 +15,7 @@ interface GscWidgetProps {
   initialTimeRange?: TimeRangeKey;
 }
 
-export function GscWidget({ data, onRemove, initialTimeRange = "7D" }: GscWidgetProps) {
+export function GscWidget({ onRemove, initialTimeRange = "7D" }: GscWidgetProps) {
   const [timeRange, setTimeRange] = useState<TimeRangeKey>(initialTimeRange);
 
   useEffect(() => {
@@ -23,7 +24,9 @@ export function GscWidget({ data, onRemove, initialTimeRange = "7D" }: GscWidget
     }
   }, [initialTimeRange]);
 
-  const isConnected = Boolean(data && (data.totalClicks !== undefined || data.topQueries?.length > 0 || data.connected));
+  const { data, error, loading } = useGscMetrics(timeRange);
+  const isConnected = data !== null;
+  const [selectedTier, setSelectedTier] = useState<string | null>(null);
 
   if (!isConnected) {
     return (
@@ -39,7 +42,7 @@ export function GscWidget({ data, onRemove, initialTimeRange = "7D" }: GscWidget
             </div>
           </div>
           <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">
-            Not Connected
+            {loading ? "Loading" : "Not Connected"}
           </span>
         </div>
 
@@ -47,7 +50,7 @@ export function GscWidget({ data, onRemove, initialTimeRange = "7D" }: GscWidget
           <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20">
             <Plug className="h-5 w-5" />
           </div>
-          <p className="text-xs text-slate-300 font-medium mb-1">No Google Search Console data yet</p>
+          <p className="text-xs text-slate-300 font-medium mb-1">{loading ? "Loading Search Console data..." : error || "No Google Search Console data yet"}</p>
           <p className="text-[11px] text-slate-400 max-w-xs mx-auto mb-4">
             Connect your Google Search Console account in 1-click to track real-time website clicks, impressions and keywords.
           </p>
@@ -72,23 +75,11 @@ export function GscWidget({ data, onRemove, initialTimeRange = "7D" }: GscWidget
     );
   }
 
-  const multiplier = getTimeRangeMultiplier(timeRange);
-  const baseClicks = data?.totalClicks || 0;
-  const baseImpressions = data?.totalImpressions || 0;
+  const clicks = data?.totalClicks || 0;
+  const impressions = data?.totalImpressions || 0;
   const ctr = data?.averageCtr || 0;
   const position = data?.averagePosition || 0;
-
-  const rawQueries = data?.topQueries || [];
-  const clicks = Math.round(baseClicks * multiplier);
-  const impressions = Math.round(baseImpressions * multiplier);
-
-  const queries = rawQueries.map((q: any) => ({
-    ...q,
-    clicks: Math.round(q.clicks * multiplier),
-    impressions: Math.round(q.impressions * multiplier),
-  }));
-
-  const [selectedTier, setSelectedTier] = useState<string | null>(null);
+  const queries = data?.topQueries || [];
 
   const displayedQueries = (queries || []).filter((q: any) => {
     if (!selectedTier) return true;
@@ -99,11 +90,6 @@ export function GscWidget({ data, onRemove, initialTimeRange = "7D" }: GscWidget
     if (selectedTier === "beyond") return pos > 20;
     return true;
   });
-
-  const visitGrowth =
-    timeRange === "7D" ? "+8.4%" : timeRange === "14D" ? "+11.2%" : timeRange === "3M" ? "+28.6%" : timeRange === "MAX" ? "+84.2%" : "+14.2%";
-  const viewGrowth =
-    timeRange === "7D" ? "+12.1%" : timeRange === "14D" ? "+16.8%" : timeRange === "3M" ? "+42.5%" : timeRange === "MAX" ? "+126.0%" : "+22.8%";
 
   return (
     <div className="flex flex-col h-full rounded-xl border border-zinc-800/80 bg-zinc-900/50 p-5">
@@ -152,9 +138,7 @@ export function GscWidget({ data, onRemove, initialTimeRange = "7D" }: GscWidget
             <MousePointerClick className="h-3.5 w-3.5 text-zinc-400" /> Website Visits
           </p>
           <p className="text-xl font-bold text-white mt-1 tracking-tight">{clicks.toLocaleString()}</p>
-          <span className="text-xs text-emerald-400 font-semibold flex items-center gap-1 mt-0.5">
-            <TrendingUp className="h-3 w-3" /> {visitGrowth}
-          </span>
+          <span className="text-xs text-slate-500 mt-0.5 block">{getTimeRangeLabel(timeRange)}</span>
         </div>
 
         <div className="rounded-xl bg-zinc-950/70 p-3 border border-zinc-800/80">
@@ -162,9 +146,7 @@ export function GscWidget({ data, onRemove, initialTimeRange = "7D" }: GscWidget
             <Eye className="h-3.5 w-3.5 text-zinc-400" /> Impressions
           </p>
           <p className="text-xl font-bold text-white mt-1 tracking-tight">{impressions.toLocaleString()}</p>
-          <span className="text-xs text-emerald-400 font-semibold flex items-center gap-1 mt-0.5">
-            <TrendingUp className="h-3 w-3" /> {viewGrowth}
-          </span>
+          <span className="text-xs text-slate-500 mt-0.5 block">{getTimeRangeLabel(timeRange)}</span>
         </div>
 
         <div className="rounded-xl bg-zinc-950/70 p-3 border border-zinc-800/80">

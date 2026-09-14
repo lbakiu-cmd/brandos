@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import {
   MapPin,
@@ -29,7 +29,7 @@ import {
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { TimeRangeFilter } from "@/components/TimeRangeFilter";
-import { TimeRangeKey, getTimeRangeMultiplier, getTimeRangeLabel } from "@/lib/timeRanges";
+import { TimeRangeKey, getTimeRangeLabel, getTimeRangeDays } from "@/lib/timeRanges";
 
 export const dynamic = "force-dynamic";
 
@@ -75,6 +75,16 @@ export default function GbpPage() {
   // Facebook Post State
   const [fbResult, setFbResult] = useState<any>(null);
 
+  const fetchGbpForRange = useCallback(async (range: TimeRangeKey) => {
+    try {
+      const days = range === "MAX" ? 0 : getTimeRangeDays(range);
+      const data = await apiFetch<any>(`/integrations/google/gbp?days=${days}`);
+      if (data) setGbpData(data);
+    } catch (err) {
+      console.error("Failed to query GBP metrics:", err);
+    }
+  }, []);
+
   useEffect(() => {
     async function loadData() {
       try {
@@ -91,9 +101,6 @@ export default function GbpPage() {
         if (intRes?.integrations) {
           const gbp = intRes.integrations.find((i: any) => i.provider === "GOOGLE_BUSINESS_PROFILE");
           setIsConnected(Boolean(gbp?.connected));
-          if (gbp?.metricsCache) {
-            setGbpData(gbp.metricsCache);
-          }
         }
 
         if (revRes?.reviews && revRes.reviews.length > 0) {
@@ -162,15 +169,18 @@ export default function GbpPage() {
     loadData();
   }, []);
 
+  useEffect(() => {
+    if (isConnected) fetchGbpForRange(timeRange);
+  }, [isConnected, timeRange, fetchGbpForRange]);
+
   const bName = business?.name || "Your Business";
   const bCity = business?.city || "";
   const bIndustry = business?.industry || "Services";
 
-  const multiplier = getTimeRangeMultiplier(timeRange);
-  const searchViews = isConnected && gbpData?.searchViews ? Math.round(gbpData.searchViews * multiplier) : 0;
-  const mapsViews = isConnected && gbpData?.mapsViews ? Math.round(gbpData.mapsViews * multiplier) : 0;
-  const callClicks = isConnected && gbpData?.callClicks ? Math.round(gbpData.callClicks * multiplier) : 0;
-  const directionRequests = isConnected && gbpData?.directionRequests ? Math.round(gbpData.directionRequests * multiplier) : 0;
+  const searchViews = isConnected && gbpData?.searchViews ? gbpData.searchViews : 0;
+  const mapsViews = isConnected && gbpData?.mapsViews ? gbpData.mapsViews : 0;
+  const callClicks = isConnected && gbpData?.callClicks ? gbpData.callClicks : 0;
+  const directionRequests = isConnected && gbpData?.directionRequests ? gbpData.directionRequests : 0;
   const rating = isConnected && gbpData?.averageRating ? Number(gbpData.averageRating) : (reviews.length > 0 ? Number((reviews.reduce((s: number, r: any) => s + (r.rating || 0), 0) / reviews.length).toFixed(1)) : 0);
   const totalReviews = isConnected && gbpData?.totalReviews ? gbpData.totalReviews : reviews.length;
 

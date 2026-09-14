@@ -229,6 +229,8 @@ export class GoogleOAuthService {
    * Fetch live Search Console queries and metrics for any selected site
    */
   async fetchGscMetrics(accessToken: string, targetSite: string, days = 28) {
+    // Search Console's search-analytics history only retains ~16 months
+    const rangeDays = Math.min(days && days > 0 ? days : 480, 480);
     try {
       let siteToQuery = targetSite;
 
@@ -251,7 +253,7 @@ export class GoogleOAuthService {
       }
 
       // Query search analytics
-      const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
+      const startDate = new Date(Date.now() - rangeDays * 24 * 60 * 60 * 1000)
         .toISOString()
         .split("T")[0];
       const endDate = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000)
@@ -313,8 +315,6 @@ export class GoogleOAuthService {
           totalImpressions,
           averageCtr: parseFloat(avgCtr.toFixed(2)),
           averagePosition: parseFloat(avgPosition.toFixed(1)),
-          clicksGrowth: 14.8,
-          impressionsGrowth: 22.4,
           topQueries: topQueries.length > 0 ? topQueries : [],
           isLiveOAuth: true,
           lastFetchedAt: new Date().toISOString(),
@@ -331,8 +331,6 @@ export class GoogleOAuthService {
           totalImpressions: 0,
           averageCtr: 0,
           averagePosition: 0,
-          clicksGrowth: 0,
-          impressionsGrowth: 0,
           topQueries: [],
           isLiveOAuth: true,
           notice: "No search queries recorded yet for this domain in Google Search Console.",
@@ -465,8 +463,19 @@ export class GoogleOAuthService {
     accessToken: string,
     targetBusinessName?: string,
     targetDomain?: string,
-    targetCity?: string
+    targetCity?: string,
+    days = 28,
+    businessId?: string
   ) {
+    let averageRating: number | null = null;
+    let totalReviews: number | null = null;
+    if (businessId) {
+      const reviews = await prisma.googleReview.findMany({ where: { businessId }, select: { rating: true } });
+      if (reviews.length > 0) {
+        totalReviews = reviews.length;
+        averageRating = Number((reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1));
+      }
+    }
     try {
       const accountsRes = await fetch(
         "https://mybusinessaccountmanagement.googleapis.com/v1/accounts",
@@ -521,9 +530,12 @@ export class GoogleOAuthService {
       }
 
       if (matchedLocation) {
+        // Performance API historical data is limited to roughly 18 months back
+        const rangeDays = Math.min(days && days > 0 ? days : 540, 540);
+
         // Attempt to fetch performance metrics from Performance API for matched location
         try {
-          const startDate = new Date(Date.now() - 28 * 24 * 60 * 60 * 1000);
+          const startDate = new Date(Date.now() - rangeDays * 24 * 60 * 60 * 1000);
           const endDate = new Date(Date.now() - 24 * 60 * 60 * 1000);
           const perfUrl = `https://businessprofileperformance.googleapis.com/v1/${matchedLocation.name}:fetchMultiDailyMetricsTimeSeries?dailyMetrics=BUSINESS_IMPRESSIONS_DESKTOP_MAPS,BUSINESS_IMPRESSIONS_DESKTOP_SEARCH,BUSINESS_IMPRESSIONS_MOBILE_MAPS,BUSINESS_IMPRESSIONS_MOBILE_SEARCH,CALL_CLICKS,WEBSITE_CLICKS,BUSINESS_DIRECTION_REQUESTS&dailyRange.start_date.year=${startDate.getFullYear()}&dailyRange.start_date.month=${startDate.getMonth() + 1}&dailyRange.start_date.day=${startDate.getDate()}&dailyRange.end_date.year=${endDate.getFullYear()}&dailyRange.end_date.month=${endDate.getMonth() + 1}&dailyRange.end_date.day=${endDate.getDate()}`;
 
@@ -555,33 +567,38 @@ export class GoogleOAuthService {
             return {
               accountName: matchedLocation.title || "Google Business Profile",
               locationName: matchedLocation.name,
-              searchViews: Math.max(searchViews, 850),
-              mapsViews: Math.max(mapsViews, 620),
-              callClicks: Math.max(callClicks, 22),
-              directionRequests: Math.max(directionRequests, 34),
-              websiteClicks: Math.max(websiteClicks, 53),
-              totalInteractions: (callClicks || 22) + (directionRequests || 34) + (websiteClicks || 53),
-              averageRating: 4.9,
-              totalReviews: 86,
+              searchViews,
+              mapsViews,
+              callClicks,
+              directionRequests,
+              websiteClicks,
+              totalInteractions: callClicks + directionRequests + websiteClicks,
+              averageRating,
+              totalReviews,
+              days: rangeDays,
               isLiveOAuth: true,
+              lastFetchedAt: new Date().toISOString(),
             };
           }
         } catch (perfErr: any) {
-          this.logger.warn(`Performance API failed, using base profile location: ${perfErr.message}`);
+          this.logger.warn(`Performance API failed for location ${matchedLocation.name}: ${perfErr.message}`);
         }
 
         return {
           accountName: matchedLocation.title || "Google Business Profile",
           locationName: matchedLocation.name,
-          searchViews: 850,
-          mapsViews: 620,
-          callClicks: 22,
-          directionRequests: 34,
-          websiteClicks: 53,
-          totalInteractions: 109,
-          averageRating: 4.9,
-          totalReviews: 86,
+          searchViews: 0,
+          mapsViews: 0,
+          callClicks: 0,
+          directionRequests: 0,
+          websiteClicks: 0,
+          totalInteractions: 0,
+          averageRating: null,
+          totalReviews: null,
+          days: rangeDays,
           isLiveOAuth: true,
+          notice: "No performance data available yet for this Google Business Profile listing.",
+          lastFetchedAt: new Date().toISOString(),
         };
       }
     } catch (err: any) {

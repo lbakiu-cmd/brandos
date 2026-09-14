@@ -26,13 +26,15 @@ import {
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { TimeRangeFilter } from "@/components/TimeRangeFilter";
-import { TimeRangeKey, getTimeRangeMultiplier, getTimeRangeLabel } from "@/lib/timeRanges";
+import { TimeRangeKey, getTimeRangeLabel } from "@/lib/timeRanges";
 import { AddWidgetModal, WidgetItem } from "./components/AddWidgetModal";
 import { TwoWeekReminderBanner } from "./components/TwoWeekReminderBanner";
 import { ComparisonModal } from "./components/ComparisonModal";
 import { GscWidget } from "./widgets/GscWidget";
 import { Ga4Widget } from "./widgets/Ga4Widget";
 import { useGa4Metrics } from "@/lib/useGa4Metrics";
+import { useGscMetrics } from "@/lib/useGscMetrics";
+import { useGbpMetrics } from "@/lib/useGbpMetrics";
 import { GbpWidget } from "./widgets/GbpWidget";
 import { ReviewsWidget } from "./widgets/ReviewsWidget";
 import { AeoWidget } from "./widgets/AeoWidget";
@@ -183,13 +185,10 @@ export default function DashboardPage() {
     }
   };
 
-  // Dynamic multiplier for global time window
-  const multiplier = getTimeRangeMultiplier(timeRange);
-
-  // Find dynamic quick stats from widgets data
-  const gscData = widgets.find((w) => w.widgetType === "GSC_QUERIES_TABLE" || w.widgetType === "GSC_CLICKS_IMPRESSIONS")?.data;
+  // Find dynamic quick stats, refetched live per selected time range
+  const { data: gscData } = useGscMetrics(timeRange);
   const { data: ga4Data } = useGa4Metrics(timeRange);
-  const gbpData = widgets.find((w) => w.widgetType === "GBP_LOCAL_PERFORMANCE")?.data;
+  const { data: gbpData } = useGbpMetrics(timeRange);
   const aeoData = widgets.find((w) => w.widgetType === "AEO_CITATION_SHARE")?.data;
 
   const hasGsc = Boolean(gscData && (gscData.totalClicks !== undefined || gscData.connected));
@@ -197,16 +196,12 @@ export default function DashboardPage() {
   const hasGbp = Boolean(gbpData && (gbpData.searchViews !== undefined || gbpData.connected));
   const hasAeo = typeof aeoData?.compositeScore === "number" && Number.isFinite(aeoData.compositeScore);
 
-  const baseClicks = gscData?.totalClicks || 0;
-  const baseImpressions = gscData?.totalImpressions || 0;
-  const baseAiSessions = ga4Data?.aiReferralSessions || 0;
-  const baseLocalViews = (gbpData?.searchViews || 0) + (gbpData?.mapsViews || 0);
   const aeoScore = hasAeo ? aeoData.compositeScore : 0;
 
-  const totalClicks = Math.round(baseClicks * multiplier);
-  const totalImpressions = Math.round(baseImpressions * multiplier);
-  const aiSessions = baseAiSessions;
-  const totalLocalViews = Math.round(baseLocalViews * multiplier);
+  const totalClicks = gscData?.totalClicks || 0;
+  const totalImpressions = gscData?.totalImpressions || 0;
+  const aiSessions = ga4Data?.aiReferralSessions || 0;
+  const totalLocalViews = (gbpData?.searchViews || 0) + (gbpData?.mapsViews || 0);
 
   // Calculate Growth Checklist progress
   const hasProfile = Boolean(business?.name && business?.city);
