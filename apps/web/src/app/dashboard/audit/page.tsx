@@ -791,8 +791,8 @@ export default function AuditPage() {
           )}
 
           <div className="space-y-3">
-            {recs.length > 0 ? (
-              recs.map((r: any) => (
+            {openRecs.length > 0 ? (
+              openRecs.map((r: any) => (
                 <div key={r.id} className="rounded-2xl border border-slate-800 bg-slate-950 p-4 space-y-2.5">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-white">{r.title}</span>
