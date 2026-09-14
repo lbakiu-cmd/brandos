@@ -87,53 +87,6 @@ async function askOpenAI(q: EngineQuery): Promise<string | null> {
   return json?.choices?.[0]?.message?.content ?? null;
 }
 
-async function askPerplexity(q: EngineQuery): Promise<string | null> {
-  if (process.env.OPENROUTER_API_KEY) {
-    const model = process.env.OPENROUTER_PERPLEXITY_MODEL || "perplexity/sonar";
-    return askOpenRouter(model, buildPrompt(q));
-  }
-
-  const key = process.env.PERPLEXITY_API_KEY;
-  if (!key) return null;
-  const res = await fetch("https://api.perplexity.ai/chat/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: "Bearer " + key },
-    body: JSON.stringify({
-      model: "sonar",
-      messages: [{ role: "user", content: buildPrompt(q) }],
-    }),
-  });
-  if (!res.ok) return null;
-  const json: any = await res.json();
-  return json?.choices?.[0]?.message?.content ?? null;
-}
-
-async function askAnthropic(q: EngineQuery): Promise<string | null> {
-  if (process.env.OPENROUTER_API_KEY) {
-    const model = process.env.OPENROUTER_CLAUDE_MODEL || "anthropic/claude-3-haiku";
-    return askOpenRouter(model, buildPrompt(q));
-  }
-
-  const key = process.env.ANTHROPIC_API_KEY;
-  if (!key) return null;
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": key,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model: "claude-3-5-haiku-latest",
-      max_tokens: 400,
-      messages: [{ role: "user", content: buildPrompt(q) }],
-    }),
-  });
-  if (!res.ok) return null;
-  const json: any = await res.json();
-  return json?.content?.[0]?.text ?? null;
-}
-
 async function askGemini(q: EngineQuery): Promise<string | null> {
   if (process.env.OPENROUTER_API_KEY) {
     const model = process.env.OPENROUTER_GEMINI_MODEL || "google/gemini-2.5-flash";

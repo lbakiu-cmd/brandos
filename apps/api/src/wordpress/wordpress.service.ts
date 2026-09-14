@@ -995,11 +995,11 @@ export class WordpressService {
       ? "Restaurant"
       : "LocalBusiness";
 
-    // 1. Check for live OpenRouter / OpenAI / Gemini / Anthropic API keys
+    // 1. Check for live OpenRouter / OpenAI / Gemini API keys
+    // Restricted to Gemini and OpenAI providers only -- no Anthropic/Claude calls.
     const openRouterKey = process.env.OPENROUTER_API_KEY;
     const openAiKey = process.env.OPENAI_API_KEY;
     const geminiKey = process.env.GEMINI_API_KEY;
-    const anthropicKey = process.env.ANTHROPIC_API_KEY;
 
     let aiGeneratedContent: string | null = null;
 
@@ -1075,26 +1075,6 @@ Format the article with clean Markdown:
         if (res.ok) {
           const json: any = await res.json();
           aiGeneratedContent = json?.candidates?.[0]?.content?.parts?.[0]?.text ?? null;
-        }
-      } catch {}
-    } else if (anthropicKey && !aiGeneratedContent) {
-      try {
-        const res = await fetch("https://api.anthropic.com/v1/messages", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-api-key": anthropicKey,
-            "anthropic-version": "2023-06-01",
-          },
-          body: JSON.stringify({
-            model: "claude-3-5-haiku-latest",
-            max_tokens: 1200,
-            messages: [{ role: "user", content: `${systemPrompt}\n\nWrite the full blog article about: "${targetTopic}" focusing on category "${primaryCategory}".` }],
-          }),
-        });
-        if (res.ok) {
-          const json: any = await res.json();
-          aiGeneratedContent = json?.content?.[0]?.text ?? null;
         }
       } catch {}
     }
