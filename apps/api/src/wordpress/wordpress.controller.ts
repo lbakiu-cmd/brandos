@@ -167,6 +167,19 @@ export class WordpressController {
   }
 
   /**
+   * AI Featured Image Generator (OpenAI)
+   */
+  @Post("generate-image")
+  @UseGuards(AuthGuard)
+  async generateImage(
+    @Req() req: any,
+    @Body() body: { topic?: string; category?: string }
+  ) {
+    const biz = await this.business.get(req.user.id, req.user.activeBusinessId);
+    return this.wordpress.generateFeaturedImage(biz.id, body);
+  }
+
+  /**
    * Copilot Auto-Publisher: Send post to WordPress
    */
   @Post("publish")
@@ -184,6 +197,8 @@ export class WordpressController {
       schemas?: any[];
       categories?: (number | string)[];
       tags?: string[];
+      featured_image_url?: string;
+      featured_image_base64?: string;
     }
   ) {
     const biz = await this.business.get(req.user.id, req.user.activeBusinessId);

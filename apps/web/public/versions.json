@@ -1,8 +1,24 @@
 {
-  "latest": "1.6.6",
+  "latest": "1.6.7",
   "name": "aivision-seo",
   "description": "AIVision SEO WordPress Plugin for Search Engines (SEO), Answer Engines (AEO), and Generative AI (GEO)",
   "versions": [
+    {
+      "version": "1.6.7",
+      "releasedAt": "2026-09-14T19:36:02.921Z",
+      "filename": "aivision-seo-v1.6.7.zip",
+      "size": 72163,
+      "sizeFormatted": "70.5 KB",
+      "sha256": "d99e14aae563d73507333a45f23cf2ed4ee201dd848ccc16c34aef4a6c18b495",
+      "fileCount": 14,
+      "status": "stable",
+      "minPhp": "8.0",
+      "minWp": "6.0",
+      "changelog": [
+        "The publish-post endpoint now actually applies what the platform sends: categories (it previously read a \"category\" param that was never sent, so posts never got categorized), tags (previously not read at all), and SEO title/description/keyword (previously expected a nested shape the platform never sent).",
+        "Added featured image support to the publish-post endpoint: accepts a generated image (base64) or a remote URL, sideloads/attaches it, and sets it as the post's featured image."
+      ]
+    },
     {
       "version": "1.6.6",
       "releasedAt": "2026-09-14T18:57:39.905Z",
@@ -11,7 +27,7 @@
       "sizeFormatted": "69.1 KB",
       "sha256": "67cbc58ae4350b72b3bfb4d385b355be2f5114e75cbd63b4bea23999e5d583e5",
       "fileCount": 14,
-      "status": "stable",
+      "status": "archived",
       "minPhp": "8.0",
       "minWp": "6.0",
       "changelog": [
@@ -213,5 +229,5 @@
       ]
     }
   ],
-  "updatedAt": "2026-09-14T18:57:39.908Z"
+  "updatedAt": "2026-09-14T19:36:02.924Z"
 }

@@ -74,6 +74,10 @@ AIVision SEO can be used alongside other SEO plugins, but you should disable dup
 
 == Changelog ==
 
+= 1.6.7 =
+* The publish-post endpoint now actually applies what the platform sends: categories (it previously read a "category" param that was never sent, so posts never got categorized), tags (previously not read at all), and SEO title/description/keyword (previously expected a nested shape the platform never sent).
+* Added featured image support to the publish-post endpoint: accepts a generated image (base64) or a remote URL, sideloads/attaches it, and sets it as the post's featured image.
+
 = 1.6.6 =
 * Fixed 1-Click Fix admin actions (Generate Sitemap XML, llms.txt, robots.txt, etc.) showing the unhelpful message "Error generating [x]: error" whenever the AJAX request itself failed. Now shows the real HTTP status and response snippet (e.g. a 403 from a security plugin, a 500 from a PHP error, or a timeout) so the actual cause is visible instead of jQuery's generic "error" placeholder.
 

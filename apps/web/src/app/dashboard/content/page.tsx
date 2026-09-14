@@ -80,6 +80,12 @@ export default function ContentPage() {
   const [autopilotBusy, setAutopilotBusy] = useState(false);
   const [article, setArticle] = useState<GeneratedArticle | null>(null);
   const [articleCopied, setArticleCopied] = useState(false);
+  const [tagsInput, setTagsInput] = useState("");
+
+  // Featured Image State
+  const [featuredImage, setFeaturedImage] = useState<string | null>(null);
+  const [generatingImage, setGeneratingImage] = useState(false);
+  const [imageError, setImageError] = useState<string | null>(null);
 
   // Autopilot Cadence State
   const [autopilotCadence, setAutopilotCadence] = useState<"WEEKLY" | "BIWEEKLY" | "MONTHLY">("WEEKLY");
@@ -216,10 +222,33 @@ export default function ContentPage() {
       setArticle(res);
       setTopic(res.title);
       setFocusKeyword(res.focus_keyword);
+      setTagsInput((res.tags || []).join(", "));
+      setFeaturedImage(null);
+      setImageError(null);
     } catch (err: any) {
       alert(`Error generating article: ${err?.message || "Please check backend connection."}`);
     } finally {
       setGeneratingArticle(false);
+    }
+  }
+
+  // Trigger AI Featured Image Generation
+  async function handleGenerateImage() {
+    setGeneratingImage(true);
+    setImageError(null);
+    try {
+      const res = await apiFetch<{ imageBase64: string }>("/wordpress/generate-image", {
+        method: "POST",
+        body: JSON.stringify({
+          topic: article?.title || topic,
+          category: selectedCategories[0],
+        }),
+      });
+      setFeaturedImage(res.imageBase64);
+    } catch (err: any) {
+      setImageError(err?.message || "Failed to generate image.");
+    } finally {
+      setGeneratingImage(false);
     }
   }
 
@@ -360,7 +389,8 @@ export default function ContentPage() {
           focus_keyword: article.focus_keyword,
           categories: selectedCategories,
           schemas: article.schemas,
-          tags: article.tags,
+          tags: tagsInput.split(",").map((t) => t.trim()).filter(Boolean),
+          featured_image_base64: featuredImage || undefined,
         }),
       });
 
@@ -958,6 +988,17 @@ export default function ContentPage() {
                     />
                   </div>
 
+                  {/* Tags */}
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-slate-400">Tags (comma-separated, applied as WordPress post tags)</label>
+                    <input
+                      value={tagsInput}
+                      onChange={(e) => setTagsInput(e.target.value)}
+                      placeholder="e.g. dental implants, Tirana, cosmetic dentistry"
+                      className="w-full rounded-xl border border-slate-800 bg-slate-950 p-2.5 text-xs text-slate-200 outline-none focus:border-blue-500"
+                    />
+                  </div>
+
                   {/* Article Content Textarea */}
                   <div className="space-y-1">
                     <label className="text-[11px] font-bold text-slate-400">Article Body (Markdown / HTML)</label>
@@ -968,6 +1009,50 @@ export default function ContentPage() {
                       className="w-full rounded-2xl border border-slate-800 bg-slate-950 p-4 font-mono text-xs text-slate-200 leading-relaxed outline-none focus:border-blue-500"
                     />
                   </div>
+                </div>
+
+                {/* Featured Image */}
+                <div className="rounded-3xl border border-slate-800/80 bg-slate-900/80 p-6 backdrop-blur space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-4">
+                    <div>
+                      <span className="text-[11px] font-black uppercase tracking-wider text-amber-400">
+                        Featured Image
+                      </span>
+                      <h3 className="text-base font-bold text-white">AI-Generated Post Thumbnail</h3>
+                      <p className="text-xs text-slate-400 mt-0.5">Optional -- generates an image with OpenAI and sets it as this post&apos;s featured image on publish.</p>
+                    </div>
+                    <button
+                      onClick={handleGenerateImage}
+                      disabled={generatingImage}
+                      className="rounded-xl bg-amber-600 hover:bg-amber-500 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-amber-600/20 transition disabled:opacity-50"
+                    >
+                      {generatingImage ? "Generating…" : featuredImage ? "🔄 Regenerate Image" : "🎨 Generate Image"}
+                    </button>
+                  </div>
+
+                  {imageError && (
+                    <div className="rounded-xl border border-rose-500/30 bg-rose-950/30 p-3 text-xs text-rose-300">
+                      ❌ {imageError}
+                    </div>
+                  )}
+
+                  {featuredImage ? (
+                    <div className="space-y-2">
+                      <img
+                        src={featuredImage}
+                        alt="Generated featured image preview"
+                        className="w-full max-w-md rounded-2xl border border-slate-800"
+                      />
+                      <button
+                        onClick={() => setFeaturedImage(null)}
+                        className="text-xs font-semibold text-slate-400 hover:text-rose-400 transition"
+                      >
+                        Remove image
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-500">No featured image yet -- the post will publish without one unless you generate one.</p>
+                  )}
                 </div>
 
                 {/* STEP 4: 1-CLICK PUBLISH TO WORDPRESS */}

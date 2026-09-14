@@ -854,6 +854,8 @@ export class WordpressService {
       schemas?: any[];
       categories?: (number | string)[];
       tags?: string[];
+      featured_image_url?: string;
+      featured_image_base64?: string;
     }
   ) {
     const business = await prisma.business.findUnique({
@@ -1007,6 +1009,68 @@ export class WordpressService {
       city: business.city,
       categories,
     };
+  }
+
+  /**
+   * AI Featured Image Generator (OpenAI images API -- Gemini has no image
+   * generation endpoint available under the current API key/billing setup,
+   * so this tool is OpenAI-only; restricted providers list otherwise unchanged).
+   * Returns a base64 data URI, or throws if no OPENAI_API_KEY is configured
+   * or the request fails -- never a placeholder image.
+   */
+  async generateFeaturedImage(
+    businessId: string,
+    payload: { topic?: string; category?: string }
+  ) {
+    const business = await prisma.business.findUnique({ where: { id: businessId } });
+    if (!business) throw new NotFoundException("Business not found.");
+
+    const openAiKey = process.env.OPENAI_API_KEY;
+    if (!openAiKey) {
+      throw new BadRequestException(
+        "AI image generation requires an OpenAI API key (OPENAI_API_KEY) to be configured on the server."
+      );
+    }
+
+    const name = business.name || "Local Business";
+    const industry = business.industry || "local services";
+    const city = business.city || "";
+    const subject = payload.topic || payload.category || industry;
+
+    const prompt = `A professional, photorealistic featured image for a blog article about "${subject}" for "${name}", a ${industry} business${city ? ` in ${city}` : ""}. Clean, modern, editorial photography style suitable for a business website blog header. No text, no logos, no watermarks.`;
+
+    try {
+      const res = await fetch("https://api.openai.com/v1/images/generations", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${openAiKey}`,
+        },
+        body: JSON.stringify({
+          model: "gpt-image-1",
+          prompt,
+          size: "1024x1024",
+          n: 1,
+        }),
+        signal: AbortSignal.timeout(60000),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err?.error?.message || `OpenAI returned status ${res.status}`);
+      }
+
+      const json: any = await res.json();
+      const b64 = json?.data?.[0]?.b64_json;
+      if (!b64) throw new Error("No image data returned.");
+
+      return {
+        success: true,
+        imageBase64: `data:image/png;base64,${b64}`,
+      };
+    } catch (err: any) {
+      throw new BadRequestException(`Failed to generate image: ${err?.message || "Request failed"}`);
+    }
   }
 
   /**
