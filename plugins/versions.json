@@ -1,8 +1,24 @@
 {
-  "latest": "1.6.3",
+  "latest": "1.6.4",
   "name": "aivision-seo",
   "description": "AIVision SEO WordPress Plugin for Search Engines (SEO), Answer Engines (AEO), and Generative AI (GEO)",
   "versions": [
+    {
+      "version": "1.6.4",
+      "releasedAt": "2026-09-14T10:18:18.045Z",
+      "filename": "aivision-seo-v1.6.4.zip",
+      "size": 69183,
+      "sizeFormatted": "67.6 KB",
+      "sha256": "eea65ed90f4c4ff6379c1d4a157bfd4e0645d92bf37d2f709d1e9991c4fdc8d1",
+      "fileCount": 14,
+      "status": "stable",
+      "minPhp": "8.0",
+      "minWp": "6.0",
+      "changelog": [
+        "Fixed a fatal PHP error in the /status and /telemetry REST endpoints on any request without a valid API token (hash_equals() was called with a non-string argument on PHP 8, crashing the site instead of returning a clean 401).",
+        "Fixed telemetry sync calling a removed AIVision_Analyzer::analyze() method, which fatally crashed every /telemetry request since v1.6.2 -- content SEO/AEO/GEO scores were never actually reaching the AIVisibility SEO dashboard even though they computed correctly in the WordPress admin."
+      ]
+    },
     {
       "version": "1.6.3",
       "releasedAt": "2026-09-09T16:56:14.472Z",
@@ -11,7 +27,7 @@
       "sizeFormatted": "67.2 KB",
       "sha256": "0aa48fe022d3530357157bd867d23668d284567e239730a28fe049b3c4e4f1f4",
       "fileCount": 14,
-      "status": "stable",
+      "status": "archived",
       "minPhp": "8.0",
       "minWp": "6.0",
       "changelog": [
@@ -165,5 +181,5 @@
       ]
     }
   ],
-  "updatedAt": "2026-09-09T16:56:14.473Z"
+  "updatedAt": "2026-09-14T10:18:18.047Z"
 }
