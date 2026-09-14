@@ -319,7 +319,7 @@ export class WidgetsService {
       case WidgetType.GA4_AI_TRAFFIC:
       case WidgetType.GA4_TOP_PAGES: {
         const ga4 = integrationsMap.get("GOOGLE_ANALYTICS_4");
-        return ga4?.metricsCache || null;
+        return ga4?.metricsCache?.measurementVersion === 2 ? ga4.metricsCache : null;
       }
 
       case WidgetType.GBP_LOCAL_PERFORMANCE:
@@ -332,8 +332,8 @@ export class WidgetsService {
       case WidgetType.AEO_PROMPT_RANKINGS: {
         return {
           businessName: bName,
-          compositeScore: 0,
-          citationGrowth: 0,
+          compositeScore: null,
+          citationGrowth: null,
           engineShare: [],
           recentProbes: [],
         };
@@ -373,10 +373,10 @@ export class WidgetsService {
           siteUrl: business?.wordpressUrl || business?.website || bSite,
           siteName: business?.wordpressSiteName || bName,
           pluginVersion: business?.wordpressPluginVersion || null,
-          avgSeo: telemetry?.avgSeo || (isConnected ? 0 : null),
-          avgAeo: telemetry?.avgAeo || (isConnected ? 0 : null),
-          avgGeo: telemetry?.avgGeo || (isConnected ? 0 : null),
-          postsIndexed: telemetry?.postsIndexed || 0,
+          avgSeo: telemetry?.telemetry?.summary?.average_seo ?? null,
+          avgAeo: telemetry?.telemetry?.summary?.average_aeo ?? null,
+          avgGeo: telemetry?.telemetry?.summary?.average_geo ?? null,
+          postsIndexed: telemetry?.telemetry?.summary?.count ?? 0,
           lastFixApplied: business?.wordpressLastFixApplied || null,
         };
       }

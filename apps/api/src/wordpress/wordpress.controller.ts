@@ -201,6 +201,11 @@ export class WordpressController {
     return this.wordpress.verifyFromPlugin(authHeader, body);
   }
 
+  @Post("sync-from-plugin")
+  async syncFromPlugin(@Headers("authorization") authHeader: string) {
+    return this.wordpress.syncFromPlugin(authHeader);
+  }
+
   /**
    * Get version tracking history of AIVision SEO Plugin
    */
@@ -233,7 +238,9 @@ export class WordpressController {
    * Automatically push and install plugin update to all connected WordPress sites
    */
   @Post("push-update")
-  pushUpdate(@Body("version") version?: string) {
-    return this.wordpress.broadcastPluginUpdate(version);
+  @UseGuards(AuthGuard)
+  async pushUpdate(@Req() req: any, @Body("version") version?: string) {
+    const biz = await this.business.get(req.user.id, req.user.activeBusinessId);
+    return this.wordpress.broadcastPluginUpdate(biz.id, version);
   }
 }

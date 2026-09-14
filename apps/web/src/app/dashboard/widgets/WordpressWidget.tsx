@@ -3,8 +3,8 @@
 import { Plug, RefreshCw } from "lucide-react";
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { TimeRangeFilter } from "@/components/TimeRangeFilter";
-import { TimeRangeKey, getTimeRangeLabel } from "@/lib/timeRanges";
+import { apiFetch } from "@/lib/api";
+import { TimeRangeKey } from "@/lib/timeRanges";
 
 interface WordpressWidgetProps {
   data?: any;
@@ -13,17 +13,18 @@ interface WordpressWidgetProps {
 }
 
 export function WordpressWidget({ data, onRemove, initialTimeRange = "7D" }: WordpressWidgetProps) {
-  const [timeRange, setTimeRange] = useState<TimeRangeKey>(initialTimeRange);
+  const [syncedSummary, setSyncedSummary] = useState<any>(null);
+  const [syncError, setSyncError] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [syncSuccess, setSyncSuccess] = useState(false);
 
   useEffect(() => {
-    if (initialTimeRange) {
-      setTimeRange(initialTimeRange);
-    }
-  }, [initialTimeRange]);
+    setSyncedSummary(null);
+    setSyncSuccess(false);
+    setSyncError(null);
+  }, [data?.siteUrl]);
 
-  const isConnected = Boolean(data && (data.connected || data.siteUrl || data.pluginVersion));
+  const isConnected = Boolean(data?.connected);
 
   if (!isConnected) {
     return (
@@ -74,18 +75,25 @@ export function WordpressWidget({ data, onRemove, initialTimeRange = "7D" }: Wor
 
   const siteUrl = data?.siteUrl || "Connected WordPress Site";
   const pluginVersion = data?.pluginVersion || "1.0.0";
-  const seo = data?.avgSeo || 0;
-  const aeo = data?.avgAeo || 0;
-  const geo = data?.avgGeo || 0;
-  const postsCount = data?.postsIndexed || 0;
+  const seo = syncedSummary?.average_seo ?? data?.avgSeo ?? null;
+  const aeo = syncedSummary?.average_aeo ?? data?.avgAeo ?? null;
+  const geo = syncedSummary?.average_geo ?? data?.avgGeo ?? null;
+  const postsCount = syncedSummary?.count ?? data?.postsIndexed ?? 0;
 
-  const handleTriggerSync = () => {
+  const handleTriggerSync = async () => {
     setSyncing(true);
-    setTimeout(() => {
-      setSyncing(false);
+    setSyncSuccess(false);
+    setSyncError(null);
+    try {
+      const result = await apiFetch<any>("/wordpress/sync", { method: "POST" });
+      if (!result?.success || !result.data?.telemetry?.summary) throw new Error("Sync failed");
+      setSyncedSummary(result.data.telemetry.summary);
       setSyncSuccess(true);
-      setTimeout(() => setSyncSuccess(false), 3000);
-    }, 1200);
+    } catch {
+      setSyncError("WordPress sync failed. Previous scores have been retained.");
+    } finally {
+      setSyncing(false);
+    }
   };
 
   return (
@@ -108,12 +116,6 @@ export function WordpressWidget({ data, onRemove, initialTimeRange = "7D" }: Wor
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          <TimeRangeFilter
-            value={timeRange}
-            onChange={setTimeRange}
-            variant="compact"
-            accentColor="indigo"
-          />
 
           {onRemove && (
             <button onClick={onRemove} className="text-xs text-slate-500 hover:text-red-400 transition ml-1">
@@ -127,27 +129,26 @@ export function WordpressWidget({ data, onRemove, initialTimeRange = "7D" }: Wor
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 py-4">
         <div className="rounded-xl bg-slate-950/60 p-3 border border-slate-800/60 text-center">
           <p className="text-xs text-slate-400 font-medium">On-Page SEO</p>
-          <p className="text-2xl font-bold text-blue-400 mt-1">{seo > 0 ? `${seo}/100` : "—"}</p>
+          <p className="text-2xl font-bold text-blue-400 mt-1">{seo !== null ? `${Math.round(seo)}/100` : "—"}</p>
           <span className="text-xs text-emerald-400 font-semibold mt-0.5 block">Plugin Live</span>
         </div>
 
         <div className="rounded-xl bg-slate-950/60 p-3 border border-slate-800/60 text-center">
           <p className="text-xs text-slate-400 font-medium">AEO / LLM Score</p>
-          <p className="text-2xl font-bold text-indigo-400 mt-1">{aeo > 0 ? `${aeo}/100` : "—"}</p>
-          <span className="text-xs text-emerald-400 font-semibold mt-0.5 block">LLMs.txt Active</span>
+          <p className="text-2xl font-bold text-indigo-400 mt-1">{aeo !== null ? `${Math.round(aeo)}/100` : "—"}</p>
         </div>
 
         <div className="rounded-xl bg-slate-950/60 p-3 border border-slate-800/60 text-center">
           <p className="text-xs text-slate-400 font-medium">GEO Local Score</p>
-          <p className="text-2xl font-bold text-purple-400 mt-1">{geo > 0 ? `${geo}/100` : "—"}</p>
-          <span className="text-xs text-emerald-400 font-semibold mt-0.5 block">Schema Active</span>
+          <p className="text-2xl font-bold text-purple-400 mt-1">{geo !== null ? `${Math.round(geo)}/100` : "—"}</p>
         </div>
       </div>
 
+      {syncError && <p role="alert" className="pb-3 text-xs text-red-400">{syncError}</p>}
       {/* Action Bar */}
       <div className="mt-auto flex flex-col sm:flex-row items-center justify-between gap-3 rounded-xl bg-slate-950/40 border border-slate-800/60 p-3.5">
         <div className="text-xs sm:text-sm text-slate-300">
-          <span className="font-semibold text-white">{postsCount} Articles</span> Synced ({getTimeRangeLabel(timeRange)})
+          <span className="font-semibold text-white">{postsCount} Pages and Posts</span> in latest sync
         </div>
         <button
           onClick={handleTriggerSync}

@@ -4,8 +4,8 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Bot, TrendingUp, Sparkles, Plug, BarChart3 } from "lucide-react";
 import { TimeRangeFilter } from "@/components/TimeRangeFilter";
-import { TimeRangeKey, getTimeRangeMultiplier, getTimeRangeLabel } from "@/lib/timeRanges";
-import { PerformanceTimelineGraphic } from "@/components/charts/PerformanceTimelineGraphic";
+import { TimeRangeKey, getTimeRangeLabel } from "@/lib/timeRanges";
+import { useGa4Metrics } from "@/lib/useGa4Metrics";
 import { EngineDistributionGraphic } from "@/components/charts/EngineDistributionGraphic";
 
 interface Ga4WidgetProps {
@@ -14,7 +14,7 @@ interface Ga4WidgetProps {
   initialTimeRange?: TimeRangeKey;
 }
 
-export function Ga4Widget({ data, onRemove, initialTimeRange = "7D" }: Ga4WidgetProps) {
+export function Ga4Widget({ onRemove, initialTimeRange = "7D" }: Ga4WidgetProps) {
   const [timeRange, setTimeRange] = useState<TimeRangeKey>(initialTimeRange);
 
   useEffect(() => {
@@ -23,7 +23,8 @@ export function Ga4Widget({ data, onRemove, initialTimeRange = "7D" }: Ga4Widget
     }
   }, [initialTimeRange]);
 
-  const isConnected = Boolean(data && (data.totalUsers !== undefined || data.aiReferralSessions !== undefined || data.connected));
+  const { data, error, loading } = useGa4Metrics(timeRange);
+  const isConnected = data !== null;
 
   if (!isConnected) {
     return (
@@ -39,7 +40,7 @@ export function Ga4Widget({ data, onRemove, initialTimeRange = "7D" }: Ga4Widget
             </div>
           </div>
           <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">
-            Not Connected
+            {loading ? "Loading" : "Unavailable"}
           </span>
         </div>
 
@@ -47,7 +48,7 @@ export function Ga4Widget({ data, onRemove, initialTimeRange = "7D" }: Ga4Widget
           <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
             <BarChart3 className="h-5 w-5" />
           </div>
-          <p className="text-xs text-slate-300 font-medium mb-1">No Google Analytics 4 data yet</p>
+          <p className="text-xs text-slate-300 font-medium mb-1">{loading ? "Loading Google Analytics data..." : error}</p>
           <p className="text-[11px] text-slate-400 max-w-xs mx-auto mb-4">
             Connect your GA4 property to monitor real visitors arriving from ChatGPT, Perplexity, Claude and Google AI.
           </p>
@@ -72,24 +73,12 @@ export function Ga4Widget({ data, onRemove, initialTimeRange = "7D" }: Ga4Widget
     );
   }
 
-  const multiplier = getTimeRangeMultiplier(timeRange);
-  const baseTotalUsers = data?.totalUsers || 0;
-  const baseAiSessions = data?.aiReferralSessions || 0;
-  const aiShare = data?.aiReferralShare || 0;
-  const baseEngines = data?.aiEngines || [];
-
-  const totalUsers = Math.round(baseTotalUsers * multiplier);
-  const aiSessions = Math.round(baseAiSessions * multiplier);
-
-  const engines = baseEngines.map((e: any) => ({
-    ...e,
-    sessions: Math.round(e.sessions * multiplier),
-  }));
-
-  const userGrowth =
-    timeRange === "7D" ? "+12.2%" : timeRange === "14D" ? "+15.4%" : timeRange === "3M" ? "+34.1%" : timeRange === "MAX" ? "+110.5%" : "+18.4%";
-  const aiGrowth =
-    timeRange === "7D" ? "+28.4%" : timeRange === "14D" ? "+36.2%" : timeRange === "3M" ? "+78.9%" : timeRange === "MAX" ? "+245.0%" : "+46.2%";
+  const totalUsers = data.totalUsers;
+  const aiSessions = data.aiReferralSessions;
+  const aiShare = data.aiReferralShare;
+  const engines = data.aiEngines;
+  const userGrowth = "Growth unavailable";
+  const aiGrowth = "Growth unavailable";
 
   return (
     <div className="flex flex-col h-full rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-xl backdrop-blur">
@@ -156,15 +145,7 @@ export function Ga4Widget({ data, onRemove, initialTimeRange = "7D" }: Ga4Widget
       </div>
 
       {/* Graphics on Top of Data Table */}
-      <PerformanceTimelineGraphic
-        timeRange={timeRange}
-        totalClicks={aiSessions}
-        totalImpressions={totalUsers}
-        clicksLabel="AI Visits"
-        impressionsLabel="Total Users"
-        variant="compact"
-        title="AI Traffic vs Total Users Trend"
-      />
+
 
       {engines.length > 0 && (
         <EngineDistributionGraphic
@@ -195,9 +176,9 @@ export function Ga4Widget({ data, onRemove, initialTimeRange = "7D" }: Ga4Widget
                     {e.engine}
                   </td>
                   <td className="py-2.5 text-right font-bold text-white">{e.sessions.toLocaleString()}</td>
-                  <td className="py-2.5 text-right text-slate-400">{e.avgTime}</td>
-                  <td className="py-2.5 text-right text-emerald-400 font-bold">{e.goalConvRate}%</td>
-                  <td className="py-2.5 text-right text-emerald-400 font-semibold">+{e.growth}%</td>
+                  <td className="py-2.5 text-right text-slate-400">{e.avgTime ?? "Unavailable"}</td>
+                  <td className="py-2.5 text-right text-emerald-400 font-bold">{e.goalConvRate == null ? "Unavailable" : `${e.goalConvRate}%`}</td>
+                  <td className="py-2.5 text-right text-emerald-400 font-semibold">{e.growth == null ? "Unavailable" : `${e.growth}%`}</td>
                 </tr>
               ))}
             </tbody>

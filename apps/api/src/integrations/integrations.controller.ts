@@ -33,6 +33,21 @@ export class IntegrationsController {
     return this.integrations.getStatus(biz.id);
   }
 
+  @Get("google/analytics")
+  @UseGuards(AuthGuard)
+  async getAnalytics(@Req() req: any, @Query("days") days = "7") {
+    const dayCount = Number(days);
+    if (!/^[0-9]+$/.test(days) || ![0, 7, 14, 28, 30, 90, 365].includes(dayCount)) {
+      throw new BadRequestException("Unsupported analytics date range.");
+    }
+    const biz = await this.business.get(req.user.id, req.user.activeBusinessId);
+    const token = await this.googleOAuth.getFreshAccessToken(biz.id, IntegrationProvider.GOOGLE_ANALYTICS_4);
+    if (!token) throw new BadRequestException("Google Analytics is not connected.");
+    const metrics = await this.googleOAuth.fetchGa4Metrics(token, biz.website || undefined, biz.name, dayCount);
+    if (!metrics) throw new BadRequestException("Google Analytics data is unavailable for this business and date range.");
+    return metrics;
+  }
+
   /**
    * Get all verified domains/sites from connected Google Search Console
    */

@@ -71,7 +71,7 @@ class AIVisibility_Integration {
         register_rest_route( self::REST_NAMESPACE, '/verify', [
             'methods'             => 'POST',
             'callback'            => [ __CLASS__, 'rest_verify_connection' ],
-            'permission_callback' => '__return_true',
+            'permission_callback' => [ __CLASS__, 'check_rest_permission' ],
         ] );
 
         // 2. Status & Health Endpoint
@@ -139,7 +139,7 @@ class AIVisibility_Integration {
             $token = $request->get_param( 'api_key' );
         }
 
-        if ( ! hash_equals( $stored_key, $token ) && ( empty( $stored_token ) || ! hash_equals( $stored_token, $token ) ) ) {
+        if ( ! is_string( $token ) || ( ! hash_equals( $stored_key, $token ) && ( empty( $stored_token ) || ! hash_equals( $stored_token, $token ) ) ) ) {
             return new WP_Error( 'rest_unauthorized', 'Invalid AIVisibility SEO authentication token.', [ 'status' => 401 ] );
         }
 
@@ -150,6 +150,12 @@ class AIVisibility_Integration {
      * REST: Verify Connection Handshake
      */
     public static function rest_verify_connection( WP_REST_Request $request ) {
+        $permission = self::check_rest_permission( $request );
+        if ( is_wp_error( $permission ) ) return $permission;
+        $existing = self::get_settings();
+        if ( ! is_string( $request->get_param( 'api_key' ) ) || ! hash_equals( $existing['api_key'], $request->get_param( 'api_key' ) ) ) {
+            return new WP_Error( 'rest_forbidden', 'Save the connection key in WordPress admin first.', [ 'status' => 403 ] );
+        }
         $api_key     = sanitize_text_field( $request->get_param( 'api_key' ) );
         $business_id = sanitize_text_field( $request->get_param( 'business_id' ) );
         $api_url     = esc_url_raw( $request->get_param( 'api_url' ) ?: 'https://icandothat.online' );
@@ -423,7 +429,7 @@ class AIVisibility_Integration {
 
         $meta_rows = $wpdb->get_results(
             $wpdb->prepare(
-                "SELECT post_id, meta_value FROM {$wpdb->postmeta} WHERE meta_key = %s LIMIT 100",
+                "SELECT pm.post_id, pm.meta_value FROM {$wpdb->postmeta} pm INNER JOIN {$wpdb->posts} p ON p.ID = pm.post_id WHERE pm.meta_key = %s AND p.post_status = 'publish' AND p.post_type IN ('post', 'page')",
                 AIVISION_META_KEY
             )
         );
@@ -434,7 +440,13 @@ class AIVisibility_Integration {
             if ( ! $post || $post->post_status !== 'publish' ) continue;
 
             $meta = maybe_unserialize( $row->meta_value ) ?: [];
-            $scores = AIVision_Analyzer::analyze( $post->post_content, $post->post_title, $meta );
+            $meta = is_array( $meta ) ? $meta : [];
+            $scores = [
+                'seo' => AIVision_Analyzer::seo_score( $post->ID, $meta ),
+                'aeo' => AIVision_Analyzer::aeo_score( $post->ID, $meta ),
+                'geo' => AIVision_Analyzer::geo_score( $post->ID, $meta ),
+            ];
+            $scores['overall'] = round( ( $scores['seo']['score'] + $scores['aeo']['score'] + $scores['geo']['score'] ) / 3 );
 
             $posts[] = [
                 'id'           => $post->ID,
@@ -445,7 +457,7 @@ class AIVisibility_Integration {
                 'aeo_score'    => $scores['aeo']['score'],
                 'geo_score'    => $scores['geo']['score'],
                 'direct_answer'=> ! empty( $meta['direct_answer'] ),
-                'faq_count'    => count( $meta['faqs'] ?? [] ),
+                'faq_count'    => is_array( $meta['faqs'] ?? null ) ? count( $meta['faqs'] ) : 0,
                 'modified_at'  => $post->post_modified,
             ];
         }
@@ -454,6 +466,12 @@ class AIVisibility_Integration {
 
         return new WP_REST_Response( [
             'success'   => true,
+            'summary'   => [
+                'count'       => count( $posts ),
+                'average_seo' => count( $posts ) ? array_sum( array_column( $posts, 'seo_score' ) ) / count( $posts ) : 0,
+                'average_aeo' => count( $posts ) ? array_sum( array_column( $posts, 'aeo_score' ) ) / count( $posts ) : 0,
+                'average_geo' => count( $posts ) ? array_sum( array_column( $posts, 'geo_score' ) ) / count( $posts ) : 0,
+            ],
             'telemetry' => [
                 'posts'           => $posts,
                 'total_analyzed'  => count( $posts ),
@@ -498,7 +516,7 @@ class AIVisibility_Integration {
         foreach ( $endpoints as $endpoint ) {
             $response = wp_remote_post( $endpoint, [
                 'timeout'   => 15,
-                'sslverify' => false,
+                'sslverify' => true,
                 'headers'   => [
                     'Content-Type'  => 'application/json',
                     'Authorization' => 'Bearer ' . $api_key,
@@ -532,6 +550,7 @@ class AIVisibility_Integration {
             $settings['connected']      = true;
             $settings['api_url']        = $api_url;
             $settings['api_key']        = $api_key;
+            $settings['site_token']     = '';
             $settings['business_id']    = $body['business_id'] ?? '';
             $settings['last_synced_at'] = current_time( 'mysql' );
             update_option( self::OPTION_KEY, $settings );
@@ -576,6 +595,7 @@ class AIVisibility_Integration {
         $settings = self::get_settings();
         $settings['api_url']   = $api_url;
         $settings['api_key']   = $api_key;
+        $settings['site_token'] = '';
         $settings['connected'] = ! empty( $api_key );
         update_option( self::OPTION_KEY, $settings );
         update_option( self::LEGACY_OPTION_KEY, $settings );
@@ -595,14 +615,28 @@ class AIVisibility_Integration {
             wp_send_json_error( 'Plugin is operating in Standalone Mode. Connect to AIVisibility SEO first.' );
         }
 
-        $settings['last_synced_at'] = current_time( 'mysql' );
-        update_option( self::OPTION_KEY, $settings );
-        update_option( self::LEGACY_OPTION_KEY, $settings );
-
-        wp_send_json_success( [
-            'message'   => 'Telemetry successfully synchronized with AIVisibility SEO!',
-            'synced_at' => current_time( 'mysql' ),
-        ] );
+        $base_url = rtrim( $settings['api_url'], '/' );
+        foreach ( [ '/api/wordpress/sync-from-plugin', '/wordpress/sync-from-plugin' ] as $path ) {
+            $response = wp_remote_post( $base_url . $path, [
+                'timeout' => 30,
+                'sslverify' => true,
+                'headers' => [ 'Authorization' => 'Bearer ' . $settings['api_key'] ],
+            ] );
+            if ( is_wp_error( $response ) ) continue;
+            $code = wp_remote_retrieve_response_code( $response );
+            $body = json_decode( wp_remote_retrieve_body( $response ), true );
+            if ( $code >= 200 && $code < 300 && ! empty( $body['success'] ) ) {
+                $settings['last_synced_at'] = current_time( 'mysql' );
+                update_option( self::OPTION_KEY, $settings );
+                update_option( self::LEGACY_OPTION_KEY, $settings );
+                wp_send_json_success( [
+                    'message' => 'Telemetry synchronized with AIVisibility SEO.',
+                    'synced_at' => $settings['last_synced_at'],
+                ] );
+                return;
+            }
+        }
+        wp_send_json_error( 'Telemetry sync failed. Previous sync time has been retained.' );
     }
 }
 

@@ -18,8 +18,8 @@ import {
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { TimeRangeFilter } from "@/components/TimeRangeFilter";
-import { TimeRangeKey, getTimeRangeMultiplier, getTimeRangeLabel } from "@/lib/timeRanges";
-import { PerformanceTimelineGraphic } from "@/components/charts/PerformanceTimelineGraphic";
+import { TimeRangeKey, getTimeRangeLabel } from "@/lib/timeRanges";
+import { useGa4Metrics } from "@/lib/useGa4Metrics";
 import { EngineDistributionGraphic } from "@/components/charts/EngineDistributionGraphic";
 
 export const dynamic = "force-dynamic";
@@ -28,7 +28,7 @@ export default function Ga4Page() {
   const [timeRange, setTimeRange] = useState<TimeRangeKey>("7D");
   const [activeTab, setActiveTab] = useState<"all" | "ai" | "social">("all");
   const [business, setBusiness] = useState<any>(null);
-  const [ga4Data, setGa4Data] = useState<any>(null);
+  const { data: ga4Data, error, loading } = useGa4Metrics(timeRange);
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
@@ -45,9 +45,6 @@ export default function Ga4Page() {
           if (ga4?.connected) {
             setIsConnected(true);
           }
-          if (ga4?.metricsCache) {
-            setGa4Data(ga4.metricsCache);
-          }
         }
       } catch (err) {
         console.error("Failed to load GA4 data:", err);
@@ -57,7 +54,7 @@ export default function Ga4Page() {
   }, []);
 
   const bName = business?.name || "Your Business";
-  const multiplier = getTimeRangeMultiplier(timeRange);
+
 
   const baseTotalUsers = isConnected && ga4Data?.totalUsers ? ga4Data.totalUsers : 0;
   const baseAiSessions = isConnected && ga4Data?.aiReferralSessions ? ga4Data.aiReferralSessions : 0;
@@ -65,9 +62,9 @@ export default function Ga4Page() {
   const baseSocialSessions = isConnected && ga4Data?.socialReferralSessions ? ga4Data.socialReferralSessions : 0;
   const socialShare = isConnected && ga4Data?.socialReferralShare ? ga4Data.socialReferralShare : 0;
 
-  const totalUsers = Math.round(baseTotalUsers * multiplier);
-  const aiSessions = Math.round(baseAiSessions * multiplier);
-  const socialSessions = Math.round(baseSocialSessions * multiplier);
+  const totalUsers = Math.round(baseTotalUsers);
+  const aiSessions = Math.round(baseAiSessions);
+  const socialSessions = Math.round(baseSocialSessions);
 
   const engines = (isConnected && ga4Data?.aiEngines && ga4Data.aiEngines.length > 0)
     ? ga4Data.aiEngines
@@ -130,6 +127,8 @@ export default function Ga4Page() {
             </Link>
           </div>
         </div>
+      ) : loading || error || !ga4Data ? (
+        <p role="status" className="py-8 text-sm text-zinc-400">{loading ? "Loading analytics..." : error || "Analytics unavailable."}</p>
       ) : (
         <>
           {/* Key Metrics */}
@@ -166,21 +165,12 @@ export default function Ga4Page() {
 
           {/* Graphics on Top of Data Table */}
           <div className="space-y-4">
-            <PerformanceTimelineGraphic
-              timeRange={timeRange}
-              totalClicks={aiSessions}
-              totalImpressions={totalUsers}
-              clicksLabel="AI Visits"
-              impressionsLabel="Total Active Users"
-              variant="full"
-              title="AI Referral Growth Velocity vs Total Traffic"
-            />
 
             {engines.length > 0 && (
               <EngineDistributionGraphic
                 engines={engines.map((e: any) => ({
                   ...e,
-                  sessions: Math.round((e.sessions || 0) * multiplier),
+                  sessions: Math.round((e.sessions || 0)),
                 }))}
                 totalAiSessions={aiSessions}
                 compact={false}
@@ -214,7 +204,7 @@ export default function Ga4Page() {
                           {e.engine || e.name}
                         </td>
                         <td className="px-5 py-3 text-right font-bold text-white">
-                          {Math.round((e.sessions || 0) * multiplier).toLocaleString()}
+                          {Math.round((e.sessions || 0)).toLocaleString()}
                         </td>
                         <td className="px-5 py-3 text-right text-slate-400">{e.avgTime || e.avgDuration || "—"}</td>
                         <td className="px-5 py-3 text-right text-emerald-400 font-bold">{e.goalConvRate || e.conversionRate || "—"}</td>

@@ -111,9 +111,9 @@ export class GoogleOAuthService {
   /**
    * Automatically refresh and return a valid access token
    */
-  async getFreshAccessToken(businessId: string): Promise<string | null> {
+  async getFreshAccessToken(businessId: string, provider: IntegrationProvider = IntegrationProvider.GOOGLE_SEARCH_CONSOLE): Promise<string | null> {
     const account = await prisma.integrationAccount.findFirst({
-      where: { businessId, provider: IntegrationProvider.GOOGLE_SEARCH_CONSOLE },
+      where: { businessId, provider },
     });
 
     if (!account || !account.accessTokenEnc) {
@@ -348,7 +348,8 @@ export class GoogleOAuthService {
   /**
    * Fetch live GA4 sessions and AI referrals filtered by business domain / name
    */
-  async fetchGa4Metrics(accessToken: string, targetDomain?: string, targetBusinessName?: string) {
+  async fetchGa4Metrics(accessToken: string, targetDomain?: string, targetBusinessName?: string, days = 28) {
+    if (!Number.isInteger(days) || days < 0 || days > 365) return null;
     try {
       const accountRes = await fetch(
         "https://analyticsadmin.googleapis.com/v1beta/accountSummaries",
@@ -382,103 +383,75 @@ export class GoogleOAuthService {
       }
 
       // Fallback to first property if no exact domain match found
-      if (!matchedProperty && accounts[0]?.propertySummaries?.[0]?.property) {
+      if (!matchedProperty && !cleanDomain && !cleanName && accounts.length === 1 && accounts[0]?.propertySummaries?.length === 1) {
         matchedProperty = accounts[0].propertySummaries[0].property;
       }
 
       if (!matchedProperty) return null;
 
       const propertyId = matchedProperty.replace("properties/", "");
-      const reportRes = await fetch(
-        `https://analyticsdata.googleapis.com/v1beta/properties/${propertyId}:runReport`,
-        {
+      const dateRange = { startDate: days === 0 ? "2015-08-14" : `${days}daysAgo`, endDate: "yesterday" };
+      const reportUrl = `https://analyticsdata.googleapis.com/v1beta/properties/${propertyId}:runReport`;
+      const query = async (dimensions: string[], metrics: string[], offset = 0) => {
+        const res = await fetch(reportUrl, {
           method: "POST",
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            "Content-Type": "application/json",
-          },
+          headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
           body: JSON.stringify({
-            dateRanges: [{ startDate: "28daysAgo", endDate: "yesterday" }],
-            dimensions: [{ name: "sessionSource" }],
-            metrics: [{ name: "activeUsers" }, { name: "sessions" }],
-            limit: 25,
+            dateRanges: [dateRange],
+            dimensions: dimensions.map(name => ({ name })),
+            metrics: metrics.map(name => ({ name })),
+            limit: 10000,
+            offset,
           }),
-        }
-      );
-
-      if (reportRes.ok) {
-        const reportData = await reportRes.json();
-        const rows = reportData.rows || [];
-        let totalUsers = 0;
-        let totalSessions = 0;
-        let aiSessions = 0;
-        let socialSessions = 0;
-
-        const aiEngines: any[] = [];
-        const socialChannels: any[] = [];
-
-        rows.forEach((r: any) => {
-          const source = r.dimensionValues?.[0]?.value?.toLowerCase() || "";
-          const users = parseInt(r.metricValues?.[0]?.value || "0", 10);
-          const sessions = parseInt(r.metricValues?.[1]?.value || "0", 10);
-
-          totalUsers += users;
-          totalSessions += sessions;
-
-          if (
-            source.includes("chatgpt") ||
-            source.includes("openai") ||
-            source.includes("perplexity") ||
-            source.includes("claude") ||
-            source.includes("gemini")
-          ) {
-            aiSessions += sessions;
-            aiEngines.push({
-              engine: source,
-              sessions,
-              growth: 45.2,
-              avgTime: "2m 30s",
-              goalConvRate: 9.4,
-            });
-          } else if (
-            source.includes("instagram") ||
-            source.includes("facebook") ||
-            source.includes("tiktok") ||
-            source.includes("linkedin") ||
-            source.includes("youtube") ||
-            source.includes("twitter") ||
-            source.includes("t.co") ||
-            source.includes("x.com") ||
-            source.includes("pinterest") ||
-            source.includes("threads")
-          ) {
-            socialSessions += sessions;
-            socialChannels.push({
-              channel: source,
-              sessions,
-              growth: 28.4,
-              avgTime: "2m 45s",
-              goalConvRate: 6.2,
-            });
-          }
+          signal: AbortSignal.timeout(15000),
         });
+        if (!res.ok) throw new Error(`GA4 report failed: HTTP ${res.status}`);
+        return res.json();
+      };
 
-        const aiShare = totalSessions > 0 ? (aiSessions / totalSessions) * 100 : 0;
-        const socialShare = totalSessions > 0 ? (socialSessions / totalSessions) * 100 : 0;
-
-        return {
-          propertyId,
-          totalUsers: Math.max(totalUsers, 1420),
-          totalSessions: Math.max(totalSessions, 1850),
-          aiReferralSessions: Math.max(aiSessions, 145),
-          aiReferralShare: parseFloat(aiShare.toFixed(1)) || 7.8,
-          socialReferralSessions: Math.max(socialSessions, 240),
-          socialReferralShare: parseFloat(socialShare.toFixed(1)) || 13.0,
-          aiEngines: aiEngines.length > 0 ? aiEngines : undefined,
-          socialChannels: socialChannels.length > 0 ? socialChannels : undefined,
-          isLiveOAuth: true,
-        };
-      }
+      // Query users without source dimensions to avoid counting the same user twice.
+      const totals = await query([], ["activeUsers", "sessions"]);
+      const totalUsers = Number(totals.rows?.[0]?.metricValues?.[0]?.value ?? 0);
+      const totalSessions = Number(totals.rows?.[0]?.metricValues?.[1]?.value ?? 0);
+      const aiEngines: Array<{ engine: string; sessions: number }> = [];
+      const socialChannels: Array<{ channel: string; sessions: number }> = [];
+      let offset = 0;
+      let rowCount = 0;
+      do {
+        const report = await query(["sessionSource"], ["sessions"], offset);
+        const rows = report.rows || [];
+        rowCount = Number(report.rowCount || 0);
+        if (!rows.length && offset < rowCount) throw new Error("GA4 returned an incomplete report");
+        for (const row of rows) {
+          const source = row.dimensionValues?.[0]?.value?.toLowerCase() || "";
+          const sessions = Number(row.metricValues?.[0]?.value ?? 0);
+          if (/(chatgpt|openai|perplexity|claude|gemini)/.test(source)) {
+            aiEngines.push({ engine: source, sessions });
+          } else if (/(instagram|facebook|tiktok|linkedin|youtube|twitter|t\\.co|x\\.com|pinterest|threads)/.test(source)) {
+            socialChannels.push({ channel: source, sessions });
+          }
+        }
+        offset += rows.length;
+      } while (offset < rowCount);
+      const aiSessions = aiEngines.reduce((sum, row) => sum + row.sessions, 0);
+      const socialSessions = socialChannels.reduce((sum, row) => sum + row.sessions, 0);
+      return {
+        propertyId,
+        totalUsers,
+        totalSessions,
+        aiReferralSessions: aiSessions,
+        aiReferralShare: totalSessions ? Number((100 * aiSessions / totalSessions).toFixed(1)) : 0,
+        socialReferralSessions: socialSessions,
+        socialReferralShare: totalSessions ? Number((100 * socialSessions / totalSessions).toFixed(1)) : 0,
+        aiEngines,
+        socialChannels,
+        socialSources: socialChannels,
+        measurementVersion: 2,
+        days,
+        dateRange,
+        lastFetchedAt: new Date().toISOString(),
+        isLiveOAuth: true,
+      };
     } catch (err: any) {
       this.logger.warn(`Failed to query live GA4 Data API: ${err.message}`);
     }

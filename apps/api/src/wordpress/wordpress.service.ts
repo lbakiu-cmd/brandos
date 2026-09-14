@@ -141,6 +141,8 @@ export class WordpressService {
 
       const data = (await res.json()) as any;
 
+      if (data?.success !== true) throw new Error("WordPress rejected the connection.");
+
       await prisma.business.update({
         where: { id: businessId },
         data: {
@@ -158,22 +160,7 @@ export class WordpressService {
         site: data,
       };
     } catch (err: any) {
-      // In local dev/offline, save connection anyway with pending status
-      await prisma.business.update({
-        where: { id: businessId },
-        data: {
-          wordpressUrl: targetUrl,
-          wordpressSiteName: "WordPress Site",
-          wordpressPluginVersion: "1.6.0",
-          wordpressConnectedAt: new Date(),
-          wordpressLastSyncedAt: new Date(),
-        },
-      });
-
-      return {
-        success: true,
-        message: `Registered WordPress URL. (Note: could not verify remote endpoint directly: ${err?.message || "timeout"}. Make sure AIVision SEO plugin is active).`,
-      };
+      throw new BadRequestException(`Could not verify WordPress: ${err?.message || "timeout"}. Save the dashboard API key in WordPress admin first.`);
     }
   }
 
@@ -224,6 +211,15 @@ export class WordpressService {
 
       const statusData = statusRes && statusRes.ok ? await statusRes.json() : null;
       const telemetryData = telemetryRes && telemetryRes.ok ? await telemetryRes.json() : null;
+
+      if (statusData?.success !== true || telemetryData?.success !== true ||
+          !telemetryData.summary ||
+          !["average_seo", "average_aeo", "average_geo", "count"].every(
+            key => typeof telemetryData.summary[key] === "number" &&
+              Number.isFinite(telemetryData.summary[key]) && telemetryData.summary[key] >= 0
+          )) {
+        throw new Error("WordPress status or telemetry failed or returned an invalid response. Update the plugin and retry.");
+      }
 
       const existingTelemetry = (business.wordpressTelemetry as any) || {};
       const combinedTelemetry = {
@@ -287,6 +283,14 @@ export class WordpressService {
     } catch (err: any) {
       throw new BadRequestException(`Failed to sync with WordPress: ${err?.message || "Unknown error"}`);
     }
+  }
+
+  async syncFromPlugin(authHeader: string) {
+    const apiKey = authHeader?.replace(/^Bearer\s+/i, "").trim();
+    if (!apiKey) throw new BadRequestException("Missing API key.");
+    const business = await prisma.business.findFirst({ where: { wordpressApiKey: apiKey } });
+    if (!business) throw new BadRequestException("Invalid API key.");
+    return this.sync(business.id);
   }
 
   /**
@@ -1278,13 +1282,15 @@ Contact **${name}** today to book your consultation!
   /**
    * Automatically install/update plugin on all connected WordPress sites
    */
-  async broadcastPluginUpdate(requestedVersion?: string) {
+  async broadcastPluginUpdate(businessId: string, requestedVersion?: string) {
+    if (!businessId) throw new BadRequestException("A business is required for plugin updates.");
     const versions = this.getPluginVersions();
     const version = requestedVersion || versions.latest || "1.6.3";
     const downloadUrl = `https://icandothat.online/api/wordpress/plugin-download?version=${version}`;
 
     const connectedBusinesses = await prisma.business.findMany({
       where: {
+        id: businessId,
         wordpressUrl: { not: null },
         wordpressApiKey: { not: null },
       },
@@ -1403,4 +1409,3 @@ Contact **${name}** today to book your consultation!
     };
   }
 }
-

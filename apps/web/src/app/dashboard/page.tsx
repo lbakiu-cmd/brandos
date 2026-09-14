@@ -32,6 +32,7 @@ import { TwoWeekReminderBanner } from "./components/TwoWeekReminderBanner";
 import { ComparisonModal } from "./components/ComparisonModal";
 import { GscWidget } from "./widgets/GscWidget";
 import { Ga4Widget } from "./widgets/Ga4Widget";
+import { useGa4Metrics } from "@/lib/useGa4Metrics";
 import { GbpWidget } from "./widgets/GbpWidget";
 import { ReviewsWidget } from "./widgets/ReviewsWidget";
 import { AeoWidget } from "./widgets/AeoWidget";
@@ -187,33 +188,24 @@ export default function DashboardPage() {
 
   // Find dynamic quick stats from widgets data
   const gscData = widgets.find((w) => w.widgetType === "GSC_QUERIES_TABLE" || w.widgetType === "GSC_CLICKS_IMPRESSIONS")?.data;
-  const ga4Data = widgets.find((w) => w.widgetType === "GA4_AI_TRAFFIC")?.data;
+  const { data: ga4Data } = useGa4Metrics(timeRange);
   const gbpData = widgets.find((w) => w.widgetType === "GBP_LOCAL_PERFORMANCE")?.data;
   const aeoData = widgets.find((w) => w.widgetType === "AEO_CITATION_SHARE")?.data;
 
   const hasGsc = Boolean(gscData && (gscData.totalClicks !== undefined || gscData.connected));
   const hasGa4 = Boolean(ga4Data && (ga4Data.totalUsers !== undefined || ga4Data.connected));
   const hasGbp = Boolean(gbpData && (gbpData.searchViews !== undefined || gbpData.connected));
-  const hasAeo = Boolean(aeoData && (aeoData.compositeScore !== undefined || aeoData.hasAudits));
+  const hasAeo = typeof aeoData?.compositeScore === "number" && Number.isFinite(aeoData.compositeScore);
 
   const baseClicks = gscData?.totalClicks || 0;
   const baseImpressions = gscData?.totalImpressions || 0;
   const baseAiSessions = ga4Data?.aiReferralSessions || 0;
   const baseLocalViews = (gbpData?.searchViews || 0) + (gbpData?.mapsViews || 0);
-  const baseAeo = aeoData?.compositeScore || 78;
-
-  const aeoOffsets: Record<string, number> = {
-    "7D": -4,
-    "14D": 0,
-    "1M": 4,
-    "3M": 8,
-    "MAX": 13,
-  };
-  const aeoScore = hasAeo && baseAeo > 0 ? Math.min(99, Math.max(1, baseAeo + (aeoOffsets[timeRange] ?? 0))) : 0;
+  const aeoScore = hasAeo ? aeoData.compositeScore : 0;
 
   const totalClicks = Math.round(baseClicks * multiplier);
   const totalImpressions = Math.round(baseImpressions * multiplier);
-  const aiSessions = Math.round(baseAiSessions * multiplier);
+  const aiSessions = baseAiSessions;
   const totalLocalViews = Math.round(baseLocalViews * multiplier);
 
   // Calculate Growth Checklist progress

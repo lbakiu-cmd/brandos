@@ -125,7 +125,8 @@ export class IntegrationsService {
             : null),
         status: isConnected || isWpConnected ? "CONNECTED" : "DISCONNECTED",
         lastSyncedAt: existing?.lastSyncedAt || (isWpConnected ? business.wordpressLastSyncedAt : null),
-        metricsCache: effectiveMetrics,
+        metricsCache: sp.provider === "GOOGLE_ANALYTICS_4" && (effectiveMetrics as any)?.measurementVersion !== 2
+          ? null : effectiveMetrics,
       };
     });
 
