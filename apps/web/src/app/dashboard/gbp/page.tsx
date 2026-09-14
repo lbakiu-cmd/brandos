@@ -583,7 +583,7 @@ export default function GbpPage() {
                     Q & A Section Generator
                   </h3>
                   <p className="text-xs text-[#78716C] dark:text-zinc-400 leading-relaxed">
-                    Use this tool to get content for your GMB's Q&A section.
+                    Use this tool to get content for your GMB&apos;s Q&A section.
                   </p>
                 </div>
                 <button
@@ -831,7 +831,7 @@ export default function GbpPage() {
                   Google Business Profile Category Optimizer
                 </h3>
                 <p className="text-xs text-[#78716C] dark:text-zinc-400 mt-0.5">
-                  Optimize primary and secondary categories from Google's official taxonomy to rank in Maps 3-Pack.
+                  Optimize primary and secondary categories from Google&apos;s official taxonomy to rank in Maps 3-Pack.
                 </p>
               </div>
               <button
@@ -986,7 +986,7 @@ export default function GbpPage() {
                     onChange={(e: any) => setPostType(e.target.value)}
                     className="w-full rounded-lg border border-[#DECDBB] dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2.5 py-1.5 text-xs text-[#1C1917] dark:text-zinc-200"
                   >
-                    <option value="WHATS_NEW">What's New / Update</option>
+                    <option value="WHATS_NEW">What&apos;s New / Update</option>
                     <option value="OFFER">Special Offer / Promo</option>
                     <option value="EVENT">Event / Clinic Notice</option>
                   </select>

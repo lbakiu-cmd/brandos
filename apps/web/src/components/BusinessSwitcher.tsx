@@ -314,7 +314,7 @@ export function BusinessSwitcher() {
 
               {filtered.length === 0 && (
                 <div className="py-6 text-center text-xs text-zinc-500">
-                  No workspaces match "{searchQuery}"
+                  No workspaces match &quot;{searchQuery}&quot;
                 </div>
               )}
             </div>

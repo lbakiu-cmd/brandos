@@ -777,7 +777,7 @@ export default function SettingsPage() {
                   <div>
                     <p className="font-semibold text-slate-400">Benchmark AI Search Query</p>
                     <p className="mt-0.5 rounded-lg bg-slate-950/80 p-2.5 italic text-slate-300">
-                      "{selectedVertical.sampleQuery.replace("[City]", form.city || "your city")}"
+                      &quot;{selectedVertical.sampleQuery.replace("[City]", form.city || "your city")}&quot;
                     </p>
                   </div>
                 </div>
@@ -1121,7 +1121,7 @@ export default function SettingsPage() {
                     </div>
                   )}
                   <p className="text-[11px] font-semibold text-slate-800 mt-2">
-                    Open Google Authenticator → Tap <strong>"+"</strong> → Choose <strong>"Scan a QR code"</strong>
+                    Open Google Authenticator → Tap <strong>&quot;+&quot;</strong> → Choose <strong>&quot;Scan a QR code&quot;</strong>
                   </p>
                 </div>
 
@@ -1154,7 +1154,7 @@ export default function SettingsPage() {
                   }}
                   className="w-full rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-500 transition shadow-lg shadow-blue-600/20"
                 >
-                  I've Scanned the QR → Verify Code →
+                  I&apos;ve Scanned the QR → Verify Code →
                 </button>
               </div>
             )}
@@ -1357,7 +1357,7 @@ export default function SettingsPage() {
             <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-3.5 text-xs space-y-1">
               <span className="text-slate-400 font-semibold">Benchmark AI Search Query:</span>
               <p className="italic text-slate-200">
-                "{pendingVertical.sampleQuery.replace("[City]", form.city || "your city")}"
+                &quot;{pendingVertical.sampleQuery.replace("[City]", form.city || "your city")}&quot;
               </p>
             </div>
 

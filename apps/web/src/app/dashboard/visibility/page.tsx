@@ -492,7 +492,7 @@ export default function VisibilityPage() {
                         No notifications
                       </p>
                       <p className="text-[11px] text-[#78716C] dark:text-zinc-400">
-                        You're all caught up with your AI visibility alerts.
+                        You&apos;re all caught up with your AI visibility alerts.
                       </p>
                     </div>
                   ) : (

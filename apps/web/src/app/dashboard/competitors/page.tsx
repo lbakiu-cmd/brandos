@@ -123,7 +123,7 @@ export default function CompetitorsPage() {
             </span>
           </div>
           <p className="mt-1 text-xs text-slate-400">
-            Compare your brand's AI search visibility and Share of Voice (SOV) head-to-head against local competitors in ChatGPT and Google Gemini.
+            Compare your brand&apos;s AI search visibility and Share of Voice (SOV) head-to-head against local competitors in ChatGPT and Google Gemini.
           </p>
         </div>
 
@@ -178,7 +178,7 @@ export default function CompetitorsPage() {
               <span className="text-xs text-slate-400 font-mono">Weighted Algorithm v2.1</span>
             </div>
             <p className="text-xs text-slate-400">
-              Target Prompt: <span className="font-mono text-purple-300">"{benchmark?.prompt || `Top rated ${business?.industry || "services"} in ${business?.city || "your market"}`}"</span>
+              Target Prompt: <span className="font-mono text-purple-300">&quot;{benchmark?.prompt || `Top rated ${business?.industry || "services"} in ${business?.city || "your market"}`}&quot;</span>
             </p>
 
             {/* SOV Breakdown Bars */}
@@ -284,7 +284,7 @@ export default function CompetitorsPage() {
 
           {competitors.length === 0 && (
             <div className="col-span-full rounded-2xl border border-dashed border-slate-800 p-8 text-center text-xs text-slate-500">
-              No competitors added yet. Click "+ Add Competitor" to start tracking local competition in AI engines.
+              No competitors added yet. Click &quot;+ Add Competitor&quot; to start tracking local competition in AI engines.
             </div>
           )}
         </div>

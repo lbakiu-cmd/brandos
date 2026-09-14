@@ -216,7 +216,7 @@ export default function ReviewsPage() {
                 </div>
                 {rev.comment && (
                   <p className="mt-3 text-xs text-slate-300 leading-relaxed bg-slate-950/40 p-3 rounded-xl border border-slate-800/60">
-                    "{rev.comment}"
+                    &quot;{rev.comment}&quot;
                   </p>
                 )}
               </div>

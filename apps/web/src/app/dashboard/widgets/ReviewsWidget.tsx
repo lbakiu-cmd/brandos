@@ -24,6 +24,41 @@ export function ReviewsWidget({ data, onRemove, initialTimeRange = "7D" }: Revie
 
   const isConnected = Boolean(data && (data.recentReviews?.length > 0 || data.totalReviews > 0 || data.connected));
 
+  const rawReviews = data?.recentReviews || [];
+  const maxDays =
+    timeRange === "7D" ? 7 : timeRange === "14D" ? 14 : timeRange === "1M" ? 30 : timeRange === "3M" ? 90 : 365;
+
+  const filteredReviews = rawReviews.filter((r: any) => (r.daysAgo !== undefined ? r.daysAgo <= maxDays : true));
+  const displayedReviews = filteredReviews.length > 0 ? filteredReviews : rawReviews.slice(0, 2);
+
+  // Hooks must run unconditionally on every render (Rules of Hooks) -- declared
+  // here, before the early return below, rather than after it.
+  const [reviews, setReviews] = useState<any[]>(displayedReviews);
+  const [approvingId, setApprovingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let list = displayedReviews;
+    try {
+      const storedReplies = JSON.parse(localStorage.getItem("brandos_approved_reviews") || "{}");
+      list = list.map((r: any, idx: number) => {
+        const authorKey = (r.author || "").toLowerCase();
+        const idKey = r.id || idx.toString();
+        const stored = storedReplies[idKey] || (authorKey && storedReplies[authorKey]);
+        if (stored) {
+          return {
+            ...r,
+            replied: true,
+            reply: stored,
+            aiDraft: undefined,
+          };
+        }
+        return r;
+      });
+    } catch {}
+    setReviews(list);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timeRange, data?.recentReviews]);
+
   if (!isConnected) {
     return (
       <div className="flex flex-col justify-between h-full rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-xl backdrop-blur">
@@ -70,38 +105,6 @@ export function ReviewsWidget({ data, onRemove, initialTimeRange = "7D" }: Revie
       </div>
     );
   }
-
-  const rawReviews = data?.recentReviews || [];
-  const maxDays =
-    timeRange === "7D" ? 7 : timeRange === "14D" ? 14 : timeRange === "1M" ? 30 : timeRange === "3M" ? 90 : 365;
-
-  const filteredReviews = rawReviews.filter((r: any) => (r.daysAgo !== undefined ? r.daysAgo <= maxDays : true));
-  const displayedReviews = filteredReviews.length > 0 ? filteredReviews : rawReviews.slice(0, 2);
-
-  const [reviews, setReviews] = useState<any[]>(displayedReviews);
-  const [approvingId, setApprovingId] = useState<string | null>(null);
-
-  useEffect(() => {
-    let list = displayedReviews;
-    try {
-      const storedReplies = JSON.parse(localStorage.getItem("brandos_approved_reviews") || "{}");
-      list = list.map((r: any, idx: number) => {
-        const authorKey = (r.author || "").toLowerCase();
-        const idKey = r.id || idx.toString();
-        const stored = storedReplies[idKey] || (authorKey && storedReplies[authorKey]);
-        if (stored) {
-          return {
-            ...r,
-            replied: true,
-            reply: stored,
-            aiDraft: undefined,
-          };
-        }
-        return r;
-      });
-    } catch {}
-    setReviews(list);
-  }, [timeRange, data?.recentReviews]);
 
   const handleSendReply = async (id: string, replyText: string, author?: string) => {
     setApprovingId(id);
