@@ -1056,6 +1056,7 @@ export class WordpressService {
           model: "gpt-image-1",
           prompt,
           size: "1024x1024",
+          quality: "low",
           n: 1,
         }),
         signal: AbortSignal.timeout(60000),
