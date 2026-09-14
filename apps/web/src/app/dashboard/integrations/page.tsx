@@ -134,6 +134,12 @@ export default function IntegrationsPage() {
     }
   }, [fetchStatus]);
 
+  useEffect(() => {
+    if (wp?.wordpressUrl && !wpUrl) {
+      setWpUrl(wp.wordpressUrl);
+    }
+  }, [wp]);
+
   const handleOAuthConnect = async (provider: "google" | "meta") => {
     try {
       const res = await apiFetch<{ url: string }>(`/oauth/${provider}/url`);
@@ -595,6 +601,39 @@ export default function IntegrationsPage() {
                 </button>
               ) : null}
             </div>
+          </div>
+        </div>
+
+        {/* Step 4: Finalize / Refresh Connection */}
+        <div className="rounded-2xl bg-slate-950 p-4 border border-slate-800 space-y-3">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <span className="font-bold text-amber-400 text-xs">4. Confirm Connection</span>
+            {wp?.connected && (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 text-[11px] font-bold text-emerald-400">
+                <CheckCircle2 className="h-3 w-3" />
+                Connected{wp.wordpressSiteName ? `: ${wp.wordpressSiteName}` : ""}
+              </span>
+            )}
+          </div>
+          <p className="text-slate-400 text-xs">
+            After saving the API key in WordPress (step 3) and clicking <strong className="text-slate-300">Test &amp; Connect</strong> there, enter your site URL here to sync its details back to this dashboard — no need to leave WordPress admin open.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <input
+              type="text"
+              value={wpUrl}
+              onChange={(e) => setWpUrl(e.target.value)}
+              placeholder="https://yoursite.com"
+              className="flex-1 rounded-lg bg-slate-900 border border-slate-800 px-3 py-2 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+            />
+            <button
+              onClick={handleConnectWp}
+              disabled={connectingWp || !wpUrl}
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2 text-xs font-bold text-white transition shrink-0"
+            >
+              {connectingWp ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
+              {connectingWp ? "Connecting..." : "Confirm Connection"}
+            </button>
           </div>
         </div>
 
