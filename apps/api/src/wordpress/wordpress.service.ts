@@ -296,6 +296,81 @@ export class WordpressService {
   /**
    * 1-Click Remote Fix Dispatcher: Send fix to connected WordPress site
    */
+  /**
+   * Translates our internal fix_type identifiers into the WordPress plugin's
+   * actual REST fix_type names/payload shapes (see rest_apply_fix's switch
+   * statement in plugins/aivision-seo/includes/class-integration.php, which
+   * only recognizes lowercase snake_case names like "enable_robots_txt" --
+   * calling it with e.g. "LOCAL_BUSINESS_SCHEMA" always hit its default case
+   * and failed with "Unknown fix_type"). Some of our fix types need more than
+   * one plugin call (e.g. LLMS needs both the feed enabled and the bio text
+   * set), so this returns a list of calls to make in order.
+   */
+  private resolvePluginFixCalls(fixPayload: {
+    fix_type: string;
+    payload?: any;
+  }): Array<{ fix_type: string; payload: any }> {
+    const { fix_type, payload } = fixPayload;
+
+    switch (fix_type) {
+      case "OPTIMIZE_ROBOTS":
+      case "ROBOTS_TXT":
+        return [{ fix_type: "enable_robots_txt", payload: {} }];
+
+      case "LLMS_TXT_BIO":
+        return [
+          { fix_type: "enable_llms_txt", payload: {} },
+          { fix_type: "set_site_bio", payload: { site_ai_bio: payload?.site_ai_bio || "" } },
+        ];
+
+      case "LOCAL_BUSINESS_SCHEMA":
+      case "ADD_SCHEMA":
+      case "FAQ_SCHEMA": {
+        const schemaType = payload?.schema_type || (fix_type === "FAQ_SCHEMA" ? "FAQPage" : "LocalBusiness");
+        // The plugin expects schema_data as a parsed object/array, not a JSON string.
+        let schemaData: any = payload?.schema_data ?? null;
+        if (!schemaData && typeof payload?.schema_json === "string") {
+          try {
+            schemaData = JSON.parse(payload.schema_json);
+          } catch {
+            schemaData = null;
+          }
+        }
+        return [{ fix_type: "set_schema", payload: { schema_type: schemaType, schema_data: schemaData || {} } }];
+      }
+
+      case "GENERATE_FEEDS":
+        // robots.txt/llms.txt are generated dynamically on each request by the
+        // plugin, not written to disk -- there's no "regenerate" action to call.
+        return [];
+
+      default:
+        // Already a real plugin fix_type (e.g. "optimize_post", "update_plugin")
+        // -- pass through unchanged.
+        return [{ fix_type, payload: payload || {} }];
+    }
+  }
+
+  private async dispatchPluginFix(siteUrl: string, apiKey: string | null, fix_type: string, payload: any) {
+    const endpoint = `${siteUrl}/wp-json/aivision-seo/v1/apply-fix`;
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({ fix_type, payload }),
+      signal: AbortSignal.timeout(12000),
+    });
+
+    if (!res.ok) {
+      const errorBody = await res.json().catch(() => ({}));
+      throw new Error(errorBody.message || `WordPress HTTP status ${res.status}`);
+    }
+
+    return res.json();
+  }
+
   async applyRemoteFix(
     businessId: string,
     fixPayload: {
@@ -314,28 +389,19 @@ export class WordpressService {
     const siteUrl = business.wordpressUrl.replace(/\/+$/, "");
     const apiKey = business.wordpressApiKey;
 
-    const endpoint = `${siteUrl}/wp-json/aivision-seo/v1/apply-fix`;
+    const calls = this.resolvePluginFixCalls(fixPayload);
+    if (calls.length === 0) {
+      return { success: true, message: "No remote action needed for this fix.", result: null };
+    }
 
     try {
-      const res = await fetch(endpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify(fixPayload),
-        signal: AbortSignal.timeout(12000),
-      });
-
-      if (!res.ok) {
-        const errorBody = await res.json().catch(() => ({}));
-        throw new Error(errorBody.message || `WordPress HTTP status ${res.status}`);
+      let result: any = null;
+      for (const call of calls) {
+        result = await this.dispatchPluginFix(siteUrl, apiKey, call.fix_type, call.payload);
       }
-
-      const result = await res.json();
       return {
         success: true,
-        message: result.message || "Fix successfully applied to WordPress site!",
+        message: result?.message || "Fix successfully applied to WordPress site!",
         result,
       };
     } catch (err: any) {
@@ -529,12 +595,6 @@ export class WordpressService {
         errors.push(`FAQPage schema fix failed: ${err?.message || "connection error"}`);
       }
     }
-
-    // 5. Always trigger physical feed regeneration
-    try {
-      await this.applyRemoteFix(businessId, { fix_type: "GENERATE_FEEDS" });
-      appliedFixes.push("Regenerated dynamic XML sitemaps, robots.txt, and llms.txt feeds");
-    } catch {}
 
     // Mark fixed recommendations as DONE in database
     const uniqueFixedIds = [...new Set(fixedRecIds)];

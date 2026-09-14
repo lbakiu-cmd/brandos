@@ -16,6 +16,7 @@ import {
   Eye,
   Menu,
   X,
+  FileText,
 } from "lucide-react";
 import { UserProfileDropdown } from "@/components/UserProfileDropdown";
 import { BusinessSwitcher } from "@/components/BusinessSwitcher";
@@ -29,6 +30,7 @@ const NAV = [
   { href: "/dashboard/gbp", label: "Google Maps & Calls", icon: MapPin },
   { href: "/dashboard/visibility", label: "Assistant Visibility", icon: Radar },
   { href: "/dashboard/audit", label: "Technical SEO & Schema", icon: ShieldCheck },
+  { href: "/dashboard/content", label: "Content Autopilot", icon: FileText },
   { href: "/dashboard/competitors", label: "Competitor Tracking", icon: Swords },
   { href: "/dashboard/integrations", label: "Connected Accounts", icon: Plug },
   { href: "/dashboard/settings", label: "Business Profile & NAP", icon: Settings },
