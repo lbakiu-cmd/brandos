@@ -288,6 +288,13 @@ class AIVisibility_Integration {
                 $schema_type = sanitize_text_field( $payload['schema_type'] ?? 'Organization' );
                 $schema_data = is_array( $payload['schema_data'] ?? null ) ? $payload['schema_data'] : [];
                 $settings = get_option( 'aivision_settings', [] );
+                if ( ! isset( $settings['global_schemas'] ) || ! is_array( $settings['global_schemas'] ) ) {
+                    $settings['global_schemas'] = [];
+                }
+                // Keyed by schema type so e.g. LocalBusiness and FAQPage can both be
+                // active site-wide at once instead of the latest call overwriting the
+                // other (see aivision_inject_global_schema() in the main plugin file).
+                $settings['global_schemas'][ $schema_type ] = $schema_data;
                 $settings['global_schema_type'] = $schema_type;
                 $settings['global_schema_data'] = $schema_data;
                 update_option( 'aivision_settings', $settings );

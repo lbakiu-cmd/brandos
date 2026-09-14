@@ -74,6 +74,15 @@ AIVision SEO can be used alongside other SEO plugins, but you should disable dup
 
 == Changelog ==
 
+= 1.6.5 =
+* Fixed "Unknown fix_type" errors on every 1-Click Fix / Auto-Fix All on WordPress action -- the AIVisibility SEO dashboard was calling this plugin's apply-fix endpoint with fix type names it never recognized, so schema, robots.txt, and llms.txt fixes always failed.
+* Fixed the Schema.org 1-Click Fix silently doing nothing on the live site -- it saved settings that nothing ever read back out. Site-wide LocalBusiness/Organization/FAQPage JSON-LD now actually renders in the page head.
+* Multiple site-wide schema types (e.g. LocalBusiness and FAQPage) can now be active at the same time instead of the latest one overwriting the other.
+
+= 1.6.4 =
+* Fixed a fatal PHP error in the /status and /telemetry REST endpoints on any request without a valid API token (hash_equals() was called with a non-string argument on PHP 8, crashing the site instead of returning a clean 401).
+* Fixed telemetry sync calling a removed AIVision_Analyzer::analyze() method, which fatally crashed every /telemetry request since v1.6.2 -- content SEO/AEO/GEO scores were never actually reaching the AIVisibility SEO dashboard even though they computed correctly in the WordPress admin.
+
 = 1.6.3 =
 * Added native WordPress Core automatic updates integration with remote version checker.
 * Direct integration with pre_set_site_transient_update_plugins and plugins_api for seamless 1-click updates.

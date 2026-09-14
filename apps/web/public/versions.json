@@ -1,8 +1,25 @@
 {
-  "latest": "1.6.4",
+  "latest": "1.6.5",
   "name": "aivision-seo",
   "description": "AIVision SEO WordPress Plugin for Search Engines (SEO), Answer Engines (AEO), and Generative AI (GEO)",
   "versions": [
+    {
+      "version": "1.6.5",
+      "releasedAt": "2026-09-14T17:48:12.337Z",
+      "filename": "aivision-seo-v1.6.5.zip",
+      "size": 70259,
+      "sizeFormatted": "68.6 KB",
+      "sha256": "b6d40575c6b56126edfea56008b396b0959c70016fb6cd3c0e8a4f4ec9e20f9c",
+      "fileCount": 14,
+      "status": "stable",
+      "minPhp": "8.0",
+      "minWp": "6.0",
+      "changelog": [
+        "Fixed \"Unknown fix_type\" errors on every 1-Click Fix / Auto-Fix All on WordPress action -- the AIVisibility SEO dashboard was calling this plugin's apply-fix endpoint with fix type names it never recognized, so schema, robots.txt, and llms.txt fixes always failed.",
+        "Fixed the Schema.org 1-Click Fix silently doing nothing on the live site -- it saved settings that nothing ever read back out. Site-wide LocalBusiness/Organization/FAQPage JSON-LD now actually renders in the page head.",
+        "Multiple site-wide schema types (e.g. LocalBusiness and FAQPage) can now be active at the same time instead of the latest one overwriting the other."
+      ]
+    },
     {
       "version": "1.6.4",
       "releasedAt": "2026-09-14T10:18:18.045Z",
@@ -11,7 +28,7 @@
       "sizeFormatted": "67.6 KB",
       "sha256": "eea65ed90f4c4ff6379c1d4a157bfd4e0645d92bf37d2f709d1e9991c4fdc8d1",
       "fileCount": 14,
-      "status": "stable",
+      "status": "archived",
       "minPhp": "8.0",
       "minWp": "6.0",
       "changelog": [
@@ -181,5 +198,5 @@
       ]
     }
   ],
-  "updatedAt": "2026-09-14T10:18:18.047Z"
+  "updatedAt": "2026-09-14T17:48:12.344Z"
 }

@@ -3,7 +3,7 @@
  * Plugin Name: AIVision SEO
  * Plugin URI:  https://aivisionseo.com
  * Description: All-in-one SEO, AEO & GEO optimization plugin — score and optimize your content for search engines (Google/Bing), answer engines (snippets/voice), and generative AI (OpenAI ChatGPT & Google Gemini). Includes auto-optimized robots.txt, dynamic /llms.txt, and schema generator.
- * Version:     1.6.4
+ * Version:     1.6.5
  * Author:      AIVision SEO
  * License:     GPL-2.0-or-later
  * Text Domain: aivision-seo
@@ -11,7 +11,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'AIVISION_VERSION',  '1.6.4' );
+define( 'AIVISION_VERSION',  '1.6.5' );
 define( 'AIVISION_FILE',     __FILE__ );
 define( 'AIVISION_BASENAME', plugin_basename( __FILE__ ) );
 define( 'AIVISION_DIR',      plugin_dir_path( __FILE__ ) );
@@ -45,6 +45,30 @@ add_action( 'plugins_loaded', function () {
         remove_action( 'wp_head', 'wp_generator' );
     }
 } );
+
+// ── Front-end: inject site-wide JSON-LD (LocalBusiness/Organization/FAQ) ─────
+// Written by the "set_schema" 1-Click Fix (REST apply-fix), which previously
+// only saved global_schema_data/global_schema_type to settings with nothing
+// ever reading them back out -- this is what actually publishes that schema.
+// Runs on every page (not gated to is_singular()) since this schema describes
+// the business/site, not a specific post.
+add_action( 'wp_head', 'aivision_inject_global_schema', 1 );
+function aivision_inject_global_schema() {
+    $settings = get_option( 'aivision_settings', [] );
+    $schemas  = $settings['global_schemas'] ?? null;
+
+    // Fall back to the single legacy key for settings saved before schemas were
+    // stored as a keyed collection (see class-integration.php::rest_apply_fix).
+    if ( empty( $schemas ) || ! is_array( $schemas ) ) {
+        $legacy  = $settings['global_schema_data'] ?? null;
+        $schemas = ( ! empty( $legacy ) && is_array( $legacy ) ) ? [ $legacy ] : [];
+    }
+
+    foreach ( $schemas as $schema_data ) {
+        if ( empty( $schema_data ) || ! is_array( $schema_data ) ) continue;
+        echo '<script type="application/ld+json">' . wp_json_encode( $schema_data ) . "</script>\n";
+    }
+}
 
 // ── Front-end: inject meta tags + JSON-LD ────────────────────────────────────
 add_action( 'wp_head', 'aivision_inject_head', 1 );
