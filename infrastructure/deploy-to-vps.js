@@ -138,6 +138,7 @@ async function main() {
       SMTP_FROM: "OnlinePresence Space <noreply@onlinepresence.space>",
       GEMINI_API_KEY: process.env.GEMINI_API_KEY || "",
       OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY || "",
+      OPENAI_API_KEY: process.env.OPENAI_API_KEY || "",
     };
 
     // Skip any var with no local value (e.g. a secret missing from the local .env)

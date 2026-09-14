@@ -149,7 +149,8 @@ Format the article with clean Markdown:
 - Step-by-step guidance for patients/clients
 - Statistical density & quantitative facts (e.g. satisfaction rates, transparent pricing, warranties)
 - A dedicated FAQ section with 3 distinct questions and answers
-- A natural call-to-action encouraging readers in ${city} to contact ${name} via ${website} or ${phone}`;
+- A natural call-to-action encouraging readers in ${city} to contact ${name} via ${website} or ${phone}
+- When linking to the website, use descriptive anchor text (e.g. "Book Online" or "Visit our website") -- never make the link text the raw URL itself, since that reads as the address being shown twice`;
 
   const userPrompt = `Write the full blog article about: "${targetTopic}" focusing on category "${targetCategory}".`;
 
