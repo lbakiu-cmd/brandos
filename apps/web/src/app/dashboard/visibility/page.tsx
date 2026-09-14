@@ -938,7 +938,7 @@ export default function VisibilityPage() {
                   {reportData.questions?.length || 0} questions × 2 AI engines
                 </div>
                 <div className="grid grid-cols-12 text-[10px] font-bold tracking-wider text-[#78716C] dark:text-zinc-400 uppercase items-center">
-                  <div className="col-span-8 sm:col-span-6 flex items-center justify-between pr-4">
+                  <div className="col-span-8 flex items-center justify-between pr-4">
                     <span>QUESTION (CLICK ROW TO EXPAND / COLLAPSE)</span>
                     <div className="flex gap-2">
                       <button
