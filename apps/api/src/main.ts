@@ -56,7 +56,10 @@ class AllExceptionsFilter implements ExceptionFilter {
 async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
-    new FastifyAdapter(),
+    // Fastify's default bodyLimit is 1 MiB, which a base64-encoded featured
+    // image (a 1024x1024 PNG comes out to ~1.5-2MB as base64) exceeds -- raised
+    // to 15MB to comfortably fit generated images without rejecting the request.
+    new FastifyAdapter({ bodyLimit: 15 * 1024 * 1024 }),
     { rawBody: true },
   );
 
