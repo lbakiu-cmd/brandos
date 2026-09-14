@@ -230,6 +230,7 @@ export default function VisibilityPage() {
 
   // Live OpenRouter Mention Audit Modal
   const [liveAuditModalOpen, setLiveAuditModalOpen] = useState(false);
+  const [liveAuditCustomize, setLiveAuditCustomize] = useState(false);
   const [liveBizName, setLiveBizName] = useState("");
   const [liveCity, setLiveCity] = useState("");
   const [liveIndustry, setLiveIndustry] = useState("");
@@ -628,7 +629,9 @@ export default function VisibilityPage() {
                 setLiveBizName(business?.name || "");
                 setLiveCity(business?.city || "");
                 setLiveIndustry(business?.industry || "");
+                setLiveAuditCustomize(false);
                 setLiveAuditModalOpen(true);
+                handleRunLiveAudit();
               }}
               className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white px-4 py-2.5 text-xs font-bold shadow-md hover:shadow-lg transition cursor-pointer"
             >
@@ -1534,44 +1537,64 @@ export default function VisibilityPage() {
               </button>
             </div>
 
-            {/* Inputs */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div>
-                <label className="block text-[11px] font-bold text-[#78716C] dark:text-zinc-400 mb-1">
-                  Business Name
-                </label>
-                <input
-                  type="text"
-                  value={liveBizName}
-                  onChange={(e) => setLiveBizName(e.target.value)}
-                  placeholder="e.g. Acme Services"
-                  className="w-full rounded-xl border border-[#E8DFD3] dark:border-zinc-700 bg-[#FCFAF7] dark:bg-zinc-800 px-3 py-2 text-xs text-[#1C1917] dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
-                />
+            {/* Business info used for this audit -- pulled from Business Settings by default */}
+            <div className="rounded-xl border border-[#E8DFD3] dark:border-zinc-700 bg-[#FCFAF7] dark:bg-zinc-950/60 p-3">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs text-[#1C1917] dark:text-zinc-200">
+                  Auditing as{" "}
+                  <strong className="font-bold">{liveBizName || business?.name || "Your Business"}</strong>
+                  {(liveCity || business?.city) && <> in {liveCity || business?.city}</>}
+                  {(liveIndustry || business?.industry) && <> ({liveIndustry || business?.industry})</>}
+                  <span className="text-[#78716C] dark:text-zinc-500"> — from your Business Settings.</span>
+                </p>
+                <button
+                  onClick={() => setLiveAuditCustomize((v) => !v)}
+                  className="shrink-0 text-[11px] font-semibold text-[#8A5333] dark:text-amber-400 hover:underline cursor-pointer"
+                >
+                  {liveAuditCustomize ? "Hide" : "Customize"}
+                </button>
               </div>
-              <div>
-                <label className="block text-[11px] font-bold text-[#78716C] dark:text-zinc-400 mb-1">
-                  City / Location
-                </label>
-                <input
-                  type="text"
-                  value={liveCity}
-                  onChange={(e) => setLiveCity(e.target.value)}
-                  placeholder="e.g. New York"
-                  className="w-full rounded-xl border border-[#E8DFD3] dark:border-zinc-700 bg-[#FCFAF7] dark:bg-zinc-800 px-3 py-2 text-xs text-[#1C1917] dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
-                />
-              </div>
-              <div>
-                <label className="block text-[11px] font-bold text-[#78716C] dark:text-zinc-400 mb-1">
-                  Industry / Service
-                </label>
-                <input
-                  type="text"
-                  value={liveIndustry}
-                  onChange={(e) => setLiveIndustry(e.target.value)}
-                  placeholder="e.g. Legal Consulting"
-                  className="w-full rounded-xl border border-[#E8DFD3] dark:border-zinc-700 bg-[#FCFAF7] dark:bg-zinc-800 px-3 py-2 text-xs text-[#1C1917] dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
-                />
-              </div>
+
+              {liveAuditCustomize && (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3 pt-3 border-t border-[#E8DFD3] dark:border-zinc-800">
+                  <div>
+                    <label className="block text-[11px] font-bold text-[#78716C] dark:text-zinc-400 mb-1">
+                      Business Name
+                    </label>
+                    <input
+                      type="text"
+                      value={liveBizName}
+                      onChange={(e) => setLiveBizName(e.target.value)}
+                      placeholder="e.g. Acme Services"
+                      className="w-full rounded-xl border border-[#E8DFD3] dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-2 text-xs text-[#1C1917] dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-[#78716C] dark:text-zinc-400 mb-1">
+                      City / Location
+                    </label>
+                    <input
+                      type="text"
+                      value={liveCity}
+                      onChange={(e) => setLiveCity(e.target.value)}
+                      placeholder="e.g. New York"
+                      className="w-full rounded-xl border border-[#E8DFD3] dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-2 text-xs text-[#1C1917] dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-[#78716C] dark:text-zinc-400 mb-1">
+                      Industry / Service
+                    </label>
+                    <input
+                      type="text"
+                      value={liveIndustry}
+                      onChange={(e) => setLiveIndustry(e.target.value)}
+                      placeholder="e.g. Legal Consulting"
+                      className="w-full rounded-xl border border-[#E8DFD3] dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-2 text-xs text-[#1C1917] dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Run Button */}
@@ -1592,7 +1615,7 @@ export default function VisibilityPage() {
                 ) : (
                   <>
                     <Sparkles className="h-3.5 w-3.5" />
-                    Audit AI Visibility
+                    {liveAuditResults ? "Re-run Audit" : "Audit AI Visibility"}
                   </>
                 )}
               </button>
