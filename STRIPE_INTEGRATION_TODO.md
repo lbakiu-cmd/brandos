@@ -20,7 +20,7 @@ The following values are placeholders and must be updated with your production o
 | `STRIPE_PRICE_STARTER` | `price_1UDoPqKgpfCmPjbFV3qofGDJ` | Starter Growth plan ($49/mo). | ✅ Created in Sandbox |
 | `STRIPE_PRICE_GROWTH` | `price_1UDoPrKgpfCmPjbF1H2AWyXb` | AI Dominance plan ($99/mo). | ✅ Created in Sandbox |
 | `STRIPE_PRICE_AGENCY` | `price_1UDoPsKgpfCmPjbFZ1b8AcDj` | Agency / Enterprise plan ($299/mo). | ✅ Created in Sandbox |
-| `STRIPE_WEBHOOK_SECRET` | `whsec_8WL6xvA7uDXUKQWeFN2b6bFb2wS5PbMg` | Signing secret for endpoint `we_1UDoPtKgpfCmPjbFh3rV0YdE`. | ✅ Active & Registered |
+| `STRIPE_WEBHOOK_SECRET` | `whsec_...` (see `.env`, endpoint `we_1UDoPtKgpfCmPjbFh3rV0YdE`) | Signing secret for endpoint `we_1UDoPtKgpfCmPjbFh3rV0YdE`. Rotate in Stripe Dashboard if this value was ever committed to git. | ✅ Active & Registered |
 
 ---
 
