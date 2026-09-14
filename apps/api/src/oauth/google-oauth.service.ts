@@ -48,13 +48,13 @@ export class GoogleOAuthService {
       this.logger.warn("GOOGLE_CLIENT_ID is not configured in environment.");
     }
 
+    // Identity scopes (openid/email/profile) are intentionally omitted here: this flow
+    // requires an authenticated session already (AuthGuard), and the callback never
+    // reads identity info from the token response — only data-access scopes are needed.
     const scopes = [
       "https://www.googleapis.com/auth/webmasters.readonly", // Google Search Console
       "https://www.googleapis.com/auth/analytics.readonly",   // Google Analytics 4
       "https://www.googleapis.com/auth/business.manage",      // Google Business Profile
-      "openid",
-      "email",
-      "profile",
     ].join(" ");
 
     const stateObj = {
