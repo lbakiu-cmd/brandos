@@ -2,6 +2,10 @@ const { Client } = require("ssh2");
 const fs = require("fs");
 const path = require("path");
 const { execSync } = require("child_process");
+// Load secrets (GEMINI_API_KEY, OPENROUTER_API_KEY, etc.) from the local, gitignored
+// root .env instead of hardcoding them below -- hardcoding real keys here gets the
+// commit blocked by GitHub push protection (secret scanning).
+require("dotenv").config({ path: path.resolve(__dirname, "..", ".env") });
 
 const config = {
   host: process.env.VPS_HOST || "169.58.227.157",
@@ -132,12 +136,17 @@ async function main() {
       SMTP_PORT: "587",
       SMTP_SECURE: "false",
       SMTP_FROM: "OnlinePresence Space <noreply@onlinepresence.space>",
+      GEMINI_API_KEY: process.env.GEMINI_API_KEY || "",
+      OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY || "",
     };
 
-    const envUpsertRemoveLines = Object.keys(DEPLOY_ENV_VARS)
-      .map((k) => `sed -i "/^${k}=/d" /opt/brandos/.env`)
+    // Skip any var with no local value (e.g. a secret missing from the local .env)
+    // rather than pushing a blank and wiping whatever's already live on the server.
+    const deployEnvEntries = Object.entries(DEPLOY_ENV_VARS).filter(([, v]) => v !== "" && v != null);
+    const envUpsertRemoveLines = deployEnvEntries
+      .map(([k]) => `sed -i "/^${k}=/d" /opt/brandos/.env`)
       .join("\n");
-    const envUpsertBlock = Object.entries(DEPLOY_ENV_VARS)
+    const envUpsertBlock = deployEnvEntries
       .map(([k, v]) => `${k}="${v}"`)
       .join("\n");
 
@@ -236,7 +245,6 @@ module.exports = {
         REDIS_URL: "redis://localhost:6379",
         API_URL: "https://icandothat.online/api",
         FRONTEND_URL: "https://icandothat.online",
-        OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY || "",
       },
     },
     {
@@ -265,7 +273,6 @@ module.exports = {
         NODE_ENV: "production",
         DATABASE_URL: "postgresql://brandos:brandos_password@localhost:5432/brandos?schema=public",
         REDIS_URL: "redis://localhost:6379",
-        OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY || "",
       },
     },
   ],
