@@ -90,9 +90,9 @@ export default function IntegrationsPage() {
   const fetchStatus = useCallback(async () => {
     try {
       const [intRes, wpRes, bRes, versionsRes] = await Promise.all([
-        apiFetch<any>("/integrations/status"),
-        apiFetch<WPConnection>("/wordpress/connection"),
-        apiFetch<any>("/business"),
+        apiFetch<any>("/integrations/status").catch(() => null),
+        apiFetch<WPConnection>("/wordpress/connection").catch(() => null),
+        apiFetch<any>("/business").catch(() => null),
         apiFetch<any>("/wordpress/plugin-versions").catch(() => null),
       ]);
 
@@ -582,10 +582,18 @@ export default function IntegrationsPage() {
           <div className="rounded-2xl bg-slate-950 p-4 border border-slate-800 space-y-2">
             <span className="font-bold text-emerald-400">3. Paste your API Key</span>
             <div className="flex items-center justify-between bg-slate-900 p-2 rounded-lg border border-slate-800">
-              <code className="text-[11px] text-slate-200 font-mono select-all truncate">{wp?.apiKey || "Loading..."}</code>
-              <button onClick={copyApiKey} className="text-slate-400 hover:text-white pl-2">
-                {copiedKey ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
-              </button>
+              <code className="text-[11px] text-slate-200 font-mono select-all truncate">
+                {wp?.apiKey || (loading ? "Loading..." : "Unavailable")}
+              </code>
+              {wp?.apiKey ? (
+                <button onClick={copyApiKey} className="text-slate-400 hover:text-white pl-2">
+                  {copiedKey ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+                </button>
+              ) : !loading ? (
+                <button onClick={() => fetchStatus()} className="text-[11px] text-blue-400 hover:text-blue-300 pl-2 shrink-0">
+                  Retry
+                </button>
+              ) : null}
             </div>
           </div>
         </div>
