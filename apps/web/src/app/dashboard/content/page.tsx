@@ -193,12 +193,15 @@ export default function ContentPage() {
   // Generate Suggested Headlines based on Selected Categories
   const primaryCat = selectedCategories[0] || "Services Guide";
   const city = business?.city || "your area";
-  const bizName = business?.name || "Your Business";
+  // Omit the "at <business>" clause entirely rather than falling back to a
+  // fake "Your Business" placeholder that could get used before real business
+  // data finishes loading.
+  const bizSuffix = business?.name ? ` at ${business.name}` : "";
 
   const suggestedHeadlines = [
     `The Complete 2026 ${primaryCat} in ${city}`,
-    `${primaryCat}: Step-by-Step Overview & Key Benefits at ${bizName}`,
-    `How to Choose the Best Specialist for ${primaryCat} in ${city} (Checklist & FAQs)`,
+    `${primaryCat}: Step-by-Step Overview and Key Benefits${bizSuffix}`,
+    `How to Choose the Best Specialist for ${primaryCat} in ${city} (Checklist and FAQs)`,
   ];
 
   // Trigger AI Article Generation

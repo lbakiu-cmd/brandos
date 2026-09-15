@@ -455,7 +455,7 @@ export class WordpressService {
             ],
           },
         });
-        appliedFixes.push("Optimized robots.txt for AI & Search crawlers");
+        appliedFixes.push("Optimized robots.txt for AI and Search crawlers");
         openRecs
           .filter(
             (r) =>
@@ -587,7 +587,7 @@ export class WordpressService {
             schema_json: JSON.stringify(faqSchemaJson, null, 2),
           },
         });
-        appliedFixes.push("Injected FAQPage Schema.org markup for AI voice & snippet discovery");
+        appliedFixes.push("Injected FAQPage Schema.org markup for AI voice and snippet discovery");
         openRecs
           .filter((r) => r.title.toLowerCase().includes("faq"))
           .forEach((r) => fixedRecIds.push(r.id));
@@ -759,7 +759,7 @@ export class WordpressService {
     };
 
     // 1. Resolve Target Category
-    let targetCategory = "Services & Solutions Guide";
+    let targetCategory = "Services and Solutions Guide";
     const cats = autopilot.selectedCategories;
     if (Array.isArray(cats) && cats.length > 0) {
       const idx = (autopilot.articlesGeneratedCount || 0) % cats.length;
@@ -840,7 +840,7 @@ export class WordpressService {
   }
 
   /**
-   * AI Copilot & Content Auto-Publisher: Send post to WordPress
+   * AI Copilot and Content Auto-Publisher: Send post to WordPress
    */
   async publishPost(
     businessId: string,
@@ -905,7 +905,7 @@ export class WordpressService {
   }
 
   /**
-   * Get Suggested & Live WordPress Categories for a Business
+   * Get Suggested and Live WordPress Categories for a Business
    */
   async getCategories(businessId: string) {
     const business = await prisma.business.findUnique({
@@ -919,57 +919,57 @@ export class WordpressService {
 
     if (industry.includes("dent") || industry.includes("medic") || industry.includes("clinic") || industry.includes("health")) {
       suggested = [
-        "Dental Implants & Restorations",
-        "Cosmetic Dentistry & Smile Design",
-        "Teeth Whitening & Hygiene",
+        "Dental Implants and Restorations",
+        "Cosmetic Dentistry and Smile Design",
+        "Teeth Whitening and Hygiene",
         "Emergency Dental Care",
-        "Orthodontics & Clear Aligners",
-        "Pediatric & Family Dentistry",
-        "Preventative Care & Checkups",
-        "Root Canal & Endodontics",
+        "Orthodontics and Clear Aligners",
+        "Pediatric and Family Dentistry",
+        "Preventative Care and Checkups",
+        "Root Canal and Endodontics",
       ];
     } else if (industry.includes("plumb") || industry.includes("hvac") || industry.includes("roof") || industry.includes("contract") || industry.includes("home")) {
       suggested = [
         "Emergency 24/7 Repairs",
-        "Seasonal Maintenance & Inspections",
-        "Energy Efficiency & Upgrades",
-        "New Installations & Replacements",
-        "Pricing & Cost Breakdown Guides",
-        "Troubleshooting & Pro Tips",
+        "Seasonal Maintenance and Inspections",
+        "Energy Efficiency and Upgrades",
+        "New Installations and Replacements",
+        "Pricing and Cost Breakdown Guides",
+        "Troubleshooting and Pro Tips",
       ];
     } else if (industry.includes("law") || industry.includes("legal") || industry.includes("attorney") || industry.includes("tax") || industry.includes("finance")) {
       suggested = [
-        "Personal Injury & Claims",
-        "Estate Planning & Wills",
-        "Business Law & Compliance",
-        "Tax Strategies & Filings",
-        "Legal Rights & Case Studies",
+        "Personal Injury and Claims",
+        "Estate Planning and Wills",
+        "Business Law and Compliance",
+        "Tax Strategies and Filings",
+        "Legal Rights and Case Studies",
       ];
     } else if (industry.includes("restaur") || industry.includes("cafe") || industry.includes("food") || industry.includes("bistro")) {
       suggested = [
-        "Seasonal Menus & Specials",
-        "Farm-to-Table & Fresh Ingredients",
-        "Private Events & Catering",
-        "Chef Recipes & Behind the Scenes",
+        "Seasonal Menus and Specials",
+        "Farm-to-Table and Fresh Ingredients",
+        "Private Events and Catering",
+        "Chef Recipes and Behind the Scenes",
       ];
     } else if (industry.includes("salon") || industry.includes("spa") || industry.includes("beauty") || industry.includes("wellness")) {
       suggested = [
-        "Skincare & Facial Treatments",
-        "Hair Trends & Color Care",
-        "Holistic Massage & Relaxation",
-        "Daily Beauty Routines & Advice",
+        "Skincare and Facial Treatments",
+        "Hair Trends and Color Care",
+        "Holistic Massage and Relaxation",
+        "Daily Beauty Routines and Advice",
       ];
     } else if (industry.includes("auto") || industry.includes("car") || industry.includes("mechanic") || industry.includes("tire")) {
       suggested = [
-        "Brake Service & Tire Safety",
-        "Engine Diagnostics & Performance",
-        "Oil Changes & Preventative Care",
-        "Auto Body Repair & Detailing",
+        "Brake Service and Tire Safety",
+        "Engine Diagnostics and Performance",
+        "Oil Changes and Preventative Care",
+        "Auto Body Repair and Detailing",
       ];
     } else {
       suggested = [
-        "Services & Solutions Guide",
-        "Pricing & Cost Estimates",
+        "Services and Solutions Guide",
+        "Pricing and Cost Estimates",
         "Frequently Asked Questions",
         "Industry Best Practices",
         "Customer Success Stories",
@@ -1140,7 +1140,7 @@ The article MUST be focused on the selected category: "${primaryCategory}" (Rela
 
 Format the article with clean Markdown:
 - An engaging H1 title
-- Direct 45-word answer block highlighted in blockquote (engineered for ChatGPT, Perplexity & Google AI Overviews)
+- Direct 45-word answer block highlighted in blockquote (engineered for ChatGPT, Perplexity and Google AI Overviews)
 - Clear H2 and H3 subheadings with actionable expert insights
 - Step-by-step guidance for patients/clients
 - At least 1000 words of substantive content
