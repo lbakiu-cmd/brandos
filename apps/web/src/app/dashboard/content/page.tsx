@@ -277,8 +277,22 @@ export default function ContentPage() {
       setArticle(genRes);
       setTopic(genRes.title);
       setFocusKeyword(genRes.focus_keyword);
+      setTagsInput((genRes.tags || []).join(", "));
 
-      // 2. Immediately Publish to WordPress
+      // 2. Generate a low-cost featured image -- best-effort, never blocks publishing
+      let instantImage: string | undefined;
+      try {
+        const imgRes = await apiFetch<{ imageBase64: string }>("/wordpress/generate-image", {
+          method: "POST",
+          body: JSON.stringify({ topic: genRes.title, category: selectedCategories[0] }),
+        });
+        instantImage = imgRes.imageBase64;
+        setFeaturedImage(imgRes.imageBase64);
+      } catch (imgErr: any) {
+        setImageError(imgErr?.message || "Featured image generation failed -- publishing without one.");
+      }
+
+      // 3. Immediately Publish to WordPress
       const pubRes = await apiFetch<{
         success: boolean;
         post: {
@@ -300,6 +314,7 @@ export default function ContentPage() {
           categories: selectedCategories,
           schemas: genRes.schemas,
           tags: genRes.tags,
+          featured_image_base64: instantImage,
         }),
         signal: AbortSignal.timeout(75000),
       });

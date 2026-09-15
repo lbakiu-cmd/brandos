@@ -776,6 +776,15 @@ export class WordpressService {
       categories: [targetCategory],
     });
 
+    // 2b. Generate a featured image -- best-effort, never blocks publishing
+    let featuredImageBase64: string | undefined;
+    try {
+      const img = await this.generateFeaturedImage(businessId, { topic: article.title, category: targetCategory });
+      featuredImageBase64 = img.imageBase64;
+    } catch {
+      // No OPENAI_API_KEY configured, or the request failed -- publish without an image.
+    }
+
     // 3. Publish directly to WordPress
     const targetStatus = autopilot.defaultStatus === "publish" ? "publish" : "draft";
     const pubResult = await this.publishPost(businessId, {
@@ -785,8 +794,10 @@ export class WordpressService {
       meta_title: article.meta_title,
       meta_description: article.meta_description,
       focus_keyword: article.focus_keyword,
+      categories: article.categories,
       schemas: article.schemas,
       tags: article.tags,
+      featured_image_base64: featuredImageBase64,
     });
 
     // 4. Update Autopilot Metadata
