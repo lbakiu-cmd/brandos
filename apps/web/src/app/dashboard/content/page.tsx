@@ -49,6 +49,9 @@ type GeneratedArticle = {
   read_time: string;
   schemas: any[];
   tags: string[];
+  quality_score?: number;
+  needs_review?: boolean;
+  quality_gaps?: string[];
 };
 
 type WpConnection = {
@@ -925,7 +928,7 @@ export default function ContentPage() {
             {article && (
               <div className="space-y-6">
                 {/* Meta Overview Cards */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
                   <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Category</span>
                     <p className="mt-1 text-sm font-bold text-blue-400 truncate">{article.category}</p>
@@ -942,7 +945,28 @@ export default function ContentPage() {
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Schema Markup</span>
                     <p className="mt-1 text-sm font-bold text-purple-400">FAQPage + LocalBusiness</p>
                   </div>
+                  {typeof article.quality_score === "number" && (
+                    <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">GEO/AEO Quality</span>
+                      <p className={`mt-1 text-sm font-bold ${article.needs_review ? "text-amber-400" : "text-emerald-400"}`}>
+                        {article.quality_score}/100 {article.needs_review ? "(review)" : "(passed)"}
+                      </p>
+                    </div>
+                  )}
                 </div>
+
+                {article.needs_review && article.quality_gaps && article.quality_gaps.length > 0 && (
+                  <div className="rounded-2xl border border-amber-500/30 bg-amber-950/20 p-4 text-xs text-amber-200 space-y-1.5">
+                    <p className="font-bold text-amber-300">
+                      This draft didn&apos;t clear the quality bar after automatic retries -- review before publishing:
+                    </p>
+                    <ul className="list-disc list-inside space-y-0.5 text-amber-200/90">
+                      {article.quality_gaps.map((gap, i) => (
+                        <li key={i}>{gap}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
 
                 {/* Article Editor / Preview */}
                 <div className="rounded-3xl border border-blue-500/30 bg-slate-900/90 p-6 backdrop-blur space-y-4">

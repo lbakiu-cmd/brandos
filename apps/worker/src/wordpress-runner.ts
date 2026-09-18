@@ -1,4 +1,5 @@
 import { prisma } from "@brandos/database";
+import { scoreArticle } from "@brandos/audit-engine";
 
 /**
  * Worker-side automated runner for WordPress Telemetry Sync
@@ -155,90 +156,128 @@ Format the article with clean Markdown:
 
 CRITICAL -- do not fabricate: never invent specific numbers you cannot know are true for this business -- no made-up satisfaction percentages, success rates, prices, or warranty terms, and never claim "in our testing/experience we found..." since the business did not commission any such study. Where a general, widely-established fact from the field is genuinely useful (e.g. citing a recognized authority like the American Dental Association, Mayo Clinic, or CDC for a broadly known fact -- not a specific number attributed to them), you may reference it by name, but do not attribute invented statistics to real organizations. Where a business-specific number would normally go (pricing, satisfaction rate, warranty length), write around it -- e.g. "contact us for current pricing" -- rather than inventing one.`;
 
-  const userPrompt = `Write the full blog article about: "${targetTopic}" focusing on category "${targetCategory}".`;
+  const baseUserPrompt = `Write the full blog article about: "${targetTopic}" focusing on category "${targetCategory}".`;
 
   const openRouterKey = process.env.OPENROUTER_API_KEY;
   const openAiKey = process.env.OPENAI_API_KEY;
   const geminiKey = process.env.GEMINI_API_KEY;
 
-  let aiGeneratedContent: string | null = null;
-
-  if (openRouterKey) {
-    try {
-      const model = process.env.OPENROUTER_BLOG_MODEL || "openai/gpt-4o-mini";
-      const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${openRouterKey}`,
-          "HTTP-Referer": process.env.FRONTEND_URL || "https://icandothat.online",
-          "X-Title": "AIVisibility SEO",
-        },
-        body: JSON.stringify({
-          model,
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt },
-          ],
-          max_tokens: 1500,
-        }),
-        signal: AbortSignal.timeout(60000),
-      });
-      if (res.ok) {
-        const json: any = await res.json();
-        aiGeneratedContent = json?.choices?.[0]?.message?.content ?? null;
-      }
-    } catch {}
-  } else if (openAiKey) {
-    try {
-      const res = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${openAiKey}` },
-        body: JSON.stringify({
-          model: "gpt-4o-mini",
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt },
-          ],
-          max_tokens: 1200,
-        }),
-        signal: AbortSignal.timeout(60000),
-      });
-      if (res.ok) {
-        const json: any = await res.json();
-        aiGeneratedContent = json?.choices?.[0]?.message?.content ?? null;
-      }
-    } catch {}
-  } else if (geminiKey) {
-    try {
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`,
-        {
+  const callAiProviders = async (userPrompt: string): Promise<string | null> => {
+    if (openRouterKey) {
+      try {
+        const model = process.env.OPENROUTER_BLOG_MODEL || "openai/gpt-4o-mini";
+        const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${openRouterKey}`,
+            "HTTP-Referer": process.env.FRONTEND_URL || "https://icandothat.online",
+            "X-Title": "AIVisibility SEO",
+          },
           body: JSON.stringify({
-            contents: [{ parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }] }],
+            model,
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userPrompt },
+            ],
+            max_tokens: 1500,
           }),
           signal: AbortSignal.timeout(60000),
+        });
+        if (res.ok) {
+          const json: any = await res.json();
+          return json?.choices?.[0]?.message?.content ?? null;
         }
-      );
-      if (res.ok) {
-        const json: any = await res.json();
-        aiGeneratedContent = json?.candidates?.[0]?.content?.parts?.[0]?.text ?? null;
-      }
-    } catch {}
-  }
-
-  if (!aiGeneratedContent) {
-    throw new Error("AI article generation failed -- no configured provider (OpenRouter/OpenAI/Gemini) returned content.");
-  }
-  const content = aiGeneratedContent;
+      } catch {}
+      return null;
+    } else if (openAiKey) {
+      try {
+        const res = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${openAiKey}` },
+          body: JSON.stringify({
+            model: "gpt-4o-mini",
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userPrompt },
+            ],
+            max_tokens: 1200,
+          }),
+          signal: AbortSignal.timeout(60000),
+        });
+        if (res.ok) {
+          const json: any = await res.json();
+          return json?.choices?.[0]?.message?.content ?? null;
+        }
+      } catch {}
+      return null;
+    } else if (geminiKey) {
+      try {
+        const res = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }] }],
+            }),
+            signal: AbortSignal.timeout(60000),
+          }
+        );
+        if (res.ok) {
+          const json: any = await res.json();
+          return json?.candidates?.[0]?.content?.parts?.[0]?.text ?? null;
+        }
+      } catch {}
+      return null;
+    }
+    return null;
+  };
 
   const schemaType = industry.toLowerCase().includes("dent") || industry.toLowerCase().includes("medic")
     ? "MedicalBusiness"
     : industry.toLowerCase().includes("restaur")
     ? "Restaurant"
     : "LocalBusiness";
+
+  // Phase 1.5: generate, score against the same GEO/AEO checks the plugin's
+  // analyzer applies post-publish, and regenerate with the gaps fed back
+  // into the prompt if it falls short, mirroring the API's generateArticle().
+  const MAX_ATTEMPTS = 3;
+  let aiGeneratedContent: string | null = null;
+  let lastGaps: { key: string; message: string }[] = [];
+  let finalScore = 0;
+  let finalPassed = false;
+
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    const userPrompt =
+      lastGaps.length > 0
+        ? `${baseUserPrompt}\n\nYour previous draft scored below the quality threshold on these specific points -- rewrite the FULL article addressing every one of them:\n${lastGaps.map((g) => `- ${g.message}`).join("\n")}`
+        : baseUserPrompt;
+
+    const attemptContent = await callAiProviders(userPrompt);
+    if (!attemptContent) break;
+
+    aiGeneratedContent = attemptContent;
+    const result = scoreArticle({
+      title: targetTopic,
+      content: attemptContent,
+      metaTitle: `${targetTopic.slice(0, 55)} | ${name}`.slice(0, 60),
+      metaDescription: `Learn everything about ${targetCategory} in ${city}. Discover costs, step-by-step procedures, and trusted local care by ${name}. Book today!`.slice(0, 160),
+      focusKeyword,
+      schemas: [{ "@type": "FAQPage" }, { "@type": schemaType }],
+    });
+    finalScore = result.score;
+    finalPassed = result.passed;
+    lastGaps = result.gaps;
+
+    if (result.passed) break;
+  }
+
+  if (!aiGeneratedContent) {
+    throw new Error("AI article generation failed -- no configured provider (OpenRouter/OpenAI/Gemini) returned content.");
+  }
+  const content = aiGeneratedContent;
 
   const faqSchema = {
     "@context": "https://schema.org",
@@ -290,6 +329,8 @@ CRITICAL -- do not fabricate: never invent specific numbers you cannot know are 
     metaTitle: `${targetTopic.slice(0, 55)} | ${name}`.slice(0, 60),
     metaDescription: `Learn everything about ${targetCategory} in ${city}. Discover costs, step-by-step procedures, and trusted local care by ${name}. Book today!`.slice(0, 160),
     schemas: [faqSchema, localBusinessSchema],
+    qualityScore: finalScore,
+    needsReview: !finalPassed,
   };
 }
 
@@ -370,12 +411,17 @@ export async function runWordpressAutopilotJob(businessId: string) {
   const name = business.name || "Our Business";
 
   try {
-    const { title: targetTopic, content: articleContent, focusKeyword, metaTitle, metaDescription, schemas } =
+    const { title: targetTopic, content: articleContent, focusKeyword, metaTitle, metaDescription, schemas, qualityScore, needsReview } =
       await generateAutopilotArticle(business, targetCategory);
 
     const featuredImage = await generateAutopilotImage(business, targetTopic);
 
-    const targetStatus = autopilot.defaultStatus === "publish" ? "publish" : "draft";
+    // Never auto-publish live content that didn't clear the quality bar even
+    // after retries -- force it to draft for manual review instead.
+    const targetStatus = autopilot.defaultStatus === "publish" && !needsReview ? "publish" : "draft";
+    if (needsReview) {
+      console.log(`[WordpressAutopilot] "${targetTopic}" scored ${qualityScore}/100 -- publishing as draft for manual review.`);
+    }
 
     const pubRes = await fetch(`${siteUrl}/wp-json/aivision-seo/v1/publish-post`, {
       method: "POST",
@@ -413,6 +459,8 @@ export async function runWordpressAutopilotJob(businessId: string) {
       articlesGeneratedCount: (autopilot.articlesGeneratedCount || 0) + 1,
       lastArticleTitle: targetTopic,
       lastArticleUrl: pubData.permalink || null,
+      lastArticleQualityScore: qualityScore,
+      lastArticleNeedsReview: needsReview,
     };
 
     await prisma.business.update({
@@ -430,12 +478,14 @@ export async function runWordpressAutopilotJob(businessId: string) {
         businessId,
         action: "WORDPRESS_AUTOPILOT_PUBLISHED",
         category: "INTEGRATIONS",
-        description: `Automated Autopilot generated and pushed "${targetTopic}" to WordPress as ${targetStatus}.`,
+        description: `Automated Autopilot generated and pushed "${targetTopic}" to WordPress as ${targetStatus}${needsReview ? " (flagged for manual review -- did not clear the quality bar)" : ""}.`,
         metadata: {
           title: targetTopic,
           category: targetCategory,
           status: targetStatus,
           permalink: pubData.permalink,
+          qualityScore,
+          needsReview,
         },
       },
     }).catch(() => {});
