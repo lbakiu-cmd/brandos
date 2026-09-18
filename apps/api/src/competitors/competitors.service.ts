@@ -88,6 +88,7 @@ export class CompetitorsService {
     const host = (u?: string | null) => (u || "").replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0].toLowerCase();
     let yourMentions = 0;
     let anyAnswer = false;
+    const answers: Array<{ engine: string; text: string }> = [];
 
     for (const m of models) {
       let answer = "";
@@ -102,6 +103,7 @@ export class CompetitorsService {
       } catch {}
       if (!answer) continue;
       anyAnswer = true;
+      answers.push({ engine: m.engine, text: answer });
       const lower = answer.toLowerCase();
       const has = (name: string, site?: string | null) => (name && lower.includes(name.toLowerCase())) || (!!host(site) && lower.includes(host(site)));
       if (has(biz.name, biz.website)) yourMentions++;
@@ -113,7 +115,7 @@ export class CompetitorsService {
     }
     if (!anyAnswer) throw new BadRequestException("No AI engine responded. Please try again in a moment.");
     await prisma.activityLog.create({
-      data: { businessId: biz.id, action: "COMPETITOR_PROBE", category: "AUDITS", description: "Competitor head-to-head probe", metadata: { yourMentions, prompt } },
+      data: { businessId: biz.id, action: "COMPETITOR_PROBE", category: "AUDITS", description: "Competitor head-to-head probe", metadata: { yourMentions, prompt, answers } },
     }).catch(() => {});
   }
 
@@ -132,6 +134,7 @@ export class CompetitorsService {
     });
     const yourMentions = Number((lastProbe?.metadata as any)?.yourMentions || 0);
     const probedPrompt = (lastProbe?.metadata as any)?.prompt as string | undefined;
+    const answers = ((lastProbe?.metadata as any)?.answers || []) as Array<{ engine: string; text: string }>;
     const competitors = await prisma.competitor.findMany({
       where: { businessId: biz.id },
       include: {
@@ -168,6 +171,7 @@ export class CompetitorsService {
 
     return {
       prompt,
+      answers,
       engines,
       shareOfVoice: {
         yourBusiness: {

@@ -27,6 +27,7 @@ type BenchmarkResult = {
     competitors: Array<{ id: string; name: string; website: string | null; sovPercent: number; rawWeight?: number }>;
   };
   insights: string[];
+  answers?: Array<{ engine: string; text: string }>;
 };
 
 export default function CompetitorsPage() {
@@ -158,6 +159,21 @@ export default function CompetitorsPage() {
       </header>
       {error && !showAdd && (
         <div className="rounded-xl border border-rose-500/30 bg-rose-950/30 p-3 text-xs text-rose-300">{error}</div>
+      )}
+
+      {benchmark?.answers && benchmark.answers.length > 0 && (
+        <section className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6 space-y-3">
+          <h3 className="text-base font-bold text-white">Who the AI engines actually recommend</h3>
+          <p className="text-xs text-slate-400">Live answers to &quot;{benchmark.prompt}&quot; -- add any of these as a competitor to track them.</p>
+          <div className="grid gap-4 md:grid-cols-2">
+            {benchmark.answers.map((a) => (
+              <div key={a.engine} className="rounded-2xl border border-slate-800 bg-slate-950 p-4">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-purple-300 mb-2">{a.engine === "GEMINI" ? "Google Gemini" : "ChatGPT"}</p>
+                <pre className="whitespace-pre-wrap text-xs text-slate-300 font-sans">{a.text}</pre>
+              </div>
+            ))}
+          </div>
+        </section>
       )}
 
       {/* Share of Voice Summary Hero */}
