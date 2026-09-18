@@ -69,12 +69,17 @@ export class CompetitorsService {
    * niche/city and records whether each competitor -- and the user's own
    * business -- appears in the answer.
    */
-  private async runProbe(biz: any) {
+  private defaultPrompt(biz: any) {
+    const niche = /dent/i.test(`${biz.name} ${biz.website || ""} ${biz.industry || ""}`) ? "dental clinics" : (biz.industry || "local businesses");
+    return `Best ${niche} in ${biz.city || "your area"}`;
+  }
+
+  private async runProbe(biz: any, customPrompt?: string) {
     const key = process.env.OPENROUTER_API_KEY;
     if (!key) throw new BadRequestException("OPENROUTER_API_KEY is not configured on the server.");
 
     const list = await prisma.competitor.findMany({ where: { businessId: biz.id } });
-    const prompt = `Top rated ${biz.industry || "services"} in ${biz.city || "your area"}`;
+    const prompt = (customPrompt || "").trim() || this.defaultPrompt(biz);
     const question = `${prompt}. List the top 10 businesses as a numbered list of names only.`;
     const models: Array<{ engine: AiEngine; id: string }> = [
       { engine: "GEMINI", id: "google/gemini-2.5-flash" },
@@ -108,11 +113,11 @@ export class CompetitorsService {
     }
     if (!anyAnswer) throw new BadRequestException("No AI engine responded. Please try again in a moment.");
     await prisma.activityLog.create({
-      data: { businessId: biz.id, action: "COMPETITOR_PROBE", category: "AUDITS", description: "Competitor head-to-head probe", metadata: { yourMentions } },
+      data: { businessId: biz.id, action: "COMPETITOR_PROBE", category: "AUDITS", description: "Competitor head-to-head probe", metadata: { yourMentions, prompt } },
     }).catch(() => {});
   }
 
-  async benchmark(userId: string, probe = false) {
+  async benchmark(userId: string, probe = false, customPrompt?: string) {
     const membership = await prisma.membership.findFirst({
       where: { userId },
       include: { business: true },
@@ -120,12 +125,13 @@ export class CompetitorsService {
     if (!membership) throw new NotFoundException("No business found.");
 
     const biz = membership.business;
-    if (probe) await this.runProbe(biz);
+    if (probe) await this.runProbe(biz, customPrompt);
     const lastProbe = await prisma.activityLog.findFirst({
       where: { businessId: biz.id, action: "COMPETITOR_PROBE" },
       orderBy: { createdAt: "desc" },
     });
     const yourMentions = Number((lastProbe?.metadata as any)?.yourMentions || 0);
+    const probedPrompt = (lastProbe?.metadata as any)?.prompt as string | undefined;
     const competitors = await prisma.competitor.findMany({
       where: { businessId: biz.id },
       include: {
@@ -137,7 +143,7 @@ export class CompetitorsService {
     });
 
     const engines: AiEngine[] = ["CHATGPT", "GEMINI"];
-    const prompt = `Top rated ${biz.industry || "services"} in ${biz.city || "your area"}`;
+    const prompt = probedPrompt || this.defaultPrompt(biz);
 
     const competitorStats = competitors.map((comp) => {
       const mentionsCount = comp.mentions.filter((m) => m.mentioned).length;
@@ -175,7 +181,7 @@ export class CompetitorsService {
       insights: competitors.length === 0
         ? ["Add competitors to monitor their presence across AI search engines."]
         : totalMentions === 0
-        ? ["No AI probes recorded yet -- click Run Head-to-Head Test."]
+        ? [lastProbe ? "The AI engines answered but named neither your business nor your competitors for this prompt. Try a more specific prompt." : "No AI probes recorded yet -- click Run Head-to-Head Test."]
         : [`Tracked ${competitors.length} competitors across AI search engines.`],
     };
   }

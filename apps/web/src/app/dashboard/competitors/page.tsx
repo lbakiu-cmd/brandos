@@ -38,11 +38,12 @@ export default function CompetitorsPage() {
   const [newName, setNewName] = useState("");
   const [newWebsite, setNewWebsite] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [customPrompt, setCustomPrompt] = useState("");
 
   const runBenchmark = useCallback(async () => {
     setBusy(true);
     try {
-      const res = await apiFetch<BenchmarkResult>("/competitors/benchmark", { method: "POST", body: JSON.stringify({ probe: true }), signal: AbortSignal.timeout(120000) });
+      const res = await apiFetch<BenchmarkResult>("/competitors/benchmark", { method: "POST", body: JSON.stringify({ probe: true, prompt: customPrompt.trim() || undefined }), signal: AbortSignal.timeout(120000) });
       setBenchmark(res);
       await refresh();
     } catch (err: any) {
@@ -50,7 +51,7 @@ export default function CompetitorsPage() {
     } finally {
       setBusy(false);
     }
-  }, []);
+  }, [customPrompt]);
 
   const refresh = useCallback(async () => {
     try {
@@ -170,7 +171,7 @@ export default function CompetitorsPage() {
               {yourSov}%
             </div>
             <p className="text-sm font-bold text-white">{business?.name ?? "Your Business"}</p>
-            <p className="text-xs text-emerald-400 font-semibold mt-0.5">Market Leader (You)</p>
+            <p className="text-xs text-emerald-400 font-semibold mt-0.5">{yourSov > 0 ? "Your share of AI mentions" : "Not named yet"}</p>
             <p className="text-[11px] text-slate-500 mt-2">
               Tested across 2 AI engines (ChatGPT, Gemini)
             </p>
@@ -181,8 +182,14 @@ export default function CompetitorsPage() {
               <h3 className="text-base font-bold text-white">Local AI Search Head-to-Head</h3>
               <span className="text-xs text-slate-400 font-mono">Weighted Algorithm v2.1</span>
             </div>
+            <input
+              value={customPrompt}
+              onChange={(e) => setCustomPrompt(e.target.value)}
+              placeholder="Custom prompt to test, e.g. Best dental clinics in Tirana (optional)"
+              className="w-full rounded-xl border border-slate-800 bg-slate-950 p-2.5 text-xs text-slate-200 outline-none focus:border-purple-500"
+            />
             <p className="text-xs text-slate-400">
-              Target Prompt: <span className="font-mono text-purple-300">&quot;{benchmark?.prompt || `Top rated ${business?.industry || "services"} in ${business?.city || "your market"}`}&quot;</span>
+              Target Prompt: <span className="font-mono text-purple-300">&quot;{benchmark?.prompt || "Click Run Head-to-Head Test"}&quot;</span>
             </p>
 
             {/* SOV Breakdown Bars */}
