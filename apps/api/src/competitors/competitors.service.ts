@@ -64,7 +64,55 @@ export class CompetitorsService {
     return prisma.competitor.delete({ where: { id } });
   }
 
-  async benchmark(userId: string) {
+  /**
+   * Asks real AI engines (via OpenRouter) for the top local businesses in the
+   * niche/city and records whether each competitor -- and the user's own
+   * business -- appears in the answer.
+   */
+  private async runProbe(biz: any) {
+    const key = process.env.OPENROUTER_API_KEY;
+    if (!key) throw new BadRequestException("OPENROUTER_API_KEY is not configured on the server.");
+
+    const list = await prisma.competitor.findMany({ where: { businessId: biz.id } });
+    const prompt = `Top rated ${biz.industry || "services"} in ${biz.city || "your area"}`;
+    const question = `${prompt}. List the top 10 businesses as a numbered list of names only.`;
+    const models: Array<{ engine: AiEngine; id: string }> = [
+      { engine: "GEMINI", id: "google/gemini-2.5-flash" },
+      { engine: "CHATGPT", id: "openai/gpt-4o-mini" },
+    ];
+    const host = (u?: string | null) => (u || "").replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0].toLowerCase();
+    let yourMentions = 0;
+    let anyAnswer = false;
+
+    for (const m of models) {
+      let answer = "";
+      try {
+        const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}`, "HTTP-Referer": process.env.FRONTEND_URL || "https://icandothat.online", "X-Title": "AIVisibility SEO" },
+          body: JSON.stringify({ model: m.id, messages: [{ role: "user", content: question }], max_tokens: 500 }),
+          signal: AbortSignal.timeout(45000),
+        });
+        if (res.ok) answer = ((await res.json()) as any)?.choices?.[0]?.message?.content || "";
+      } catch {}
+      if (!answer) continue;
+      anyAnswer = true;
+      const lower = answer.toLowerCase();
+      const has = (name: string, site?: string | null) => (name && lower.includes(name.toLowerCase())) || (!!host(site) && lower.includes(host(site)));
+      if (has(biz.name, biz.website)) yourMentions++;
+      for (const c of list) {
+        await prisma.competitorMention.create({
+          data: { competitorId: c.id, engine: m.engine, prompt, mentioned: has(c.name, c.website) },
+        });
+      }
+    }
+    if (!anyAnswer) throw new BadRequestException("No AI engine responded. Please try again in a moment.");
+    await prisma.activityLog.create({
+      data: { businessId: biz.id, action: "COMPETITOR_PROBE", category: "AUDITS", description: "Competitor head-to-head probe", metadata: { yourMentions } },
+    }).catch(() => {});
+  }
+
+  async benchmark(userId: string, probe = false) {
     const membership = await prisma.membership.findFirst({
       where: { userId },
       include: { business: true },
@@ -72,6 +120,12 @@ export class CompetitorsService {
     if (!membership) throw new NotFoundException("No business found.");
 
     const biz = membership.business;
+    if (probe) await this.runProbe(biz);
+    const lastProbe = await prisma.activityLog.findFirst({
+      where: { businessId: biz.id, action: "COMPETITOR_PROBE" },
+      orderBy: { createdAt: "desc" },
+    });
+    const yourMentions = Number((lastProbe?.metadata as any)?.yourMentions || 0);
     const competitors = await prisma.competitor.findMany({
       where: { businessId: biz.id },
       include: {
@@ -100,7 +154,8 @@ export class CompetitorsService {
       };
     });
 
-    const totalMentions = competitorStats.reduce((sum, c) => sum + c.rawWeight, 0);
+    const compMentions = competitorStats.reduce((sum, c) => sum + c.rawWeight, 0);
+    const totalMentions = compMentions + yourMentions;
     competitorStats.forEach((c) => {
       c.sovPercent = totalMentions > 0 ? Math.round((c.rawWeight / totalMentions) * 100) : 0;
     });
@@ -111,8 +166,8 @@ export class CompetitorsService {
       shareOfVoice: {
         yourBusiness: {
           name: biz.name,
-          mentions: 0,
-          sovPercent: totalMentions === 0 ? 100 : 0,
+          mentions: yourMentions,
+          sovPercent: totalMentions === 0 ? 0 : Math.round((yourMentions / totalMentions) * 100),
           authorityScore: 0,
         },
         competitors: competitorStats,
@@ -120,7 +175,7 @@ export class CompetitorsService {
       insights: competitors.length === 0
         ? ["Add competitors to monitor their presence across AI search engines."]
         : totalMentions === 0
-        ? ["No AI mention probes recorded for competitors yet."]
+        ? ["No AI probes recorded yet -- click Run Head-to-Head Test."]
         : [`Tracked ${competitors.length} competitors across AI search engines.`],
     };
   }

@@ -42,10 +42,11 @@ export default function CompetitorsPage() {
   const runBenchmark = useCallback(async () => {
     setBusy(true);
     try {
-      const res = await apiFetch<BenchmarkResult>("/competitors/benchmark", { method: "POST" });
+      const res = await apiFetch<BenchmarkResult>("/competitors/benchmark", { method: "POST", body: JSON.stringify({ probe: true }), signal: AbortSignal.timeout(120000) });
       setBenchmark(res);
-    } catch (err) {
-      console.error("Benchmark failed:", err);
+      await refresh();
+    } catch (err: any) {
+      setError(err?.message || "Head-to-head test failed.");
     } finally {
       setBusy(false);
     }
@@ -99,7 +100,7 @@ export default function CompetitorsPage() {
     }
   }
 
-  const yourSov = benchmark?.shareOfVoice.yourBusiness.sovPercent ?? (competitors.length > 0 ? 48 : 100);
+  const yourSov = benchmark?.shareOfVoice.yourBusiness.sovPercent ?? 0;
 
   const competitorColors = [
     "from-purple-500 to-indigo-500",
@@ -154,6 +155,9 @@ export default function CompetitorsPage() {
           </button>
         </div>
       </header>
+      {error && !showAdd && (
+        <div className="rounded-xl border border-rose-500/30 bg-rose-950/30 p-3 text-xs text-rose-300">{error}</div>
+      )}
 
       {/* Share of Voice Summary Hero */}
       <section className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6 shadow-xl backdrop-blur-md">
@@ -168,7 +172,7 @@ export default function CompetitorsPage() {
             <p className="text-sm font-bold text-white">{business?.name ?? "Your Business"}</p>
             <p className="text-xs text-emerald-400 font-semibold mt-0.5">Market Leader (You)</p>
             <p className="text-[11px] text-slate-500 mt-2">
-              Tested across 4 Major LLM Engines
+              Tested across 2 AI engines (ChatGPT, Gemini)
             </p>
           </div>
 
@@ -256,7 +260,7 @@ export default function CompetitorsPage() {
                 </div>
                 {comp.website && (
                   <a
-                    href={comp.website}
+                    href={comp.website.startsWith("http") ? comp.website : `https://${comp.website}`}
                     target="_blank"
                     rel="noreferrer"
                     className="mt-1 text-xs text-blue-400 font-mono flex items-center gap-1 hover:underline truncate"

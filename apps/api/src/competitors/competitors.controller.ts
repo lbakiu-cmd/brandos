@@ -29,8 +29,8 @@ export class CompetitorsController {
 
   @Post("benchmark")
   @UseGuards(AuthGuard)
-  benchmark(@Req() req: any) {
-    return this.competitors.benchmark(req.user.id);
+  benchmark(@Req() req: any, @Body() body: { probe?: boolean }) {
+    return this.competitors.benchmark(req.user.id, !!body?.probe);
   }
 
   @Delete(":id")
