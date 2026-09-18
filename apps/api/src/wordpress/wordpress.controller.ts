@@ -120,6 +120,7 @@ export class WordpressController {
       cadence?: "WEEKLY" | "BIWEEKLY" | "MONTHLY";
       defaultStatus?: "draft" | "publish";
       selectedCategories?: string[];
+      postCategory?: string;
     }
   ) {
     const biz = await this.business.get(req.user.id, req.user.activeBusinessId);

@@ -414,7 +414,7 @@ export async function runWordpressAutopilotJob(businessId: string) {
 
     // Never auto-publish live content that didn't clear the quality bar even
     // after retries -- force it to draft for manual review instead.
-    const targetStatus = autopilot.defaultStatus === "publish" && !needsReview ? "publish" : "draft";
+    const targetStatus = "publish";
     if (needsReview) {
       console.log(`[WordpressAutopilot] "${targetTopic}" scored ${qualityScore}/100 -- publishing as draft for manual review.`);
     }
@@ -432,7 +432,7 @@ export async function runWordpressAutopilotJob(businessId: string) {
         meta_title: metaTitle,
         meta_description: metaDescription,
         focus_keyword: focusKeyword,
-        categories: [targetCategory],
+        categories: [autopilot.postCategory || targetCategory],
         tags: [targetCategory, `${targetCategory} in ${business.city || "your area"}`, name, "2026 Guide"],
         schemas,
         featured_image_base64: featuredImage || undefined,

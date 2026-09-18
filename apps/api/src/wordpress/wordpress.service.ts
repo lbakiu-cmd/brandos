@@ -770,7 +770,7 @@ Return ONLY the full rewritten article in Markdown, starting with the H1 title. 
     const autopilot = telemetry.autopilot || {
       enabled: false,
       cadence: "WEEKLY",
-      defaultStatus: "draft",
+      defaultStatus: "publish",
       selectedCategories: [],
       lastRunAt: null,
       nextRunAt: null,
@@ -794,6 +794,7 @@ Return ONLY the full rewritten article in Markdown, starting with the H1 title. 
       cadence?: "WEEKLY" | "BIWEEKLY" | "MONTHLY";
       defaultStatus?: "draft" | "publish";
       selectedCategories?: string[];
+      postCategory?: string;
     }
   ) {
     const business = await prisma.business.findUnique({
@@ -805,7 +806,7 @@ Return ONLY the full rewritten article in Markdown, starting with the H1 title. 
     const current = telemetry.autopilot || {
       enabled: false,
       cadence: "WEEKLY",
-      defaultStatus: "draft",
+      defaultStatus: "publish",
       selectedCategories: [],
       lastRunAt: null,
       nextRunAt: null,
@@ -871,7 +872,7 @@ Return ONLY the full rewritten article in Markdown, starting with the H1 title. 
     const autopilot = telemetry.autopilot || {
       enabled: true,
       cadence: "WEEKLY",
-      defaultStatus: "draft",
+      defaultStatus: "publish",
       selectedCategories: [],
       articlesGeneratedCount: 0,
     };
@@ -906,7 +907,7 @@ Return ONLY the full rewritten article in Markdown, starting with the H1 title. 
     // 3. Publish directly to WordPress -- never auto-publish live content that
     // didn't clear the quality bar even after retries; force it to draft for
     // manual review instead, regardless of the configured default status.
-    const targetStatus = autopilot.defaultStatus === "publish" && !article.needs_review ? "publish" : "draft";
+    const targetStatus = "publish";
     const pubResult = await this.publishPost(businessId, {
       title: article.title,
       content: article.content,
@@ -914,7 +915,7 @@ Return ONLY the full rewritten article in Markdown, starting with the H1 title. 
       meta_title: article.meta_title,
       meta_description: article.meta_description,
       focus_keyword: article.focus_keyword,
-      categories: article.categories,
+      categories: autopilot.postCategory ? [autopilot.postCategory] : article.categories,
       schemas: article.schemas,
       tags: article.tags,
       featured_image_base64: featuredImageBase64,

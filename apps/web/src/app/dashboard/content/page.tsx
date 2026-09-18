@@ -92,7 +92,8 @@ export default function ContentPage() {
 
   // Autopilot Cadence State
   const [autopilotCadence, setAutopilotCadence] = useState<"WEEKLY" | "BIWEEKLY" | "MONTHLY">("WEEKLY");
-  const [autopilotDefaultStatus, setAutopilotDefaultStatus] = useState<"draft" | "publish">("draft");
+  const [autopilotDefaultStatus, setAutopilotDefaultStatus] = useState<"draft" | "publish">("publish");
+  const [postCategory, setPostCategory] = useState("");
   const [autopilotSaved, setAutopilotSaved] = useState(false);
   const [autopilotConfig, setAutopilotConfig] = useState<any>(null);
   const [autopilotRunning, setAutopilotRunning] = useState(false);
@@ -121,6 +122,7 @@ export default function ContentPage() {
       if (autoRes?.autopilot) {
         setAutopilotConfig(autoRes.autopilot);
         if (autoRes.autopilot.cadence) setAutopilotCadence(autoRes.autopilot.cadence);
+        if (autoRes.autopilot.postCategory) setPostCategory(autoRes.autopilot.postCategory);
         if (autoRes.autopilot.defaultStatus) setAutopilotDefaultStatus(autoRes.autopilot.defaultStatus);
         if (Array.isArray(autoRes.autopilot.selectedCategories) && autoRes.autopilot.selectedCategories.length > 0) {
           setSelectedCategories(autoRes.autopilot.selectedCategories);
@@ -206,6 +208,25 @@ export default function ContentPage() {
     `${primaryCat}: Step-by-Step Overview and Key Benefits${bizSuffix}`,
     `How to Choose the Best Specialist for ${primaryCat} in ${city} (Checklist and FAQs)`,
   ];
+
+  // Asks once which WordPress post category all published posts go under, then
+  // saves it to the autopilot settings so it is never asked again.
+  async function ensurePostCategory(): Promise<string> {
+    if (postCategory.trim()) return postCategory.trim();
+    const answer = (window.prompt(
+      "Which WordPress category should your posts be published under? (asked once, saved for all future posts)",
+      "Blog"
+    ) || "").trim();
+    const chosen = answer || "Blog";
+    setPostCategory(chosen);
+    try {
+      await apiFetch("/wordpress/autopilot-settings", {
+        method: "POST",
+        body: JSON.stringify({ postCategory: chosen }),
+      });
+    } catch {}
+    return chosen;
+  }
 
   // Trigger AI Article Generation
   async function handleGenerateArticle(customTopic?: string) {
@@ -298,6 +319,8 @@ export default function ContentPage() {
         setImageError(imgErr?.message || "Featured image generation failed -- publishing without one.");
       }
 
+      const pubCategory = await ensurePostCategory();
+
       // 3. Immediately Publish to WordPress
       const pubRes = await apiFetch<{
         success: boolean;
@@ -317,7 +340,7 @@ export default function ContentPage() {
           meta_title: genRes.meta_title,
           meta_description: genRes.meta_description,
           focus_keyword: genRes.focus_keyword,
-          categories: selectedCategories,
+          categories: [pubCategory],
           schemas: genRes.schemas,
           tags: genRes.tags,
           featured_image_base64: instantImage,
@@ -349,7 +372,8 @@ export default function ContentPage() {
         body: JSON.stringify({
           enabled: true,
           cadence: autopilotCadence,
-          defaultStatus: autopilotDefaultStatus,
+          defaultStatus: "publish",
+          postCategory: postCategory.trim() || (await ensurePostCategory()),
           selectedCategories,
         }),
       });
@@ -394,6 +418,7 @@ export default function ContentPage() {
     setPublishResult(null);
 
     try {
+      const pubCategory = await ensurePostCategory();
       const res = await apiFetch<{
         success: boolean;
         post: {
@@ -412,7 +437,7 @@ export default function ContentPage() {
           meta_title: article.meta_title,
           meta_description: article.meta_description,
           focus_keyword: article.focus_keyword,
-          categories: selectedCategories,
+          categories: [pubCategory],
           schemas: article.schemas,
           tags: tagsInput.split(",").map((t) => t.trim()).filter(Boolean),
           featured_image_base64: featuredImage || undefined,
@@ -861,15 +886,14 @@ export default function ContentPage() {
                         </select>
                       </div>
                       <div className="space-y-1">
-                        <label className="text-[11px] font-bold text-slate-300">Default Post Status in WordPress</label>
-                        <select
-                          value={autopilotDefaultStatus}
-                          onChange={(e) => setAutopilotDefaultStatus(e.target.value as any)}
+                        <label className="text-[11px] font-bold text-slate-300">WordPress Post Category</label>
+                        <input
+                          value={postCategory}
+                          onChange={(e) => setPostCategory(e.target.value)}
+                          placeholder="e.g. Blog"
                           className="w-full rounded-xl border border-slate-700 bg-slate-950 p-2.5 text-xs font-bold text-white outline-none"
-                        >
-                          <option value="draft">Draft (Ready for Review in WP)</option>
-                          <option value="publish">Publish Live Immediately</option>
-                        </select>
+                        />
+                        <p className="text-[10px] text-slate-500">Scheduled posts are published live automatically under this one category.</p>
                       </div>
                     </div>
 
