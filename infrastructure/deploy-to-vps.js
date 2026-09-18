@@ -139,6 +139,7 @@ async function main() {
       GEMINI_API_KEY: process.env.GEMINI_API_KEY || "",
       OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY || "",
       OPENAI_API_KEY: process.env.OPENAI_API_KEY || "",
+      DASHSCOPE_API_KEY: process.env.DASHSCOPE_API_KEY || "",
     };
 
     // Skip any var with no local value (e.g. a secret missing from the local .env)

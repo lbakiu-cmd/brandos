@@ -158,35 +158,31 @@ CRITICAL -- do not fabricate: never invent specific numbers you cannot know are 
 
   const baseUserPrompt = `Write the full blog article about: "${targetTopic}" focusing on category "${targetCategory}".`;
 
-  const openRouterKey = process.env.OPENROUTER_API_KEY;
+  const dashscopeKey = process.env.DASHSCOPE_API_KEY;
   const openAiKey = process.env.OPENAI_API_KEY;
   const geminiKey = process.env.GEMINI_API_KEY;
 
   const callAiProviders = async (userPrompt: string): Promise<string | null> => {
-    if (openRouterKey) {
+    if (dashscopeKey) {
       try {
-        const model = process.env.OPENROUTER_BLOG_MODEL || "openai/gpt-4o-mini";
-        const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        const res = await fetch("https://dashscope-intl.aliyuncs.com/apps/anthropic/v1/messages", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${openRouterKey}`,
-            "HTTP-Referer": process.env.FRONTEND_URL || "https://icandothat.online",
-            "X-Title": "AIVisibility SEO",
+            "x-api-key": dashscopeKey,
+            "anthropic-version": "2023-06-01",
           },
           body: JSON.stringify({
-            model,
-            messages: [
-              { role: "system", content: systemPrompt },
-              { role: "user", content: userPrompt },
-            ],
+            model: process.env.DASHSCOPE_MODEL || "qwen-max",
             max_tokens: 1500,
+            system: systemPrompt,
+            messages: [{ role: "user", content: userPrompt }],
           }),
           signal: AbortSignal.timeout(60000),
         });
         if (res.ok) {
           const json: any = await res.json();
-          return json?.choices?.[0]?.message?.content ?? null;
+          return json?.content?.[0]?.text ?? null;
         }
       } catch {}
       return null;

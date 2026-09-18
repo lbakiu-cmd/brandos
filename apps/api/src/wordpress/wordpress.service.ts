@@ -139,29 +139,31 @@ ${payload.content}
 
 Return ONLY the full rewritten article in Markdown, starting with the H1 title. No commentary.`;
 
-    const openRouterKey = process.env.OPENROUTER_API_KEY;
+    const dashscopeKey = process.env.DASHSCOPE_API_KEY;
     const openAiKey = process.env.OPENAI_API_KEY;
     const geminiKey = process.env.GEMINI_API_KEY;
 
     let rewritten: string | null = null;
 
-    if (openRouterKey) {
+    if (dashscopeKey) {
       try {
-        const model = process.env.OPENROUTER_BLOG_MODEL || "openai/gpt-4o-mini";
-        const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        const res = await fetch("https://dashscope-intl.aliyuncs.com/apps/anthropic/v1/messages", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${openRouterKey}`,
-            "HTTP-Referer": process.env.FRONTEND_URL || "https://icandothat.online",
-            "X-Title": "AIVisibility SEO",
+            "x-api-key": dashscopeKey,
+            "anthropic-version": "2023-06-01",
           },
-          body: JSON.stringify({ model, messages: [{ role: "user", content: prompt }], max_tokens: 2000 }),
+          body: JSON.stringify({
+            model: process.env.DASHSCOPE_MODEL || "qwen-max",
+            max_tokens: 2000,
+            messages: [{ role: "user", content: prompt }],
+          }),
           signal: AbortSignal.timeout(60000),
         });
         if (res.ok) {
           const json: any = await res.json();
-          rewritten = json?.choices?.[0]?.message?.content ?? null;
+          rewritten = json?.content?.[0]?.text ?? null;
         }
       } catch {}
     } else if (openAiKey) {
@@ -1260,9 +1262,9 @@ Return ONLY the full rewritten article in Markdown, starting with the H1 title. 
       ? "Restaurant"
       : "LocalBusiness";
 
-    // 1. Check for live OpenRouter / OpenAI / Gemini API keys
-    // Restricted to Gemini and OpenAI providers only -- no Anthropic/Claude calls.
-    const openRouterKey = process.env.OPENROUTER_API_KEY;
+    // 1. Check for live DashScope (Qwen) / OpenAI / Gemini API keys.
+    // DashScope is tried first (primary provider for article text generation).
+    const dashscopeKey = process.env.DASHSCOPE_API_KEY;
     const openAiKey = process.env.OPENAI_API_KEY;
     const geminiKey = process.env.GEMINI_API_KEY;
 
@@ -1286,29 +1288,25 @@ Format the article with clean Markdown:
 CRITICAL -- do not fabricate: never invent specific numbers you cannot know are true for this business -- no made-up satisfaction percentages, success rates, prices, or warranty terms, and never claim "in our testing/experience we found..." since the business did not commission any such study. Where a general, widely-established fact from the field is genuinely useful (e.g. citing a recognized authority like the American Dental Association, Mayo Clinic, or CDC for a broadly known fact -- not a specific number attributed to them), you may reference it by name, but do not attribute invented statistics to real organizations. Where a business-specific number would normally go (pricing, satisfaction rate, warranty length), write around it -- e.g. "contact us for current pricing" -- rather than inventing one.`;
 
     const callAiProviders = async (userPrompt: string): Promise<string | null> => {
-      if (openRouterKey) {
+      if (dashscopeKey) {
         try {
-          const model = process.env.OPENROUTER_BLOG_MODEL || "openai/gpt-4o-mini";
-          const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          const res = await fetch("https://dashscope-intl.aliyuncs.com/apps/anthropic/v1/messages", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              Authorization: `Bearer ${openRouterKey}`,
-              "HTTP-Referer": process.env.FRONTEND_URL || "https://icandothat.online",
-              "X-Title": "AIVisibility SEO",
+              "x-api-key": dashscopeKey,
+              "anthropic-version": "2023-06-01",
             },
             body: JSON.stringify({
-              model,
-              messages: [
-                { role: "system", content: systemPrompt },
-                { role: "user", content: userPrompt },
-              ],
+              model: process.env.DASHSCOPE_MODEL || "qwen-max",
               max_tokens: 1500,
+              system: systemPrompt,
+              messages: [{ role: "user", content: userPrompt }],
             }),
           });
           if (res.ok) {
             const json: any = await res.json();
-            return json?.choices?.[0]?.message?.content ?? null;
+            return json?.content?.[0]?.text ?? null;
           }
         } catch {}
         return null;
