@@ -74,6 +74,40 @@ export class LocalSeoToolsService {
    * Call Gemini and return the raw text response, or null if unavailable/failed.
    */
   private async callGemini(prompt: string): Promise<string | null> {
+    // Provider chain: DashScope (Qwen) -> OpenAI -> Gemini. Name kept for the
+    // existing call sites; Gemini alone failed whenever its credits ran out.
+    const dashscopeKey = process.env.DASHSCOPE_API_KEY;
+    if (dashscopeKey) {
+      try {
+        const res = await fetch("https://dashscope-intl.aliyuncs.com/apps/anthropic/v1/messages", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-api-key": dashscopeKey, "anthropic-version": "2023-06-01" },
+          body: JSON.stringify({ model: process.env.DASHSCOPE_MODEL || "qwen-max", max_tokens: 2000, messages: [{ role: "user", content: prompt }] }),
+          signal: AbortSignal.timeout(30000),
+        });
+        if (res.ok) {
+          const json: any = await res.json();
+          const text = json?.content?.[0]?.text;
+          if (text) return text;
+        }
+      } catch {}
+    }
+    const openAiKey = process.env.OPENAI_API_KEY;
+    if (openAiKey) {
+      try {
+        const res = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${openAiKey}` },
+          body: JSON.stringify({ model: "gpt-4o-mini", messages: [{ role: "user", content: prompt }], max_tokens: 2000 }),
+          signal: AbortSignal.timeout(30000),
+        });
+        if (res.ok) {
+          const json: any = await res.json();
+          const text = json?.choices?.[0]?.message?.content;
+          if (text) return text;
+        }
+      } catch {}
+    }
     const geminiKey = process.env.GEMINI_API_KEY;
     if (!geminiKey) return null;
     try {

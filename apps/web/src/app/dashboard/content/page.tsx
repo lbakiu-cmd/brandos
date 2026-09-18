@@ -231,6 +231,9 @@ export default function ContentPage() {
       setTagsInput((res.tags || []).join(", "));
       setFeaturedImage(null);
       setImageError(null);
+      // Single click: kick off the featured image right away (best-effort,
+      // the draft is already visible while the image renders).
+      void handleGenerateImage(res.title);
     } catch (err: any) {
       alert(`Error generating article: ${err?.message || "Please check backend connection."}`);
     } finally {
@@ -239,14 +242,14 @@ export default function ContentPage() {
   }
 
   // Trigger AI Featured Image Generation
-  async function handleGenerateImage() {
+  async function handleGenerateImage(titleOverride?: string) {
     setGeneratingImage(true);
     setImageError(null);
     try {
       const res = await apiFetch<{ imageBase64: string }>("/wordpress/generate-image", {
         method: "POST",
         body: JSON.stringify({
-          topic: article?.title || topic,
+          topic: titleOverride || article?.title || topic,
           category: selectedCategories[0],
         }),
       });
@@ -755,11 +758,11 @@ export default function ContentPage() {
                       {generatingArticle ? (
                         <>
                           <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
-                          <span>Crafting AEO & GEO Optimized Article…</span>
+                          <span>Crafting article, tags & keywords…</span>
                         </>
                       ) : (
                         <>
-                          <span>⚡ Generate Article & Review Draft Below</span>
+                          <span>⚡ Generate Article, Image, Tags & Keywords</span>
                         </>
                       )}
                     </button>
@@ -1066,7 +1069,7 @@ export default function ContentPage() {
                       <p className="text-xs text-slate-400 mt-0.5">Optional -- generates an image with OpenAI and sets it as this post&apos;s featured image on publish.</p>
                     </div>
                     <button
-                      onClick={handleGenerateImage}
+                      onClick={() => handleGenerateImage()}
                       disabled={generatingImage}
                       className="rounded-xl bg-amber-600 hover:bg-amber-500 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-amber-600/20 transition disabled:opacity-50"
                     >
