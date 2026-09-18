@@ -222,6 +222,20 @@ export class WordpressController {
   }
 
   /**
+   * Called from the WordPress admin's Action Plan "Auto-Fix" button --
+   * rewrites an existing published post's content to address specific
+   * unmet GEO/AEO/SEO checks. Identified by the plugin's own API key
+   * (same handshake pattern as /verify), not a dashboard session.
+   */
+  @Post("auto-fix-content")
+  async autoFixContent(
+    @Headers("authorization") authHeader: string,
+    @Body() body: { title: string; content: string; gaps: string[] }
+  ) {
+    return this.wordpress.autoFixPostContent(authHeader, body);
+  }
+
+  /**
    * Get version tracking history of AIVision SEO Plugin
    */
   @Get("plugin-versions")

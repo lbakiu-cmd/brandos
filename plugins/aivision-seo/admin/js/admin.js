@@ -125,6 +125,26 @@
         });
     });
 
+    // ── Auto-Fix All (rewrites content to address open Action Plan items) ────
+    // Reloads the page on success rather than live-patching the DOM: the post
+    // content was updated server-side via wp_update_post, but the open editor
+    // (Gutenberg/Classic) still holds the old content in its local state --
+    // if we didn't reload, clicking WordPress's own "Update" button afterward
+    // would silently overwrite our fix with the stale editor content.
+    $(document).on('click', '#av-autofix-post-btn', function () {
+        const postId = $(this).data('post-id');
+        const $btn   = $(this).text('Fixing…').prop('disabled', true);
+
+        request('aivision_auto_fix_post', { post_id: postId }, function (res) {
+            if (!res.success) {
+                $btn.text('⚡ Auto-Fix All').prop('disabled', false);
+                return notify('Auto-fix failed: ' + (res.data || 'Unknown error'), 'error');
+            }
+            notify(res.data.message || 'Content auto-fixed! Reloading…');
+            setTimeout(() => window.location.reload(), 1200);
+        });
+    });
+
     function renderChecklist(selector, result, title) {
         const { checks } = result;
         let html = '<div class="av-checklist-header">' + title + '</div>';

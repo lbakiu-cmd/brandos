@@ -1,8 +1,23 @@
 {
-  "latest": "1.6.8",
+  "latest": "1.6.9",
   "name": "aivision-seo",
   "description": "AIVision SEO WordPress Plugin for Search Engines (SEO), Answer Engines (AEO), and Generative AI (GEO)",
   "versions": [
+    {
+      "version": "1.6.9",
+      "releasedAt": "2026-09-18T12:34:46.365Z",
+      "filename": "aivision-seo-v1.6.9.zip",
+      "size": 73920,
+      "sizeFormatted": "72.2 KB",
+      "sha256": "d4d8f17b823d5edcd1aaf0c1eb92b615dada8d342ec11a38c6d8861d448837c1",
+      "fileCount": 14,
+      "status": "stable",
+      "minPhp": "8.0",
+      "minWp": "6.0",
+      "changelog": [
+        "Added a \"⚡ Auto-Fix All\" button to the Action Plan tab -- rewrites the post's content via the AIVisibility SEO platform to address every open high/medium-priority check (headings, lists, direct-answer blockquote, keyword placement, etc.), then applies the update and refreshes the scores. Statistics/data-point requests are handled honestly: real named authorities may be cited for general facts, but no numbers are invented for this specific business."
+      ]
+    },
     {
       "version": "1.6.8",
       "releasedAt": "2026-09-14T20:14:12.994Z",
@@ -11,7 +26,7 @@
       "sizeFormatted": "70.8 KB",
       "sha256": "7a70a038c32064db8b6195eef693b102ba59535cf0de7f311663fd1deee11a70",
       "fileCount": 14,
-      "status": "stable",
+      "status": "archived",
       "minPhp": "8.0",
       "minWp": "6.0",
       "changelog": [
@@ -244,5 +259,5 @@
       ]
     }
   ],
-  "updatedAt": "2026-09-14T20:14:12.997Z"
+  "updatedAt": "2026-09-18T12:34:46.367Z"
 }

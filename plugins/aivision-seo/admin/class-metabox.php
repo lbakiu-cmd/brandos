@@ -7,6 +7,7 @@ class AIVision_Metabox {
         add_action( 'add_meta_boxes',  [ __CLASS__, 'register' ] );
         add_action( 'save_post',       [ __CLASS__, 'save' ], 10, 2 );
         add_action( 'wp_ajax_aivision_analyze',          [ __CLASS__, 'ajax_analyze' ] );
+        add_action( 'wp_ajax_aivision_auto_fix_post',    [ __CLASS__, 'ajax_auto_fix_post' ] );
         add_action( 'wp_ajax_aivision_generate_schema',  [ __CLASS__, 'ajax_generate_schema' ] );
         add_action( 'wp_ajax_aivision_get_post_schemas', [ __CLASS__, 'ajax_get_post_schemas' ] );
         add_action( 'wp_ajax_aivision_save_schema',      [ __CLASS__, 'ajax_save_schema' ] );
@@ -204,9 +205,12 @@ class AIVision_Metabox {
 
             <!-- Action Plan Tab ("What to Do") -->
             <div class="av-tab-content" data-tab="actionplan">
-                <div class="av-actionplan-header">
-                    <h2>💡 Prioritized Action Plan — What To Do</h2>
-                    <p>Follow these high-impact recommendations to rapidly boost your content for Search Engines, Answer Engines, and AI Citations.</p>
+                <div class="av-actionplan-header" style="display:flex; align-items:flex-start; justify-content:space-between; gap:16px;">
+                    <div>
+                        <h2>💡 Prioritized Action Plan — What To Do</h2>
+                        <p>Follow these high-impact recommendations to rapidly boost your content for Search Engines, Answer Engines, and AI Citations.</p>
+                    </div>
+                    <button type="button" class="av-btn av-btn-primary" id="av-autofix-post-btn" data-post-id="<?php echo esc_attr($post->ID); ?>" style="white-space:nowrap;">⚡ Auto-Fix All</button>
                 </div>
 
                 <div id="av-actionplan-container">
@@ -421,6 +425,86 @@ class AIVision_Metabox {
             'aeo'         => $aeo,
             'geo'         => $geo,
             'action_plan' => $action_plan,
+            'platforms'   => $geo['platforms'] ?? [],
+        ]);
+    }
+
+    /**
+     * "Auto-Fix" the Action Plan: sends the post's current content plus its
+     * unmet high/medium-priority check labels to the platform's AI rewrite
+     * endpoint, applies the rewritten content via wp_update_post, and
+     * returns freshly recomputed scores so the tab can update in place.
+     */
+    public static function ajax_auto_fix_post() {
+        check_ajax_referer( 'aivision_nonce', 'nonce' );
+        $post_id = absint( $_POST['post_id'] ?? 0 );
+        if ( ! $post_id ) wp_send_json_error( 'Missing post ID.' );
+        if ( ! current_user_can( 'edit_post', $post_id ) ) wp_send_json_error( 'Unauthorized' );
+
+        $post = get_post( $post_id );
+        if ( ! $post ) wp_send_json_error( 'Post not found.' );
+
+        $data        = get_post_meta( $post_id, AIVISION_META_KEY, true ) ?: [];
+        $action_plan = AIVision_Analyzer::get_action_plan( $post_id, $data );
+        $gaps        = array_map( function( $item ) { return $item['label']; }, array_merge( $action_plan['high_priority'], $action_plan['medium_priority'] ) );
+
+        if ( empty( $gaps ) ) {
+            wp_send_json_success([
+                'message'     => 'Nothing to fix -- all checks are already passing!',
+                'seo'         => AIVision_Analyzer::seo_score( $post_id, $data ),
+                'aeo'         => AIVision_Analyzer::aeo_score( $post_id, $data ),
+                'geo'         => AIVision_Analyzer::geo_score( $post_id, $data ),
+                'action_plan' => $action_plan,
+            ]);
+        }
+
+        $settings = get_option( 'aivision_settings', [] );
+        $api_key  = $settings['api_key'] ?? '';
+        if ( empty( $api_key ) ) {
+            wp_send_json_error( 'AIVisibility SEO platform API key is not configured -- save your connection key in Settings first.' );
+        }
+
+        $response = wp_remote_post( 'https://icandothat.online/api/wordpress/auto-fix-content', [
+            'headers' => [
+                'Content-Type'  => 'application/json',
+                'Authorization' => 'Bearer ' . $api_key,
+            ],
+            'body'    => wp_json_encode( [
+                'title'   => $post->post_title,
+                'content' => $post->post_content,
+                'gaps'    => array_values( $gaps ),
+            ] ),
+            'timeout' => 60,
+        ] );
+
+        if ( is_wp_error( $response ) ) {
+            wp_send_json_error( 'Auto-fix request failed: ' . $response->get_error_message() );
+        }
+
+        $code = wp_remote_retrieve_response_code( $response );
+        $body = json_decode( wp_remote_retrieve_body( $response ), true );
+
+        if ( $code < 200 || $code >= 300 || empty( $body['success'] ) || empty( $body['content'] ) ) {
+            wp_send_json_error( 'Auto-fix failed: ' . ( $body['message'] ?? "HTTP {$code}" ) );
+        }
+
+        wp_update_post( [
+            'ID'           => $post_id,
+            'post_content' => wp_kses_post( $body['content'] ),
+        ] );
+
+        // Recompute scores against the newly rewritten content.
+        $new_action_plan = AIVision_Analyzer::get_action_plan( $post_id, $data );
+        $seo = AIVision_Analyzer::seo_score( $post_id, $data );
+        $aeo = AIVision_Analyzer::aeo_score( $post_id, $data );
+        $geo = AIVision_Analyzer::geo_score( $post_id, $data );
+
+        wp_send_json_success([
+            'message'     => 'Content rewritten and updated -- fixed ' . count( $gaps ) . ' issue(s).',
+            'seo'         => $seo,
+            'aeo'         => $aeo,
+            'geo'         => $geo,
+            'action_plan' => $new_action_plan,
             'platforms'   => $geo['platforms'] ?? [],
         ]);
     }

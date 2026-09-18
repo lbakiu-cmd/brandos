@@ -96,6 +96,121 @@ export class WordpressService {
   }
 
   /**
+   * Rewrites an existing published post's content to address specific unmet
+   * GEO/AEO/SEO checks, called from the WordPress admin's Action Plan
+   * "Auto-Fix" button. Identified by the plugin's own API key, not a
+   * dashboard session (mirrors verifyFromPlugin's handshake pattern).
+   */
+  async autoFixPostContent(
+    apiKeyHeader: string,
+    payload: { title: string; content: string; gaps: string[] }
+  ) {
+    if (!apiKeyHeader) {
+      throw new BadRequestException("Missing API key.");
+    }
+    const cleanKey = apiKeyHeader.replace(/^Bearer\s+/i, "").trim();
+    const business = await prisma.business.findFirst({ where: { wordpressApiKey: cleanKey } });
+    if (!business) {
+      throw new BadRequestException("Invalid AIVisibility SEO API Key.");
+    }
+    if (!payload.title || !payload.content) {
+      throw new BadRequestException("Missing title or content to rewrite.");
+    }
+    if (!payload.gaps || payload.gaps.length === 0) {
+      throw new BadRequestException("No gaps specified to fix.");
+    }
+
+    const name = business.name || "the business";
+    const industry = business.industry || "local services";
+    const city = business.city || "the local area";
+
+    const prompt = `You are an AEO/GEO/SEO editor. Below is an existing published blog article for "${name}", a ${industry} business in ${city}, that needs specific improvements.
+
+Rewrite the FULL article in the same Markdown format, preserving its structure, tone, and any facts already present, while specifically fixing these issues:
+${payload.gaps.map((g) => `- ${g}`).join("\n")}
+
+CRITICAL -- do not fabricate: never invent specific numbers you cannot know are true for this business (satisfaction percentages, success rates, prices, warranty terms). If a fix asks for statistics or data points, either cite a real, widely-known general fact by naming a recognized authority (e.g. American Dental Association, Mayo Clinic, CDC) without attributing invented numbers to them, or write around the missing business-specific number (e.g. "contact us for current pricing") rather than inventing one.
+
+--- CURRENT ARTICLE ---
+# ${payload.title}
+
+${payload.content}
+--- END CURRENT ARTICLE ---
+
+Return ONLY the full rewritten article in Markdown, starting with the H1 title. No commentary.`;
+
+    const openRouterKey = process.env.OPENROUTER_API_KEY;
+    const openAiKey = process.env.OPENAI_API_KEY;
+    const geminiKey = process.env.GEMINI_API_KEY;
+
+    let rewritten: string | null = null;
+
+    if (openRouterKey) {
+      try {
+        const model = process.env.OPENROUTER_BLOG_MODEL || "openai/gpt-4o-mini";
+        const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${openRouterKey}`,
+            "HTTP-Referer": process.env.FRONTEND_URL || "https://icandothat.online",
+            "X-Title": "AIVisibility SEO",
+          },
+          body: JSON.stringify({ model, messages: [{ role: "user", content: prompt }], max_tokens: 2000 }),
+          signal: AbortSignal.timeout(60000),
+        });
+        if (res.ok) {
+          const json: any = await res.json();
+          rewritten = json?.choices?.[0]?.message?.content ?? null;
+        }
+      } catch {}
+    } else if (openAiKey) {
+      try {
+        const res = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${openAiKey}` },
+          body: JSON.stringify({ model: "gpt-4o-mini", messages: [{ role: "user", content: prompt }], max_tokens: 1800 }),
+          signal: AbortSignal.timeout(60000),
+        });
+        if (res.ok) {
+          const json: any = await res.json();
+          rewritten = json?.choices?.[0]?.message?.content ?? null;
+        }
+      } catch {}
+    } else if (geminiKey) {
+      try {
+        const res = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+            signal: AbortSignal.timeout(60000),
+          }
+        );
+        if (res.ok) {
+          const json: any = await res.json();
+          rewritten = json?.candidates?.[0]?.content?.parts?.[0]?.text ?? null;
+        }
+      } catch {}
+    }
+
+    if (!rewritten) {
+      throw new BadRequestException("AI rewrite is temporarily unavailable (no configured provider responded). Please try again in a moment.");
+    }
+
+    // Strip the leading H1 title line -- WordPress stores the title separately.
+    const content = rewritten.replace(/^#\s+.+\n+/, "").trim();
+    const titleMatch = rewritten.match(/^#\s+(.+)$/m);
+
+    return {
+      success: true,
+      title: titleMatch ? titleMatch[1].trim() : payload.title,
+      content,
+    };
+  }
+
+  /**
    * Connect initiated from AIVisibility SEO Dashboard
    */
   async connectFromDashboard(businessId: string, siteUrl: string) {
